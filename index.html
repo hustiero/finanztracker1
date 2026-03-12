@@ -1609,6 +1609,18 @@ function renderMonthView(){
   const totalIn=mInc.reduce((s,e)=>s+e.amt,0);
   const bal=totalIn-totalOut;
 
+  // Avg daily spending
+  const daysInMonth=new Date(yr,mo+1,0).getDate();
+  const daysElapsedInMonth=isCurrent?now.getDate():daysInMonth;
+  const avgDaily=daysElapsedInMonth>0?totalOut/daysElapsedInMonth:0;
+
+  // Prev month comparison
+  const prevMo=mo===0?11:mo-1, prevYr=mo===0?yr-1:yr;
+  const prevExp=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===prevMo&&d.getFullYear()===prevYr;});
+  const prevOut=prevExp.reduce((s,e)=>s+e.amt,0);
+  const hasPrev=prevOut>0;
+  const pctDiff=hasPrev?((totalOut-prevOut)/prevOut*100):null;
+
   const catMap={}; mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
   const cats=Object.entries(catMap).sort(([,a],[,b])=>b-a).slice(0,6);
   const maxCat=cats[0]?.[1]||1;
@@ -1618,6 +1630,17 @@ function renderMonthView(){
   const todayStr=today();
 
   document.getElementById('mv-content').innerHTML=`
+    <!-- Month banner -->
+    <div style="padding:20px 16px 12px;text-align:center;border-bottom:1px solid var(--border)">
+      <div style="font-size:32px;font-weight:700;letter-spacing:-1px;color:var(--text)">${mvMonths[mo]}</div>
+      <div style="font-size:15px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px">${yr}</div>
+      ${pctDiff!==null?`
+      <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:${pctDiff<=0?'rgba(61,219,150,.1)':'rgba(255,77,109,.1)'};border-radius:20px;padding:4px 10px">
+        <span style="font-size:18px">${pctDiff<=0?'↓':'↑'}</span>
+        <span style="font-size:13px;font-weight:600;color:${pctDiff<=0?'var(--green)':'var(--red)'}">${Math.abs(pctDiff).toFixed(0)}% vs. ${mvMonths[prevMo]}</span>
+      </div>`:''}
+    </div>
+
     <div class="section" style="padding-bottom:0">
       <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
         <div class="stat-card">
@@ -1634,6 +1657,14 @@ function renderMonthView(){
         </div>
       </div>
     </div>
+    ${totalOut>0?`
+    <div style="padding:0 16px 4px">
+      <div class="stat-card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">
+        <span style="font-size:12px;color:var(--text2)">Ø Tagesausgabe${isCurrent?' (bis heute)':''}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)">CHF ${fmtAmt(avgDaily)}</span>
+      </div>
+    </div>`:''}
+
 
     ${cats.length?`
     <div class="section" style="padding-top:10px;padding-bottom:0">
@@ -1780,14 +1811,13 @@ function renderVerlauf(){
   const showExp = verlaufFilter==='alle'||verlaufFilter==='Ausgaben'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='ausgabe');
   const showInc = verlaufFilter==='alle'||verlaufFilter==='Einnahmen'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='einnahme');
 
-  if(verlaufFilter==='alle'||verlaufFilter==='Ausgaben'){
-    entries.push(...DATA.expenses.map(e=>({...e,_type:'ausgabe'})));
-  } else if(verlaufFilter==='Einnahmen'){
-    entries.push(...DATA.incomes.map(e=>({...e,_type:'einnahme'})));
-  } else {
-    // category filter
-    entries.push(...DATA.expenses.filter(e=>e.cat===verlaufFilter).map(e=>({...e,_type:'ausgabe'})));
-    entries.push(...DATA.incomes.filter(e=>e.cat===verlaufFilter).map(e=>({...e,_type:'einnahme'})));
+  if(showExp){
+    const expData = (verlaufFilter==='alle'||verlaufFilter==='Ausgaben') ? DATA.expenses : DATA.expenses.filter(e=>e.cat===verlaufFilter);
+    entries.push(...expData.map(e=>({...e,_type:'ausgabe'})));
+  }
+  if(showInc){
+    const incData = (verlaufFilter==='alle'||verlaufFilter==='Einnahmen') ? DATA.incomes : DATA.incomes.filter(e=>e.cat===verlaufFilter);
+    entries.push(...incData.map(e=>({...e,_type:'einnahme'})));
   }
 
   entries.sort((a,b)=>b.date.localeCompare(a.date));
@@ -1953,18 +1983,15 @@ function renderDashboard(){
           <div class="zy-period">${z.start.getDate()}. ${months[z.start.getMonth()]} – ${z.end.getDate()}. ${months[z.end.getMonth()]} ${z.end.getFullYear()}</div>
         </div>
         <div class="zy-body">
-          ${z.hasSalary
-            ? `<div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>`
-            : `<div class="zy-row"><span class="zy-row-label" style="color:var(--yellow)">⚠ Noch kein Lohn erfasst</span></div>`}
+          ${z.hasSalary ? `
+          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
           ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten (Dauerauftr.)</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
           <div class="zy-divider"></div>
           <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
           <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
           <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
-
           <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
           <div class="zy-prog-labels"><span>${z.daysElapsed} von ${z.cycleDays} Tagen</span><span>${budgetPct.toFixed(0)}% des Budgets</span></div>
-
           ${z.dailyRate!==null?`
           <div class="zy-rate-wrap">
             <div style="display:flex;align-items:baseline;gap:8px">
@@ -1973,6 +2000,14 @@ function renderDashboard(){
             </div>
             <div class="zy-rate-sub">${z.dailyRate>=0?'verfügbar':'überzogen'} · ${z.daysLeft} Tage verbleibend</div>
           </div>`:''}
+          ` : `
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-divider"></div>
+          <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-top:4px">
+            <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">Lohn via <strong style="color:var(--text)">+</strong> → <strong style="color:var(--text)">Einnahme</strong> am ${CFG.lohnTag||25}. des Monats erfassen, damit das Budget berechnet werden kann.</div>
+          </div>
+          `}
         </div>
       </div>
     </div>
