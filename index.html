@@ -1117,18 +1117,33 @@ async function deleteEntry(){
 
   const list = type==='ausgabe'?DATA.expenses:DATA.incomes;
   const idx = list.findIndex(e=>e.id===id);
+  const backup = idx!==-1 ? list[idx] : null;
   if(idx!==-1) list.splice(idx,1);
 
   closeModal('edit-modal');
   renderAll();
 
   if(!CFG.demo){
+    setSyncStatus('syncing');
     try{
       const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
       const row = await apiFindRow(sheet, id);
-      if(row) await apiUpdate(`${sheet}!G${row}`,[ ['1'] ]); // mark deleted
+      if(!row){
+        // Eintrag nicht in Sheet gefunden – lokal zurücksetzen
+        if(backup && idx!==-1) list.splice(idx,0,backup);
+        renderAll();
+        setSyncStatus('error');
+        toast('Fehler: Eintrag nicht in Sheet gefunden','err');
+        return;
+      }
+      await apiUpdate(`${sheet}!G${row}`,[ ['1'] ]); // mark deleted
       setSyncStatus('online'); toast('✓ Gelöscht','ok');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+    } catch(e){
+      // Netzwerkfehler – lokal zurücksetzen
+      if(backup && idx!==-1) list.splice(idx,0,backup);
+      renderAll();
+      setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
+    }
   } else { toast('✓ Gelöscht (Demo)','ok'); }
 }
 
@@ -1388,9 +1403,16 @@ function renderVerlauf(){
 
   container.innerHTML = Object.entries(byDate)
     .sort(([a],[b])=>b.localeCompare(a))
-    .map(([date, items])=>`
+    .map(([date, items])=>{
+      const dayTotal = items.reduce((s,e)=>s+(e._type==='ausgabe'?-e.amt:e.amt),0);
+      const daySign = dayTotal>=0?'+':'−';
+      const dayColor = dayTotal>=0?'var(--green)':'var(--red)';
+      return `
       <div class="date-group">
-        <div class="date-label">${fmtDate(date)}</div>
+        <div class="date-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${fmtDate(date)}</span>
+          <span style="font-size:12px;font-weight:500;color:${dayColor}">${daySign} CHF ${fmtAmt(Math.abs(dayTotal))}</span>
+        </div>
         <div class="card" style="margin:0 16px">
           ${items.map(e=>`
             <div class="card-row" onclick="openEditModal('${e.id}','${e._type}')">
@@ -1409,7 +1431,8 @@ function renderVerlauf(){
           `).join('')}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function setVerlaufFilter(f){ verlaufFilter=f; renderVerlauf(); }
