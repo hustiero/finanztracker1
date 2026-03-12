@@ -867,6 +867,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <input id="s-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Zyklus läuft vom Lohntag bis zum Vortag des nächsten.</div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Jahres-Sparziel (CHF)</label>
+        <input id="s-sparziel" type="number" min="0" step="100" class="form-input" placeholder="0" style="max-width:160px">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Wie viel möchtest du dieses Jahr sparen? (0 = kein Ziel)</div>
+      </div>
     </div>
     <div class="modal-actions" style="flex-direction:column;gap:8px">
       <button class="btn-save" style="width:100%" onclick="applySettings()">Speichern & neu laden</button>
@@ -882,7 +887,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false, lohnTag:25 };
+let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0 };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -1695,6 +1700,70 @@ function renderDashboard(){
       </div>
     </div>
 
+    <!-- Jahres-Sparquote -->
+    ${(()=>{
+      const yr=now.getFullYear();
+      const sparziel=CFG.sparziel||0;
+      const yMonths=[];
+      for(let m=0;m<=now.getMonth();m++){
+        const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+        const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+        yMonths.push({label:months[m],net:inc-out,cur:m===now.getMonth()});
+      }
+      const yearSaved=yMonths.reduce((s,m)=>s+m.net,0);
+      const doneM=yMonths.filter(m=>!m.cur);
+      const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
+      const proj=avgM*12;
+      const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
+      const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
+      const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
+      return `
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Jahres-Sparquote ${yr}</div>
+      <div class="card" style="padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:${sparziel?'12px':'14px'}">
+          <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:${savedColor}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</span>
+          <span style="font-size:12px;color:var(--text3)">seit 1. Jan</span>
+        </div>
+        ${sparziel>0?`
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
+            <span>Ziel: CHF ${fmtAmt(sparziel)}</span>
+            <span style="color:${sparPct>=100?'var(--green)':'var(--text2)'}">${sparPct.toFixed(0)}%</span>
+          </div>
+          <div class="zy-prog-wrap" style="margin:0 0 0 0">
+            <div class="zy-prog-fill" style="width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'}"></div>
+          </div>
+        </div>`:''}
+        ${yMonths.map(m=>{
+          const isPos=m.net>=0;
+          const bw=Math.min(Math.abs(m.net)/maxNet*100,100).toFixed(1);
+          return `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <div style="width:28px;font-size:11px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
+            <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+              <div style="width:${bw}%;height:100%;background:${isPos?'var(--green)':'var(--red)'};border-radius:2px"></div>
+            </div>
+            <div style="width:80px;text-align:right;font-size:11px;font-family:'DM Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">
+              ${isPos?'+':''}CHF ${fmtAmt(m.net)}
+            </div>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;gap:20px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">Ø / Monat</div>
+            <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}CHF ${fmtAmt(Math.abs(avgM))}</div>
+          </div>
+          ${doneM.length>0?`
+          <div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">Hochrechnung ${yr}</div>
+            <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}CHF ${fmtAmt(Math.abs(proj))}</div>
+          </div>`:''}
+        </div>
+      </div>
+    </div>`;
+    })()}
+
     <!-- Tagesverlauf im Zyklus -->
     ${dayRows.length?`
     <div class="section" style="padding-top:10px">
@@ -1824,6 +1893,7 @@ function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function openSettings(){
   document.getElementById('s-url').value=CFG.scriptUrl||'';
   document.getElementById('s-lohntag').value=CFG.lohnTag||25;
+  document.getElementById('s-sparziel').value=CFG.sparziel||0;
   openModal('settings-modal');
 }
 
@@ -1831,6 +1901,7 @@ function applySettings(){
   CFG.scriptUrl=document.getElementById('s-url').value.trim();
   const lt=parseInt(document.getElementById('s-lohntag').value)||25;
   CFG.lohnTag=Math.min(Math.max(lt,1),31);
+  CFG.sparziel=parseFloat(document.getElementById('s-sparziel').value)||0;
   CFG.demo=false; cfgSave(); location.reload();
 }
 
