@@ -2,10 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzen">
+<meta name="theme-color" content="#0D0D0F">
+<link rel="manifest" href="manifest.json">
 <title>Finanztracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
@@ -35,10 +37,12 @@
   --r: 12px;
   --r2: 8px;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html{height:100%;overscroll-behavior:none}
+body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
-input,select,textarea{font-family:inherit;outline:none;border:none;background:none}
+/* font-size≥16px prevents iOS auto-zoom on input focus */
+input,select,textarea{font-family:inherit;outline:none;border:none;background:none;font-size:16px;-webkit-user-select:text;user-select:text}
 
 /* ═══════════════════════════════════════════════════
    LAYOUT
@@ -62,7 +66,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .top-bar-sub{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:1px}
 
 /* Content */
-#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
 
 /* Bottom Nav */
 #nav{
@@ -82,6 +86,74 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .nav-btn svg{width:22px;height:22px;stroke-width:1.8;fill:none;stroke:currentColor;transition:stroke .15s}
 .nav-btn.active{color:var(--accent)}
 .nav-btn.active svg{stroke:var(--accent)}
+.nav-fab-space{flex:1;pointer-events:none}
+/* FAB */
+.fab{
+  position:fixed;
+  bottom:calc(var(--safe-bot) + var(--nav-h) - 28px);
+  left:50%;transform:translateX(-50%);
+  width:56px;height:56px;border-radius:50%;
+  background:var(--accent);border:none;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 18px rgba(200,245,60,.45);
+  z-index:200;cursor:pointer;
+  transition:transform .15s, box-shadow .15s, background .15s;
+}
+.fab:active{transform:translateX(-50%) scale(.92)}
+.fab svg{width:26px;height:26px;stroke:var(--bg0);stroke-width:2.5;fill:none}
+.fab.fab-active{background:var(--bg3);box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.fab.fab-active svg{stroke:var(--accent)}
+
+/* ═══════════════════════════════════════════════════
+   MONATSÜBERSICHT (slide-in view)
+═══════════════════════════════════════════════════ */
+.month-view{
+  position:fixed;inset:0;
+  background:var(--bg0);
+  z-index:500;
+  transform:translateX(100%);
+  transition:transform .28s cubic-bezier(.25,.46,.45,.94);
+  display:flex;flex-direction:column;
+  padding-top:var(--safe-top);
+  will-change:transform;
+}
+.month-view.open{transform:translateX(0)}
+.mv-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 12px 10px 6px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;background:var(--bg0);
+}
+.mv-back{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0}
+.mv-back svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:2.2}
+.mv-bar-title{flex:1;font-size:17px;font-weight:600;letter-spacing:-.3px;text-align:center}
+.mv-nav{display:flex;gap:6px;flex-shrink:0}
+.mv-nav button{width:34px;height:34px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.mv-nav button svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
+.mv-nav button:disabled{opacity:.3}
+.mv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--safe-bot)+24px)}
+/* Monatsübersicht open button */
+.mv-open-btn{
+  width:100%;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+  color:var(--text);text-align:left;
+}
+.mv-open-btn-left{display:flex;flex-direction:column;gap:2px}
+.mv-open-btn-title{font-size:14px;font-weight:600}
+.mv-open-btn-sub{font-size:12px;color:var(--text3)}
+.mv-open-btn svg{width:18px;height:18px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0}
+/* Day list */
+.mv-day-group{border-bottom:1px solid var(--border)}
+.mv-day-group:last-child{border-bottom:none}
+.mv-day-hdr{display:flex;justify-content:space-between;align-items:center;padding:9px 14px 5px}
+.mv-day-lbl{font-size:13px;font-weight:600;color:var(--text2)}
+.mv-day-lbl.is-today{color:var(--accent)}
+.mv-day-totals{display:flex;gap:10px;font-size:12px;font-family:'DM Mono',monospace}
+.mv-entry{display:flex;align-items:center;gap:6px;padding:4px 14px 4px 22px}
+.mv-entry-cat{font-size:11px;color:var(--text3);width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-entry-what{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-entry-amt{font-size:12px;font-family:'DM Mono',monospace;flex-shrink:0}
 
 /* ═══════════════════════════════════════════════════
    SETUP SCREEN
@@ -506,6 +578,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   font-size:11px;font-weight:700;
 }
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -636,6 +709,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <!-- TAB: Daueraufträge -->
     <div id="tab-dauerauftraege" class="tab-page" style="display:none">
       <div class="section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="section-title" style="margin:0">Daueraufträge</div>
+          <button onclick="exportExcel()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </button>
+        </div>
         <div class="card" id="rec-list"></div>
       </div>
       <div class="section" style="padding-top:0">
@@ -669,13 +749,17 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Tag im Monat</label>
+              <label class="form-label">Buchungstag</label>
               <input id="r-day" class="form-input" type="number" min="1" max="31" placeholder="1">
             </div>
             <div class="form-group">
-              <label class="form-label">Kommentar</label>
-              <input id="r-note" class="form-input" placeholder="optional" autocorrect="off">
+              <label class="form-label">Startdatum</label>
+              <input id="r-start" class="form-input" type="date">
             </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kommentar</label>
+            <input id="r-note" class="form-input" placeholder="optional" autocorrect="off">
           </div>
           <button class="save-btn" onclick="saveRecurring()">Dauerauftrag hinzufügen</button>
         </div>
@@ -690,14 +774,15 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
   <!-- Bottom Navigation -->
   <nav id="nav">
-    <button class="nav-btn active" id="nav-eingabe" onclick="goTab('eingabe')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Eingabe
+    <button class="nav-btn" id="nav-dashboard" onclick="goTab('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Übersicht
     </button>
     <button class="nav-btn" id="nav-verlauf" onclick="goTab('verlauf')">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Verlauf
     </button>
+    <div class="nav-fab-space"></div>
     <button class="nav-btn" id="nav-kategorien" onclick="goTab('kategorien')">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/><path d="M15 9a4 4 0 0 1 0 0"/></svg>
       Kategorien
@@ -706,11 +791,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
       Aufträge
     </button>
-    <button class="nav-btn" id="nav-dashboard" onclick="goTab('dashboard')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Übersicht
-    </button>
   </nav>
+  <!-- Floating Action Button -->
+  <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
 </div>
 
 <!-- ═══════════════════════════════════
@@ -800,13 +885,17 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Tag</label>
+          <label class="form-label">Buchungstag</label>
           <input id="rec-edit-day" class="form-input" type="number" min="1" max="31">
         </div>
         <div class="form-group">
-          <label class="form-label">Kommentar</label>
-          <input id="rec-edit-note" class="form-input" autocorrect="off">
+          <label class="form-label">Startdatum</label>
+          <input id="rec-edit-start" class="form-input" type="date">
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kommentar</label>
+        <input id="rec-edit-note" class="form-input" autocorrect="off">
       </div>
     </div>
     <div class="modal-actions">
@@ -878,6 +967,21 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <button class="btn-delete" style="width:100%;margin-top:4px" onclick="resetApp()">App zurücksetzen</button>
     </div>
   </div>
+</div>
+
+<!-- Monatsübersicht slide-in view -->
+<div id="month-view" class="month-view">
+  <div class="mv-bar">
+    <button class="mv-back" onclick="closeMonthView()">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="mv-bar-title" id="mv-title-text">März 2026</div>
+    <div class="mv-nav">
+      <button onclick="prevMvMonth()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button id="mv-next-btn" onclick="nextMvMonth()"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
+  <div class="mv-content" id="mv-content"></div>
 </div>
 
 <div id="toast"></div>
@@ -1062,6 +1166,7 @@ function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchAp
 function launchApp(){
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  goTab('dashboard');
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
   else{ setSyncStatus('demo'); renderAll(); }
 }
@@ -1118,10 +1223,10 @@ async function loadAll(){
 
     // Load recurring
     try{
-      const res = await apiGet('Daueraufträge!A2:H200');
+      const res = await apiGet('Daueraufträge!A2:I200');
       DATA.recurring = (res.values||[])
         .filter(r=>r[0])
-        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:parseFloat(r[3])||0,interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0'}));
+        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||'')}));
     } catch(e){ DATA.recurring=[]; }
 
     setSyncStatus('online'); renderAll();
@@ -1283,18 +1388,19 @@ async function saveRecurring(){
   const cat = document.getElementById('r-cat').value;
   const interval = document.getElementById('r-interval').value;
   const day = parseInt(document.getElementById('r-day').value)||1;
+  const start = document.getElementById('r-start').value||'';
   const note = document.getElementById('r-note').value.trim();
 
   if(!what){ toast('Bezeichnung erforderlich','err'); return; }
 
   const id = genId('D');
-  const rec = {id,what,cat,amt,interval,day,note,active:true};
+  const rec = {id,what,cat,amt,interval,day,note,active:true,start};
   DATA.recurring.push(rec);
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1']]);
+      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start]]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
@@ -1302,6 +1408,7 @@ async function saveRecurring(){
   document.getElementById('r-what').value='';
   document.getElementById('r-amt').value='';
   document.getElementById('r-note').value='';
+  document.getElementById('r-start').value='';
   toast('✓ Dauerauftrag hinzugefügt','ok');
   renderRecurring();
 }
@@ -1313,6 +1420,7 @@ function openRecModal(id){
   document.getElementById('rec-edit-what').value = rec.what;
   document.getElementById('rec-edit-amt').value = rec.amt;
   document.getElementById('rec-edit-day').value = rec.day;
+  document.getElementById('rec-edit-start').value = rec.start||'';
   document.getElementById('rec-edit-note').value = rec.note||'';
   document.getElementById('rec-edit-interval').value = rec.interval;
   fillDropdown('rec-edit-cat','ausgabe',rec.cat);
@@ -1326,18 +1434,19 @@ async function updateRecurring(){
   const cat = document.getElementById('rec-edit-cat').value;
   const interval = document.getElementById('rec-edit-interval').value;
   const day = parseInt(document.getElementById('rec-edit-day').value)||1;
+  const start = document.getElementById('rec-edit-start').value||'';
   const note = document.getElementById('rec-edit-note').value.trim();
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
-  DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,note};
+  DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,note};
   closeModal('rec-modal');
   renderRecurring();
 
   if(!CFG.demo){
     try{
       const row = await apiFindRow('Daueraufträge', id);
-      if(row) await apiUpdate(`Daueraufträge!A${row}:H${row}`,[[id,what,cat,amt,interval,day,note,'1']]);
+      if(row) await apiUpdate(`Daueraufträge!A${row}:I${row}`,[[id,what,cat,amt,interval,day,note,'1',start]]);
       setSyncStatus('online'); toast('✓ Aktualisiert','ok');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   } else toast('✓ Aktualisiert (Demo)','ok');
@@ -1470,6 +1579,171 @@ async function deleteCategory(){
 // ═══════════════════════════════════════════════════════════════
 // MODULE: RENDER
 // ═══════════════════════════════════════════════════════════════
+// MODULE: MONATSÜBERSICHT
+// ═══════════════════════════════════════════════════════════════
+let mvYear = new Date().getFullYear();
+let mvMonth = new Date().getMonth();
+const mvMonths=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const mvWdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+function openMonthView(){
+  mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth();
+  renderMonthView();
+  document.getElementById('month-view').classList.add('open');
+}
+function closeMonthView(){
+  document.getElementById('month-view').classList.remove('open');
+}
+function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} renderMonthView(); }
+function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} renderMonthView(); }
+
+function renderMonthView(){
+  const now=new Date(), yr=mvYear, mo=mvMonth;
+  const isCurrent = yr===now.getFullYear()&&mo===now.getMonth();
+  document.getElementById('mv-title-text').textContent=mvMonths[mo]+' '+yr;
+  document.getElementById('mv-next-btn').disabled=isCurrent;
+
+  const mExp=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const totalOut=mExp.reduce((s,e)=>s+e.amt,0);
+  const totalIn=mInc.reduce((s,e)=>s+e.amt,0);
+  const bal=totalIn-totalOut;
+
+  const catMap={}; mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const cats=Object.entries(catMap).sort(([,a],[,b])=>b-a).slice(0,6);
+  const maxCat=cats[0]?.[1]||1;
+
+  const dateSet=new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
+  const sortedDates=[...dateSet].sort((a,b)=>b.localeCompare(a));
+  const todayStr=today();
+
+  document.getElementById('mv-content').innerHTML=`
+    <div class="section" style="padding-bottom:0">
+      <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        <div class="stat-card">
+          <div class="stat-label">Einnahmen</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--green);font-weight:500;margin-top:2px">+${fmtAmt(totalIn)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ausgaben</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--red);font-weight:500;margin-top:2px">−${fmtAmt(totalOut)}</div>
+        </div>
+        <div class="stat-card" style="background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'}">
+          <div class="stat-label">Bilanz</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:${bal>=0?'var(--green)':'var(--red)'};font-weight:500;margin-top:2px">${bal>=0?'+':''}${fmtAmt(bal)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${cats.length?`
+    <div class="section" style="padding-top:10px;padding-bottom:0">
+      <div class="card" style="padding:12px 14px">
+        ${cats.map(([cat,amt])=>`
+          <div class="bar-wrap">
+            <div class="bar-label-row">
+              <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
+              <span class="bar-val">CHF ${fmtAmt(amt)}</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${sortedDates.length?`
+    <div class="section" style="padding-top:10px">
+      <div class="card" style="padding:0">
+        ${sortedDates.map(ds=>{
+          const d=new Date(ds+'T12:00:00');
+          const dExp=DATA.expenses.filter(e=>e.date===ds);
+          const dInc=DATA.incomes.filter(e=>e.date===ds);
+          const dOut=dExp.reduce((s,e)=>s+e.amt,0);
+          const dIn=dInc.reduce((s,e)=>s+e.amt,0);
+          const isToday=ds===todayStr;
+          const entries=[...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
+          return `<div class="mv-day-group">
+            <div class="mv-day-hdr">
+              <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':mvWdays[d.getDay()]+' '+d.getDate()+'.'}</span>
+              <span class="mv-day-totals">
+                ${dIn>0?`<span style="color:var(--green)">+${fmtAmt(dIn)}</span>`:''}
+                ${dOut>0?`<span style="color:var(--red)">−${fmtAmt(dOut)}</span>`:''}
+              </span>
+            </div>
+            ${entries.map(e=>`
+              <div class="mv-entry">
+                <span class="mv-entry-cat">${catEmoji(e.cat)} ${esc(e.cat)}</span>
+                <span class="mv-entry-what">${esc(e.what)}</span>
+                <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
+                  ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
+                </span>
+              </div>`).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`
+    :`<div class="section"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Keine Einträge</div></div></div>`}
+  `;
+}
+
+// Swipe-back gesture for month view
+(function(){
+  let sx=0, moving=false;
+  const mv=()=>document.getElementById('month-view');
+  document.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;moving=false;},{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!mv()?.classList.contains('open')) return;
+    const dx=e.touches[0].clientX-sx;
+    if(sx<40&&dx>0){moving=true;mv().style.transform=`translateX(${Math.min(dx,window.innerWidth)}px)`;}
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!moving){return;}
+    const dx=e.changedTouches[0].clientX-sx;
+    mv().style.transform='';
+    if(dx>80) closeMonthView(); else mv().style.transform='';
+    moving=false;
+  },{passive:true});
+})();
+
+// Prevent pinch-zoom (iOS ignores user-scalable=no in some cases)
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('gesturechange',e=>e.preventDefault());
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: EXCEL EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){ toast('Export wird geladen…','ok'); setTimeout(exportExcel,1200); return; }
+  const wb = XLSX.utils.book_new();
+  const now = new Date();
+
+  // Ausgaben
+  const expRows = [['ID','Datum','Was','Kategorie','Betrag CHF','Notiz']];
+  [...DATA.expenses].sort((a,b)=>b.date.localeCompare(a.date))
+    .forEach(e=>expRows.push([e.id,e.date,e.what,e.cat,e.amt,e.note]));
+  const wsExp = XLSX.utils.aoa_to_sheet(expRows);
+  wsExp['!cols']=[{wch:14},{wch:12},{wch:24},{wch:18},{wch:12},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,wsExp,'Ausgaben');
+
+  // Einnahmen
+  const incRows = [['ID','Datum','Was','Kategorie','Betrag CHF','Notiz']];
+  [...DATA.incomes].sort((a,b)=>b.date.localeCompare(a.date))
+    .forEach(e=>incRows.push([e.id,e.date,e.what,e.cat,e.amt,e.note]));
+  const wsInc = XLSX.utils.aoa_to_sheet(incRows);
+  wsInc['!cols']=[{wch:14},{wch:12},{wch:24},{wch:18},{wch:12},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,wsInc,'Einnahmen');
+
+  // Daueraufträge
+  const recRows = [['ID','Was','Kategorie','Betrag CHF','Intervall','Buchungstag','Startdatum','Aktiv','Kommentar']];
+  DATA.recurring.forEach(r=>recRows.push([r.id,r.what,r.cat,r.amt,r.interval,r.day,r.start||'',r.active?'Ja':'Nein',r.note]));
+  const wsRec = XLSX.utils.aoa_to_sheet(recRows);
+  wsRec['!cols']=[{wch:14},{wch:24},{wch:18},{wch:12},{wch:14},{wch:12},{wch:14},{wch:8},{wch:24}];
+  XLSX.utils.book_append_sheet(wb,wsRec,'Daueraufträge');
+
+  const fname=`Finanzen_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('✓ Excel exportiert','ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
 let verlaufFilter = 'alle';
 
 function renderAll(){
@@ -1595,6 +1869,7 @@ function renderRecurring(){
     container.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Noch keine Daueraufträge</div></div>`;
     return;
   }
+  const totalFix = DATA.recurring.filter(r=>r.active).reduce((s,r)=>s+r.amt,0);
   container.innerHTML = DATA.recurring.map(r=>`
     <div class="card-row" onclick="openRecModal('${r.id}')">
       <div class="card-row-icon" style="background:${catColor(r.cat)}22">
@@ -1602,12 +1877,12 @@ function renderRecurring(){
       </div>
       <div class="card-row-body">
         <div class="card-row-title">${esc(r.what)}</div>
-        <div class="card-row-sub">${r.interval}, am ${r.day}.${r.note?' · '+esc(r.note):''}</div>
+        <div class="card-row-sub">${r.interval} · ${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${r.note?' · '+esc(r.note):''}</div>
       </div>
       <div class="card-row-amount expense">CHF ${fmtAmt(r.amt)}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
-  `).join('');
+  `).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total Fixkosten / Monat</span><span style="font-family:'DM Mono',monospace;font-weight:600">CHF ${fmtAmt(totalFix)}</span></div>`;
 }
 
 function renderDashboard(){
@@ -1659,6 +1934,17 @@ function renderDashboard(){
 
   const container=document.getElementById('dashboard-content');
   container.innerHTML=`
+    <!-- Monatsübersicht Button -->
+    <div class="section" style="padding-bottom:8px">
+      <button class="mv-open-btn" onclick="openMonthView()">
+        <div class="mv-open-btn-left">
+          <div class="mv-open-btn-title">Monatsübersicht</div>
+          <div class="mv-open-btn-sub">${months[tm]} ${ty} · Details &amp; Einträge</div>
+        </div>
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
     <!-- LOHNZYKLUS CARD -->
     <div class="section">
       <div class="zy-card">
@@ -1843,14 +2129,24 @@ function renderDashboard(){
 // ═══════════════════════════════════════════════════════════════
 // MODULE: UI HELPERS
 // ═══════════════════════════════════════════════════════════════
-let currentTab = 'eingabe';
+let currentTab = 'dashboard';
 
 function goTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   document.getElementById('tab-'+tab).style.display='block';
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('nav-'+tab).classList.add('active');
+  const navBtn = document.getElementById('nav-'+tab);
+  if(navBtn) navBtn.classList.add('active');
+  // FAB: active (X) state when on eingabe
+  const fab = document.getElementById('fab-add');
+  if(fab){
+    fab.classList.toggle('fab-active', tab==='eingabe');
+    fab.innerHTML = tab==='eingabe'
+      ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    fab.onclick = tab==='eingabe' ? ()=>goTab('dashboard') : ()=>goTab('eingabe');
+  }
   document.getElementById('page-title').textContent = {
     eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dauerauftraege:'Daueraufträge', dashboard:'Übersicht'
