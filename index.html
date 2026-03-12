@@ -284,6 +284,38 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .dash-budget-sub{font-size:12px;color:var(--text3)}
 
 /* ═══════════════════════════════════════════════════
+   LOHNZYKLUS
+═══════════════════════════════════════════════════ */
+.zy-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.zy-header{padding:14px 16px 10px;border-bottom:1px solid var(--border)}
+.zy-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:3px}
+.zy-period{font-size:13px;color:var(--text2)}
+.zy-body{padding:14px 16px}
+.zy-row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:14px}
+.zy-row-label{color:var(--text2)}
+.zy-row-val{font-family:'DM Mono',monospace;font-size:13px}
+.zy-row.bold .zy-row-label{font-weight:600;color:var(--text)}
+.zy-row.bold .zy-row-val{font-size:15px}
+.zy-divider{height:1px;background:var(--border);margin:8px 0}
+.zy-rate-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.zy-rate{font-family:'DM Mono',monospace;font-size:30px;font-weight:500;letter-spacing:-1px}
+.zy-rate-sub{font-size:12px;color:var(--text3);margin-top:3px}
+.zy-prog-wrap{background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;margin:14px 0 5px}
+.zy-prog-fill{height:100%;border-radius:4px;transition:width .3s}
+.zy-prog-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text3)}
+/* Day rows */
+.day-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border)}
+.day-row:last-child{border-bottom:none}
+.day-row.is-today{background:rgba(200,245,60,.04)}
+.day-lbl{width:68px;font-size:12px;color:var(--text3);flex-shrink:0;line-height:1.3}
+.day-lbl.is-today{color:var(--accent);font-weight:600}
+.day-bar-wrap{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.day-bar-fill{height:100%;border-radius:2px}
+.day-spent{width:68px;text-align:right;font-size:12px;font-family:'DM Mono',monospace;flex-shrink:0}
+.day-delta{width:58px;text-align:right;font-size:11px;font-weight:600;flex-shrink:0}
+.ok{color:var(--green)}.over{color:var(--red)}.neutral{color:var(--text3)}
+
+/* ═══════════════════════════════════════════════════
    KATEGORIEN
 ═══════════════════════════════════════════════════ */
 .cat-row{
@@ -830,6 +862,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <label class="form-label">Script URL</label>
         <input id="s-url" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
       </div>
+      <div class="form-group">
+        <label class="form-label">Lohntag (Tag des Monats)</label>
+        <input id="s-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Zyklus läuft vom Lohntag bis zum Vortag des nächsten.</div>
+      </div>
     </div>
     <div class="modal-actions" style="flex-direction:column;gap:8px">
       <button class="btn-save" style="width:100%" onclick="applySettings()">Speichern & neu laden</button>
@@ -845,7 +882,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false };
+let CFG = { scriptUrl:'', demo:false, lohnTag:25 };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -904,6 +941,46 @@ const DATA = {
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
 function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function dateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// Lohnzyklus: 25th → 24th of next month (lohnTag configurable)
+function getCycleRange(){
+  const now = new Date();
+  const lt = CFG.lohnTag||25;
+  let start, end;
+  if(now.getDate()>=lt){
+    start = new Date(now.getFullYear(),now.getMonth(),lt);
+    end   = new Date(now.getFullYear(),now.getMonth()+1,lt-1);
+  } else {
+    start = new Date(now.getFullYear(),now.getMonth()-1,lt);
+    end   = new Date(now.getFullYear(),now.getMonth(),lt-1);
+  }
+  return {start,end};
+}
+
+function getZyklusInfo(){
+  const {start,end} = getCycleRange();
+  const now = new Date();
+  const startStr = dateStr(start);
+  const endStr   = dateStr(end);
+  const todayStr = today();
+  // Salary: all incomes within first 3 days of cycle
+  const win3 = dateStr(new Date(start.getTime()+2*86400000));
+  const lohn = DATA.incomes.filter(e=>e.date>=startStr&&e.date<=win3).reduce((s,e)=>s+e.amt,0);
+  // Fixed costs: active Daueraufträge of type 'ausgabe'
+  const catMap = {}; DATA.categories.forEach(c=>{catMap[c.name]=c.type;});
+  const fixKosten = DATA.recurring
+    .filter(r=>r.active&&(catMap[r.cat]||'ausgabe')==='ausgabe')
+    .reduce((s,r)=>s+r.amt,0);
+  const cycleDays   = Math.round((end-start)/86400000)+1;
+  const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
+  const daysLeft    = cycleDays - daysElapsed;
+  const varBudget   = lohn - fixKosten;
+  const varSpent    = DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
+  const varRemaining= varBudget - varSpent;
+  const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
+  return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0};
+}
 function fmtDate(s){ if(!s)return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'numeric'}); }
 function fmtAmt(n){ return (Math.abs(n)).toLocaleString('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
@@ -1520,73 +1597,82 @@ function renderRecurring(){
 }
 
 function renderDashboard(){
+  const z = getZyklusInfo();
   const now = new Date();
-  const thisMonth = now.getMonth();
-  const thisYear = now.getFullYear();
   const todayStr = today();
   const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-
-  // Week start (Monday)
-  const dow = now.getDay()===0?6:now.getDay()-1;
-  const ws = new Date(now); ws.setDate(now.getDate()-dow);
-  const weekStartStr = `${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,'0')}-${String(ws.getDate()).padStart(2,'0')}`;
-
-  // This month
-  const monthExp = DATA.expenses.filter(e=>{
-    const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
-  });
-  const monthInc = DATA.incomes.filter(e=>{
-    const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
-  });
-  const totalOut = monthExp.reduce((s,e)=>s+e.amt,0);
-  const totalIn  = monthInc.reduce((s,e)=>s+e.amt,0);
-  const balance  = totalIn - totalOut;
+  const wdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
 
   // Today & week
+  const dow = now.getDay()===0?6:now.getDay()-1;
+  const ws = new Date(now); ws.setDate(now.getDate()-dow);
+  const weekStartStr = dateStr(ws);
   const todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
   const weekOut  = DATA.expenses.filter(e=>e.date>=weekStartStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
 
-  // Daily budget
-  const daysInMonth  = new Date(thisYear,thisMonth+1,0).getDate();
-  const dayOfMonth   = now.getDate();
-  const daysLeft     = daysInMonth - dayOfMonth;
-  const avgDaily     = dayOfMonth>0 ? totalOut/dayOfMonth : 0;
-  const budgetPerDay = daysLeft>0 && balance>0 ? balance/daysLeft : null;
+  // Budget usage pct (spending vs free budget)
+  const budgetPct = z.varBudget>0 ? Math.min(z.varSpent/z.varBudget*100,100) : 0;
+  const progColor = budgetPct>90?'var(--red)':budgetPct>70?'var(--yellow)':'var(--accent)';
+  const rateColor = z.dailyRate===null?'var(--text3)':z.dailyRate>=0?'var(--accent)':'var(--red)';
 
-  // Savings rate
-  const savingsRate = totalIn>0 ? Math.round((balance/totalIn)*100) : null;
-
-  // Categories this month
-  const catTotals = {};
-  monthExp.forEach(e=>{ catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt; });
-  const sortedCats = Object.entries(catTotals).sort(([,a],[,b])=>b-a).slice(0,6);
-  const maxCat = sortedCats[0]?.[1]||1;
+  // Top categories this cycle
+  const catTotals={};
+  DATA.expenses.filter(e=>e.date>=z.startStr&&e.date<=todayStr).forEach(e=>{catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt;});
+  const sortedCats=Object.entries(catTotals).sort(([,a],[,b])=>b-a).slice(0,6);
+  const maxCat=sortedCats[0]?.[1]||1;
 
   // 6-month trend
-  const trend = [];
+  const tm=now.getMonth(), ty=now.getFullYear(), trend=[];
   for(let i=5;i>=0;i--){
-    const d=new Date(thisYear,thisMonth-i,1);
+    const d=new Date(ty,tm-i,1);
     const m=d.getMonth(),y=d.getFullYear();
     const out=DATA.expenses.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===y;}).reduce((s,e)=>s+e.amt,0);
     trend.push({label:months[m],out,cur:i===0});
   }
   const maxT=Math.max(...trend.map(t=>t.out),1);
 
-  const container = document.getElementById('dashboard-content');
-  container.innerHTML = `
-    <!-- Monatsbilanz -->
+  // Rolling day-by-day budget in cycle (newest first for display)
+  const dayRows=[];
+  let running=z.varBudget;
+  for(let i=0;i<z.daysElapsed;i++){
+    const d=new Date(z.start.getTime()+i*86400000);
+    const ds=dateStr(d);
+    const allow=running/Math.max(z.cycleDays-i,1);
+    const spent=DATA.expenses.filter(e=>e.date===ds).reduce((s,e)=>s+e.amt,0);
+    dayRows.push({d,ds,spent,allow,delta:allow-spent,isToday:ds===todayStr,isFirst:i===0});
+    running-=spent;
+  }
+
+  const container=document.getElementById('dashboard-content');
+  container.innerHTML=`
+    <!-- LOHNZYKLUS CARD -->
     <div class="section">
-      <div class="section-title">${months[thisMonth]} ${thisYear}</div>
-      <div class="dash-hero">
-        <div class="dash-hero-label">Monatsbilanz</div>
-        <div class="dash-hero-value ${balance>=0?'green':'red'}">${balance>=0?'+':'−'} CHF ${fmtAmt(Math.abs(balance))}</div>
-        <div class="dash-hero-sub">
-          <span style="color:var(--green)">↑ ${fmtAmt(totalIn)}</span>
-          <span style="color:var(--border2)">|</span>
-          <span style="color:var(--red)">↓ ${fmtAmt(totalOut)}</span>
-          ${savingsRate!==null?`<span style="color:var(--border2)">|</span><span style="color:var(--text2)">${savingsRate}% gespart</span>`:''}
+      <div class="zy-card">
+        <div class="zy-header">
+          <div class="zy-title">Lohnzyklus</div>
+          <div class="zy-period">${z.start.getDate()}. ${months[z.start.getMonth()]} – ${z.end.getDate()}. ${months[z.end.getMonth()]} ${z.end.getFullYear()}</div>
+        </div>
+        <div class="zy-body">
+          ${z.hasSalary
+            ? `<div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>`
+            : `<div class="zy-row"><span class="zy-row-label" style="color:var(--yellow)">⚠ Noch kein Lohn erfasst</span></div>`}
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten (Dauerauftr.)</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
+          <div class="zy-divider"></div>
+          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
+
+          <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
+          <div class="zy-prog-labels"><span>${z.daysElapsed} von ${z.cycleDays} Tagen</span><span>${budgetPct.toFixed(0)}% des Budgets</span></div>
+
+          ${z.dailyRate!==null?`
+          <div class="zy-rate-wrap">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span class="zy-rate" style="color:${rateColor}">CHF ${fmtAmt(Math.abs(z.dailyRate))}</span>
+              <span style="font-size:13px;color:var(--text2)">/ Tag</span>
+            </div>
+            <div class="zy-rate-sub">${z.dailyRate>=0?'verfügbar':'überzogen'} · ${z.daysLeft} Tage verbleibend</div>
+          </div>`:''}
         </div>
       </div>
     </div>
@@ -1595,7 +1681,7 @@ function renderDashboard(){
     <div class="section" style="padding-top:0">
       <div class="stats-grid" style="margin-bottom:0">
         <div class="stat-card">
-          <div class="stat-label">Heute</div>
+          <div class="stat-label">Heute ausgegeben</div>
           <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">
             ${todayOut>0?'− '+fmtAmt(todayOut):'—'}
           </div>
@@ -1609,24 +1695,38 @@ function renderDashboard(){
       </div>
     </div>
 
-    <!-- Tagesbudget -->
+    <!-- Tagesverlauf im Zyklus -->
+    ${dayRows.length?`
     <div class="section" style="padding-top:10px">
-      <div class="section-title">Tagesbudget</div>
-      <div class="dash-budget">
-        ${budgetPerDay!==null ? `
-          <div class="dash-budget-val" style="color:var(--accent)">CHF ${fmtAmt(budgetPerDay)} <span style="font-size:14px;font-weight:400;color:var(--text2);font-family:'DM Sans',sans-serif">/ Tag verfügbar</span></div>
-          <div class="dash-budget-sub">${daysLeft} Tage verbleibend · Ø CHF ${fmtAmt(avgDaily)} / Tag bisher</div>
-        ` : `
-          <div class="dash-budget-val" style="color:var(--text2)">Ø CHF ${fmtAmt(avgDaily)} <span style="font-size:14px;font-weight:400;font-family:'DM Sans',sans-serif">/ Tag</span></div>
-          <div class="dash-budget-sub">${daysLeft} Tage verbleibend · ${dayOfMonth} Tage erfasst</div>
-        `}
+      <div class="section-title">Tagesverlauf</div>
+      <div class="card" style="padding:0">
+        ${dayRows.slice().reverse().map(day=>{
+          const pct=day.allow>0?Math.min(day.spent/day.allow*100,100):0;
+          const barCol=day.spent===0?'var(--border)':day.delta>=0?'var(--green)':'var(--red)';
+          const deltaClass=day.spent===0?'neutral':day.delta>=0?'ok':'over';
+          const deltaSign=day.delta>=0?'+':'−';
+          const lblClass=day.isToday?'is-today':'';
+          const lbl=day.isToday?'Heute':(wdays[day.d.getDay()]+' '+day.d.getDate()+'.');
+          const note=day.isFirst?' 💰':'';
+          return `
+          <div class="day-row${day.isToday?' is-today':''}${day.isFirst?' is-first':''}">
+            <div class="day-lbl ${lblClass}">${lbl}${note}</div>
+            <div class="day-bar-wrap"><div class="day-bar-fill" style="width:${pct.toFixed(1)}%;background:${barCol}"></div></div>
+            <div class="day-spent" style="color:${day.spent>0?'var(--text)':'var(--text3)'}">
+              ${day.spent>0?fmtAmt(day.spent):'—'}
+            </div>
+            <div class="day-delta ${deltaClass}">
+              ${day.spent===0?'':deltaSign+fmtAmt(Math.abs(day.delta))}
+            </div>
+          </div>`;
+        }).join('')}
       </div>
-    </div>
+    </div>`:''}
 
     <!-- Top Ausgaben -->
     ${sortedCats.length?`
     <div class="section" style="padding-top:0">
-      <div class="section-title">Top Ausgaben</div>
+      <div class="section-title">Top Ausgaben (Zyklus)</div>
       <div class="card" style="padding:12px 14px">
         ${sortedCats.map(([cat,amt])=>`
           <div class="bar-wrap">
@@ -1723,11 +1823,14 @@ function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 function openSettings(){
   document.getElementById('s-url').value=CFG.scriptUrl||'';
+  document.getElementById('s-lohntag').value=CFG.lohnTag||25;
   openModal('settings-modal');
 }
 
 function applySettings(){
   CFG.scriptUrl=document.getElementById('s-url').value.trim();
+  const lt=parseInt(document.getElementById('s-lohntag').value)||25;
+  CFG.lohnTag=Math.min(Math.max(lt,1),31);
   CFG.demo=false; cfgSave(); location.reload();
 }
 
