@@ -267,6 +267,23 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 }
 
 /* ═══════════════════════════════════════════════════
+   DASHBOARD HERO
+═══════════════════════════════════════════════════ */
+.dash-hero{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px 18px 16px;text-align:center;
+  margin-bottom:10px;
+}
+.dash-hero-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px}
+.dash-hero-value{font-family:'DM Mono',monospace;font-size:34px;font-weight:500;letter-spacing:-1.5px;margin-bottom:10px}
+.dash-hero-value.green{color:var(--green)}
+.dash-hero-value.red{color:var(--red)}
+.dash-hero-sub{display:flex;justify-content:center;gap:16px;font-size:13px}
+.dash-budget{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.dash-budget-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;margin-bottom:4px}
+.dash-budget-sub{font-size:12px;color:var(--text3)}
+
+/* ═══════════════════════════════════════════════════
    KATEGORIEN
 ═══════════════════════════════════════════════════ */
 .cat-row{
@@ -889,6 +906,25 @@ function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toS
 function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fmtDate(s){ if(!s)return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'numeric'}); }
 function fmtAmt(n){ return (Math.abs(n)).toLocaleString('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+// Normalize date from Google Sheets (various formats → YYYY-MM-DD)
+function normalizeDate(s){
+  if(!s) return '';
+  s = String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+  const dm = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); // DD.MM.YYYY
+  if(dm) return `${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return s;
+}
+
+// Normalize amount from Google Sheets (handles 1'234.50, 1.234,50 etc.)
+function normalizeAmt(s){
+  if(typeof s === 'number') return s;
+  const str = String(s||'').trim().replace(/['''\s]/g,'').replace(/,(\d{1,2})$/,'.$1');
+  return parseFloat(str)||0;
+}
 function catColor(name){ const c=DATA.categories.find(c=>c.name===name); return c?c.color:'#888'; }
 function catEmoji(name){
   const map={'Zmittag':'🍱','Snack':'🍫','Ferien':'✈️','Poschte':'🛒','Znacht':'🍽️','Gschänk':'🎁','Chleider':'👕','Technik':'💻','Mieti':'🏠','Gsundheit':'💊','Internet':'📡','Handy':'📱','Alkohol':'🍺','Essen in Reschti':'🍷','Rudern':'🚣','Bildung':'📚','Verlochet':'🎉','SBB':'🚆','Möbel o.Ä.':'🪑','Gipfeli':'🥐','Buch':'📖','Sport':'⚽','Freiziit':'🎮','Diverses':'📦','Siemens':'💼','Twint':'📲','Schenkung':'🎀','Übertrag':'🔄'};
@@ -977,16 +1013,16 @@ async function loadAll(){
     try{
       const res = await apiGet('Ausgaben!A2:G5000');
       DATA.expenses = (res.values||[])
-        .filter(r=>r[0]&&r[6]!=='1')
-        .map(r=>({id:r[0],date:r[1],what:r[2],cat:r[3],amt:parseFloat(r[4])||0,note:r[5]||''}));
+        .filter(r=>r[0]&&String(r[6]||'')!=='1')
+        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||''}));
     } catch(e){ DATA.expenses=[]; }
 
     // Load incomes
     try{
       const res = await apiGet('Einnahmen!A2:G5000');
       DATA.incomes = (res.values||[])
-        .filter(r=>r[0]&&r[6]!=='1')
-        .map(r=>({id:r[0],date:r[1],what:r[2],cat:r[3],amt:parseFloat(r[4])||0,note:r[5]||''}));
+        .filter(r=>r[0]&&String(r[6]||'')!=='1')
+        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||''}));
     } catch(e){ DATA.incomes=[]; }
 
     // Load recurring
@@ -1487,71 +1523,111 @@ function renderDashboard(){
   const now = new Date();
   const thisMonth = now.getMonth();
   const thisYear = now.getFullYear();
+  const todayStr = today();
+  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
-  const monthExpenses = DATA.expenses.filter(e=>{
+  // Week start (Monday)
+  const dow = now.getDay()===0?6:now.getDay()-1;
+  const ws = new Date(now); ws.setDate(now.getDate()-dow);
+  const weekStartStr = `${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,'0')}-${String(ws.getDate()).padStart(2,'0')}`;
+
+  // This month
+  const monthExp = DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
     return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
   });
-  const monthIncomes = DATA.incomes.filter(e=>{
+  const monthInc = DATA.incomes.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
     return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
   });
+  const totalOut = monthExp.reduce((s,e)=>s+e.amt,0);
+  const totalIn  = monthInc.reduce((s,e)=>s+e.amt,0);
+  const balance  = totalIn - totalOut;
 
-  const totalOut = monthExpenses.reduce((s,e)=>s+e.amt,0);
-  const totalIn = monthIncomes.reduce((s,e)=>s+e.amt,0);
-  const balance = totalIn - totalOut;
+  // Today & week
+  const todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
+  const weekOut  = DATA.expenses.filter(e=>e.date>=weekStartStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
 
-  // Category breakdown
+  // Daily budget
+  const daysInMonth  = new Date(thisYear,thisMonth+1,0).getDate();
+  const dayOfMonth   = now.getDate();
+  const daysLeft     = daysInMonth - dayOfMonth;
+  const avgDaily     = dayOfMonth>0 ? totalOut/dayOfMonth : 0;
+  const budgetPerDay = daysLeft>0 && balance>0 ? balance/daysLeft : null;
+
+  // Savings rate
+  const savingsRate = totalIn>0 ? Math.round((balance/totalIn)*100) : null;
+
+  // Categories this month
   const catTotals = {};
-  DATA.expenses.filter(e=>{
-    const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
-  }).forEach(e=>{ catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt; });
-  const sortedCats = Object.entries(catTotals).sort(([,a],[,b])=>b-a).slice(0,8);
+  monthExp.forEach(e=>{ catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt; });
+  const sortedCats = Object.entries(catTotals).sort(([,a],[,b])=>b-a).slice(0,6);
   const maxCat = sortedCats[0]?.[1]||1;
 
-  // Monthly chart (last 6 months)
-  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const monthlyData = [];
+  // 6-month trend
+  const trend = [];
   for(let i=5;i>=0;i--){
     const d=new Date(thisYear,thisMonth-i,1);
-    const m=d.getMonth(), y=d.getFullYear();
-    const total=DATA.expenses.filter(e=>{
-      const ed=new Date(e.date+'T12:00:00');
-      return ed.getMonth()===m&&ed.getFullYear()===y;
-    }).reduce((s,e)=>s+e.amt,0);
-    monthlyData.push({label:months[m],total});
+    const m=d.getMonth(),y=d.getFullYear();
+    const out=DATA.expenses.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===y;}).reduce((s,e)=>s+e.amt,0);
+    trend.push({label:months[m],out,cur:i===0});
   }
-  const maxMonth = Math.max(...monthlyData.map(m=>m.total),1);
+  const maxT=Math.max(...trend.map(t=>t.out),1);
 
   const container = document.getElementById('dashboard-content');
   container.innerHTML = `
+    <!-- Monatsbilanz -->
     <div class="section">
       <div class="section-title">${months[thisMonth]} ${thisYear}</div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Ausgaben</div>
-          <div class="stat-value red">CHF ${fmtAmt(totalOut)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Einnahmen</div>
-          <div class="stat-value green">CHF ${fmtAmt(totalIn)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Bilanz</div>
-          <div class="stat-value ${balance>=0?'green':'red'}">CHF ${fmtAmt(Math.abs(balance))}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Einträge</div>
-          <div class="stat-value yellow">${monthExpenses.length+monthIncomes.length}</div>
+      <div class="dash-hero">
+        <div class="dash-hero-label">Monatsbilanz</div>
+        <div class="dash-hero-value ${balance>=0?'green':'red'}">${balance>=0?'+':'−'} CHF ${fmtAmt(Math.abs(balance))}</div>
+        <div class="dash-hero-sub">
+          <span style="color:var(--green)">↑ ${fmtAmt(totalIn)}</span>
+          <span style="color:var(--border2)">|</span>
+          <span style="color:var(--red)">↓ ${fmtAmt(totalOut)}</span>
+          ${savingsRate!==null?`<span style="color:var(--border2)">|</span><span style="color:var(--text2)">${savingsRate}% gespart</span>`:''}
         </div>
       </div>
     </div>
 
+    <!-- Heute & Woche -->
+    <div class="section" style="padding-top:0">
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-card">
+          <div class="stat-label">Heute</div>
+          <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">
+            ${todayOut>0?'− '+fmtAmt(todayOut):'—'}
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Diese Woche</div>
+          <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">
+            ${weekOut>0?'− '+fmtAmt(weekOut):'—'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tagesbudget -->
+    <div class="section" style="padding-top:10px">
+      <div class="section-title">Tagesbudget</div>
+      <div class="dash-budget">
+        ${budgetPerDay!==null ? `
+          <div class="dash-budget-val" style="color:var(--accent)">CHF ${fmtAmt(budgetPerDay)} <span style="font-size:14px;font-weight:400;color:var(--text2);font-family:'DM Sans',sans-serif">/ Tag verfügbar</span></div>
+          <div class="dash-budget-sub">${daysLeft} Tage verbleibend · Ø CHF ${fmtAmt(avgDaily)} / Tag bisher</div>
+        ` : `
+          <div class="dash-budget-val" style="color:var(--text2)">Ø CHF ${fmtAmt(avgDaily)} <span style="font-size:14px;font-weight:400;font-family:'DM Sans',sans-serif">/ Tag</span></div>
+          <div class="dash-budget-sub">${daysLeft} Tage verbleibend · ${dayOfMonth} Tage erfasst</div>
+        `}
+      </div>
+    </div>
+
+    <!-- Top Ausgaben -->
     ${sortedCats.length?`
     <div class="section" style="padding-top:0">
-      <div class="section-title">Top Kategorien (dieser Monat)</div>
-      <div class="card" style="padding:14px">
+      <div class="section-title">Top Ausgaben</div>
+      <div class="card" style="padding:12px 14px">
         ${sortedCats.map(([cat,amt])=>`
           <div class="bar-wrap">
             <div class="bar-label-row">
@@ -1564,37 +1640,23 @@ function renderDashboard(){
           </div>
         `).join('')}
       </div>
-    </div>
-    `:''}
+    </div>`:''}
 
+    <!-- Monatsverlauf -->
     <div class="section" style="padding-top:0">
-      <div class="section-title">Monatlicher Verlauf</div>
+      <div class="section-title">Monatsverlauf</div>
       <div class="card">
-        ${monthlyData.map(m=>`
-          <div class="month-row">
-            <div class="month-name">${m.label}</div>
+        ${trend.map(m=>`
+          <div class="month-row" ${m.cur?'style="background:rgba(200,245,60,.05)"':''}>
+            <div class="month-name" style="${m.cur?'color:var(--accent)':''}">${m.label}</div>
             <div class="month-bar-wrap">
-              <div class="month-bar" style="width:${m.total?Math.max((m.total/maxMonth*100),4).toFixed(1):0}%"></div>
+              <div class="month-bar" style="width:${m.out?Math.max((m.out/maxT*100),3).toFixed(1):0}%;${m.cur?'background:var(--accent);opacity:1':''}"></div>
             </div>
-            <div class="month-amt" style="color:${m.total?'var(--red)':'var(--text3)'}">
-              ${m.total?'CHF '+fmtAmt(m.total):'—'}
+            <div class="month-amt" style="color:${m.out?(m.cur?'var(--accent)':'var(--red)'):'var(--text3)'}">
+              ${m.out?'CHF '+fmtAmt(m.out):'—'}
             </div>
           </div>
         `).join('')}
-      </div>
-    </div>
-
-    <div class="section" style="padding-top:0">
-      <div class="section-title">Gesamtübersicht ${thisYear}</div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Ausgaben gesamt</div>
-          <div class="stat-value red" style="font-size:16px">CHF ${fmtAmt(DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===thisYear).reduce((s,e)=>s+e.amt,0))}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Einnahmen gesamt</div>
-          <div class="stat-value green" style="font-size:16px">CHF ${fmtAmt(DATA.incomes.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===thisYear).reduce((s,e)=>s+e.amt,0))}</div>
-        </div>
       </div>
     </div>
   `;
