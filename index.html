@@ -2,10 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzen">
+<meta name="theme-color" content="#0D0D0F">
+<link rel="manifest" href="manifest.json">
 <title>Finanztracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
@@ -35,10 +37,12 @@
   --r: 12px;
   --r2: 8px;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html{height:100%;overscroll-behavior:none}
+body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
-input,select,textarea{font-family:inherit;outline:none;border:none;background:none}
+/* font-size≥16px prevents iOS auto-zoom on input focus */
+input,select,textarea{font-family:inherit;outline:none;border:none;background:none;font-size:16px;-webkit-user-select:text;user-select:text}
 
 /* ═══════════════════════════════════════════════════
    LAYOUT
@@ -62,7 +66,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .top-bar-sub{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:1px}
 
 /* Content */
-#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
 
 /* Bottom Nav */
 #nav{
@@ -99,6 +103,57 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .fab svg{width:26px;height:26px;stroke:var(--bg0);stroke-width:2.5;fill:none}
 .fab.fab-active{background:var(--bg3);box-shadow:0 4px 18px rgba(0,0,0,.4)}
 .fab.fab-active svg{stroke:var(--accent)}
+
+/* ═══════════════════════════════════════════════════
+   MONATSÜBERSICHT (slide-in view)
+═══════════════════════════════════════════════════ */
+.month-view{
+  position:fixed;inset:0;
+  background:var(--bg0);
+  z-index:500;
+  transform:translateX(100%);
+  transition:transform .28s cubic-bezier(.25,.46,.45,.94);
+  display:flex;flex-direction:column;
+  padding-top:var(--safe-top);
+  will-change:transform;
+}
+.month-view.open{transform:translateX(0)}
+.mv-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 12px 10px 6px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;background:var(--bg0);
+}
+.mv-back{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0}
+.mv-back svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:2.2}
+.mv-bar-title{flex:1;font-size:17px;font-weight:600;letter-spacing:-.3px;text-align:center}
+.mv-nav{display:flex;gap:6px;flex-shrink:0}
+.mv-nav button{width:34px;height:34px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.mv-nav button svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
+.mv-nav button:disabled{opacity:.3}
+.mv-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--safe-bot)+24px)}
+/* Monatsübersicht open button */
+.mv-open-btn{
+  width:100%;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+  color:var(--text);text-align:left;
+}
+.mv-open-btn-left{display:flex;flex-direction:column;gap:2px}
+.mv-open-btn-title{font-size:14px;font-weight:600}
+.mv-open-btn-sub{font-size:12px;color:var(--text3)}
+.mv-open-btn svg{width:18px;height:18px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0}
+/* Day list */
+.mv-day-group{border-bottom:1px solid var(--border)}
+.mv-day-group:last-child{border-bottom:none}
+.mv-day-hdr{display:flex;justify-content:space-between;align-items:center;padding:9px 14px 5px}
+.mv-day-lbl{font-size:13px;font-weight:600;color:var(--text2)}
+.mv-day-lbl.is-today{color:var(--accent)}
+.mv-day-totals{display:flex;gap:10px;font-size:12px;font-family:'DM Mono',monospace}
+.mv-entry{display:flex;align-items:center;gap:6px;padding:4px 14px 4px 22px}
+.mv-entry-cat{font-size:11px;color:var(--text3);width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-entry-what{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-entry-amt{font-size:12px;font-family:'DM Mono',monospace;flex-shrink:0}
 
 /* ═══════════════════════════════════════════════════
    SETUP SCREEN
@@ -914,6 +969,21 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   </div>
 </div>
 
+<!-- Monatsübersicht slide-in view -->
+<div id="month-view" class="month-view">
+  <div class="mv-bar">
+    <button class="mv-back" onclick="closeMonthView()">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="mv-bar-title" id="mv-title-text">März 2026</div>
+    <div class="mv-nav">
+      <button onclick="prevMvMonth()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button id="mv-next-btn" onclick="nextMvMonth()"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
+  <div class="mv-content" id="mv-content"></div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1509,6 +1579,135 @@ async function deleteCategory(){
 // ═══════════════════════════════════════════════════════════════
 // MODULE: RENDER
 // ═══════════════════════════════════════════════════════════════
+// MODULE: MONATSÜBERSICHT
+// ═══════════════════════════════════════════════════════════════
+let mvYear = new Date().getFullYear();
+let mvMonth = new Date().getMonth();
+const mvMonths=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const mvWdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+function openMonthView(){
+  mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth();
+  renderMonthView();
+  document.getElementById('month-view').classList.add('open');
+}
+function closeMonthView(){
+  document.getElementById('month-view').classList.remove('open');
+}
+function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} renderMonthView(); }
+function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} renderMonthView(); }
+
+function renderMonthView(){
+  const now=new Date(), yr=mvYear, mo=mvMonth;
+  const isCurrent = yr===now.getFullYear()&&mo===now.getMonth();
+  document.getElementById('mv-title-text').textContent=mvMonths[mo]+' '+yr;
+  document.getElementById('mv-next-btn').disabled=isCurrent;
+
+  const mExp=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const totalOut=mExp.reduce((s,e)=>s+e.amt,0);
+  const totalIn=mInc.reduce((s,e)=>s+e.amt,0);
+  const bal=totalIn-totalOut;
+
+  const catMap={}; mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const cats=Object.entries(catMap).sort(([,a],[,b])=>b-a).slice(0,6);
+  const maxCat=cats[0]?.[1]||1;
+
+  const dateSet=new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
+  const sortedDates=[...dateSet].sort((a,b)=>b.localeCompare(a));
+  const todayStr=today();
+
+  document.getElementById('mv-content').innerHTML=`
+    <div class="section" style="padding-bottom:0">
+      <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        <div class="stat-card">
+          <div class="stat-label">Einnahmen</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--green);font-weight:500;margin-top:2px">+${fmtAmt(totalIn)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ausgaben</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--red);font-weight:500;margin-top:2px">−${fmtAmt(totalOut)}</div>
+        </div>
+        <div class="stat-card" style="background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'}">
+          <div class="stat-label">Bilanz</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:${bal>=0?'var(--green)':'var(--red)'};font-weight:500;margin-top:2px">${bal>=0?'+':''}${fmtAmt(bal)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${cats.length?`
+    <div class="section" style="padding-top:10px;padding-bottom:0">
+      <div class="card" style="padding:12px 14px">
+        ${cats.map(([cat,amt])=>`
+          <div class="bar-wrap">
+            <div class="bar-label-row">
+              <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
+              <span class="bar-val">CHF ${fmtAmt(amt)}</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${sortedDates.length?`
+    <div class="section" style="padding-top:10px">
+      <div class="card" style="padding:0">
+        ${sortedDates.map(ds=>{
+          const d=new Date(ds+'T12:00:00');
+          const dExp=DATA.expenses.filter(e=>e.date===ds);
+          const dInc=DATA.incomes.filter(e=>e.date===ds);
+          const dOut=dExp.reduce((s,e)=>s+e.amt,0);
+          const dIn=dInc.reduce((s,e)=>s+e.amt,0);
+          const isToday=ds===todayStr;
+          const entries=[...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
+          return `<div class="mv-day-group">
+            <div class="mv-day-hdr">
+              <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':mvWdays[d.getDay()]+' '+d.getDate()+'.'}</span>
+              <span class="mv-day-totals">
+                ${dIn>0?`<span style="color:var(--green)">+${fmtAmt(dIn)}</span>`:''}
+                ${dOut>0?`<span style="color:var(--red)">−${fmtAmt(dOut)}</span>`:''}
+              </span>
+            </div>
+            ${entries.map(e=>`
+              <div class="mv-entry">
+                <span class="mv-entry-cat">${catEmoji(e.cat)} ${esc(e.cat)}</span>
+                <span class="mv-entry-what">${esc(e.what)}</span>
+                <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
+                  ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
+                </span>
+              </div>`).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`
+    :`<div class="section"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Keine Einträge</div></div></div>`}
+  `;
+}
+
+// Swipe-back gesture for month view
+(function(){
+  let sx=0, moving=false;
+  const mv=()=>document.getElementById('month-view');
+  document.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;moving=false;},{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!mv()?.classList.contains('open')) return;
+    const dx=e.touches[0].clientX-sx;
+    if(sx<40&&dx>0){moving=true;mv().style.transform=`translateX(${Math.min(dx,window.innerWidth)}px)`;}
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!moving){return;}
+    const dx=e.changedTouches[0].clientX-sx;
+    mv().style.transform='';
+    if(dx>80) closeMonthView(); else mv().style.transform='';
+    moving=false;
+  },{passive:true});
+})();
+
+// Prevent pinch-zoom (iOS ignores user-scalable=no in some cases)
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('gesturechange',e=>e.preventDefault());
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: EXCEL EXPORT
 // ═══════════════════════════════════════════════════════════════
 function exportExcel(){
@@ -1735,6 +1934,17 @@ function renderDashboard(){
 
   const container=document.getElementById('dashboard-content');
   container.innerHTML=`
+    <!-- Monatsübersicht Button -->
+    <div class="section" style="padding-bottom:8px">
+      <button class="mv-open-btn" onclick="openMonthView()">
+        <div class="mv-open-btn-left">
+          <div class="mv-open-btn-title">Monatsübersicht</div>
+          <div class="mv-open-btn-sub">${months[tm]} ${ty} · Details &amp; Einträge</div>
+        </div>
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
     <!-- LOHNZYKLUS CARD -->
     <div class="section">
       <div class="zy-card">
