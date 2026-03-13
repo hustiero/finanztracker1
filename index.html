@@ -527,15 +527,88 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .color-swatch.selected{border-color:white;transform:scale(1.15)}
 
 /* ═══════════════════════════════════════════════════
-   SETTINGS
+   SETTINGS / NOTIFICATION BUTTON
 ═══════════════════════════════════════════════════ */
 .settings-btn{
   width:36px;height:36px;border-radius:99px;
   background:var(--bg2);border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
+  flex-shrink:0;position:relative;
 }
 .settings-btn svg{width:18px;height:18px;stroke:var(--text2);fill:none;stroke-width:1.8}
+.notif-badge{
+  position:absolute;top:-3px;right:-3px;
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:700;
+  border-radius:50%;width:16px;height:16px;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;border:2px solid var(--bg0);
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════════
+   NOTIFICATION OVERLAY (slides from top)
+═══════════════════════════════════════════════════ */
+.notif-overlay{
+  position:fixed;top:0;left:0;right:0;
+  background:var(--bg1);
+  border-bottom-left-radius:20px;
+  border-bottom-right-radius:20px;
+  border-bottom:1px solid var(--border);
+  z-index:700;
+  transform:translateY(-100%);
+  transition:transform .3s cubic-bezier(.25,.46,.45,.94);
+  padding-top:calc(var(--safe-top) + 8px);
+  padding-bottom:16px;
+  max-height:75vh;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.notif-overlay.open{transform:translateY(0)}
+.notif-overlay-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.notif-overlay-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.notif-overlay-close{
+  width:32px;height:32px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+}
+.notif-overlay-close svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
+.notif-overlay-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0}
+.notif-item{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .1s;
+}
+.notif-item:last-child{border-bottom:none}
+.notif-item:active{background:var(--bg3)}
+.notif-item-icon{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,209,102,.12);
+}
+.notif-item-icon svg{width:18px;height:18px;stroke:var(--yellow);fill:none;stroke-width:1.8}
+.notif-item-body{flex:1}
+.notif-item-title{font-size:14px;font-weight:600;margin-bottom:2px}
+.notif-item-sub{font-size:12px;color:var(--text2)}
+.notif-item-date{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.notif-item.dismissed{opacity:.45}
+.notif-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.35);
+  z-index:699;display:none;
+}
+.notif-backdrop.open{display:block}
+
+/* Lohn toggle row (same style as recur toggle) */
+.lohn-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;border-radius:var(--r2);
+  background:var(--bg2);border:1px solid var(--border);cursor:pointer;
+  transition:border-color .15s;
+}
+.lohn-toggle-row.active{border-color:var(--accent)}
+.lohn-toggle-label{font-size:14px;color:var(--text2);font-weight:500}
 
 /* ═══════════════════════════════════════════════════
    TOASTS
@@ -716,7 +789,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
      SETUP SCREEN
 ════════════════════════════════════ -->
 <div id="setup">
-  <div class="setup-logo">💰</div>
+  <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
   <div class="setup-title">Finanztracker</div>
   <div class="setup-sub">Verbinde dein Google Sheet</div>
 
@@ -749,8 +822,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <div class="sync-row">
       <div class="sync-dot demo" id="sync-dot"></div>
       <div class="sync-label" id="sync-label">Demo</div>
-      <button class="settings-btn" onclick="openSettings()" style="margin-left:8px">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <button class="settings-btn" id="notif-btn" onclick="toggleNotifOverlay()" style="margin-left:8px" aria-label="Benachrichtigungen">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-badge" id="notif-badge" style="display:none">0</div>
       </button>
     </div>
   </div>
@@ -792,6 +866,14 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="form-group">
           <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
           <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Kevin" autocorrect="off">
+        </div>
+
+        <!-- Lohn toggle (only for Einnahme) -->
+        <div id="f-lohn-toggle-wrap" style="display:none;margin-bottom:12px">
+          <div class="lohn-toggle-row" id="f-lohn-row" onclick="toggleLohnField()">
+            <span class="lohn-toggle-label">Als Lohn zählen</span>
+            <div class="toggle-switch" id="f-lohn-switch"></div>
+          </div>
         </div>
 
         <!-- Wiederkehrende Buchung toggle (only for Ausgabe) -->
@@ -1011,10 +1093,6 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       Verlauf
     </button>
     <div class="nav-fab-space"></div>
-    <button class="nav-btn" id="nav-lohn" onclick="goTab('lohn')">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      Lohn
-    </button>
     <button class="nav-btn" id="nav-aktien" onclick="goTab('aktien')">
       <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
       Aktien
@@ -1035,6 +1113,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   <div class="menu-overlay-sheet" onclick="event.stopPropagation()">
     <div class="menu-handle"></div>
     <div class="menu-overlay-title">Weitere Ansichten</div>
+    <button class="menu-overlay-item" onclick="goTab('lohn');closeMenuOverlay()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Lohn &amp; Einnahmen
+    </button>
     <button class="menu-overlay-item" onclick="goTab('kategorien');closeMenuOverlay()">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/></svg>
       Kategorien
@@ -1047,6 +1129,59 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       Einstellungen
     </button>
+  </div>
+</div>
+
+<!-- Notification Backdrop -->
+<div class="notif-backdrop" id="notif-backdrop" onclick="closeNotifOverlay()"></div>
+
+<!-- Notification Overlay (slides from top) -->
+<div class="notif-overlay" id="notif-overlay">
+  <div class="notif-overlay-header">
+    <div class="notif-overlay-title">Benachrichtigungen</div>
+    <button class="notif-overlay-close" onclick="closeNotifOverlay()">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="notif-overlay-body" id="notif-body">
+    <div style="text-align:center;padding:32px 24px;color:var(--text3);font-size:14px">Keine Benachrichtigungen</div>
+  </div>
+</div>
+
+<!-- Dauerauftrag Confirm Modal -->
+<div class="modal-overlay" id="rec-confirm-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Dauerauftrag ausführen</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('rec-confirm-modal')">Schliessen</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rcm-notif-id">
+      <p style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">Überprüfe und bestätige die Ausführung dieses Dauerauftrags als Ausgabe.</p>
+      <div class="form-group">
+        <label class="form-label">Beschreibung</label>
+        <input id="rcm-what" class="form-input" type="text" autocorrect="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Betrag CHF</label>
+          <input id="rcm-amt" class="form-input" type="number" inputmode="decimal" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Datum</label>
+          <input id="rcm-date" class="form-input" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kategorie</label>
+        <select id="rcm-cat" class="form-select"></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('rec-confirm-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="confirmRecurringExecution()">Als Ausgabe freigeben</button>
+    </div>
   </div>
 </div>
 
@@ -1486,9 +1621,14 @@ function getZyklusInfo(){
   const now = new Date();
   const startStr = dateStr(start), endStr = dateStr(end), todayStr = today();
   const lt = CFG.lohnTag||25;
-  // Salary: incomes in first 3 days of cycle
+  // Salary: incomes marked as Lohn, OR (backward compat) incomes in first 3 days of cycle without isLohn flag
   const win3 = dateStr(new Date(start.getTime()+2*86400000));
-  const lohn = DATA.incomes.filter(e=>e.date>=startStr&&e.date<=win3).reduce((s,e)=>s+e.amt,0);
+  const lohn = DATA.incomes.filter(e=>{
+    if(e.date<startStr||e.date>endStr) return false;
+    if(e.isLohn===true) return true;
+    if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
+    return false;
+  }).reduce((s,e)=>s+e.amt,0);
   // Fixed costs: active ausgabe Daueraufträge
   const catMap = {}; DATA.categories.forEach(c=>{catMap[c.name]=c.type;});
   const fixKosten = DATA.recurring
@@ -1501,7 +1641,12 @@ function getZyklusInfo(){
     : new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,lt);
   const prevStartStr=dateStr(prevStart), prevEndStr=dateStr(prevEnd);
   const prevWin3=dateStr(new Date(prevStart.getTime()+2*86400000));
-  const prevLohn=DATA.incomes.filter(e=>e.date>=prevStartStr&&e.date<=prevWin3).reduce((s,e)=>s+e.amt,0);
+  const prevLohn=DATA.incomes.filter(e=>{
+    if(e.date<prevStartStr||e.date>prevEndStr) return false;
+    if(e.isLohn===true) return true;
+    if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
+    return false;
+  }).reduce((s,e)=>s+e.amt,0);
   const prevSpent=DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
   const prevCarryover = prevLohn>0 ? (prevLohn-fixKosten-prevSpent) : 0;
   const mSparziel = CFG.mSparziel||0;
@@ -1594,7 +1739,7 @@ async function doConnect(){
     launchApp();
   } catch(e){
     btn.disabled=false; btn.textContent='Verbinden →';
-    alert('❌ Verbindungsfehler\n\n'+e.message);
+    alert('Verbindungsfehler\n\n'+e.message);
   }
 }
 
@@ -1602,11 +1747,13 @@ function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchAp
 
 function launchApp(){
   sdataLoad();
+  if(!CFG.notifications) CFG.notifications = [];
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   goTab('dashboard');
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
   else{ setSyncStatus('demo'); renderAll(); }
+  updateNotifBadge();
 }
 
 async function checkSheets(){
@@ -1653,10 +1800,10 @@ async function loadAll(){
 
     // Load incomes
     try{
-      const res = await apiGet('Einnahmen!A2:G5000');
+      const res = await apiGet('Einnahmen!A2:H5000');
       DATA.incomes = (res.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||''}));
+        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'}));
     } catch(e){ DATA.incomes=[]; }
 
     // Load recurring
@@ -1679,8 +1826,8 @@ async function loadAll(){
 // MODULE: ENTRIES — Save, Update, Delete
 // ═══════════════════════════════════════════════════════════════
 let currentEntryType = 'ausgabe';
-
 let recurringMode = false;
+let lohnMode = false;
 
 function setType(t){
   currentEntryType = t;
@@ -1690,8 +1837,24 @@ function setType(t){
   const recWrap = document.getElementById('f-recur-toggle-wrap');
   if(recWrap) recWrap.style.display = t==='ausgabe'?'block':'none';
   if(t!=='ausgabe' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  // Show/hide Lohn toggle only for Einnahme
+  const lohnWrap = document.getElementById('f-lohn-toggle-wrap');
+  if(lohnWrap) lohnWrap.style.display = t==='einnahme'?'block':'none';
+  if(t!=='einnahme' && lohnMode) { lohnMode=false; updateLohnToggleUI(); }
   fillDropdown('f-cat', t==='ausgabe'?'ausgabe':'einnahme');
   document.getElementById('f-date-label').textContent = recurringMode&&t==='ausgabe' ? 'Startdatum' : 'Datum';
+}
+
+function toggleLohnField(){
+  lohnMode = !lohnMode;
+  updateLohnToggleUI();
+}
+
+function updateLohnToggleUI(){
+  const sw = document.getElementById('f-lohn-switch');
+  const row = document.getElementById('f-lohn-row');
+  if(sw) sw.className = 'toggle-switch'+(lohnMode?' on':'');
+  if(row) row.className = 'lohn-toggle-row'+(lohnMode?' active':'');
 }
 
 function toggleRecurringFields(){
@@ -1756,9 +1919,9 @@ async function saveEntry(){
   if(!amt||!date||!what){ toast('Betrag, Datum & Beschreibung erforderlich','err'); return; }
 
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
-  const entry = {id,date,what,cat,amt,note};
 
   if(currentEntryType==='ausgabe'){
+    const entry = {id,date,what,cat,amt,note};
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
@@ -1768,11 +1931,13 @@ async function saveEntry(){
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
   } else {
+    const isLohn = document.getElementById('f-lohn-switch')?.classList.contains('on')||false;
+    const entry = {id,date,what,cat,amt,note,isLohn};
     DATA.incomes.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'']]);
+        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -1783,6 +1948,8 @@ async function saveEntry(){
   document.getElementById('f-what').value='';
   document.getElementById('f-note').value='';
   document.getElementById('f-date').value=today();
+  // Reset lohn toggle
+  lohnMode = false; updateLohnToggleUI();
 
   toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   renderAll();
@@ -1832,7 +1999,10 @@ async function updateEntry(){
       const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
       const row = await apiFindRow(sheet, id);
       if(row){
-        await apiUpdate(`${sheet}!A${row}:G${row}`, [[id,date,what,cat,amt,note,'']]);
+        const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
+        const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'']] : [[id,date,what,cat,amt,note,'',isLohn]];
+        const updateRange = type==='ausgabe' ? `${sheet}!A${row}:G${row}` : `${sheet}!A${row}:H${row}`;
+        await apiUpdate(updateRange, updateVals);
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
       }
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
@@ -2203,7 +2373,7 @@ function renderMonthView(){
         }).join('')}
       </div>
     </div>`
-    :`<div class="section"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Keine Einträge</div></div></div>`}
+    :`<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
   `;
 }
 
@@ -2278,6 +2448,7 @@ function renderAll(){
   renderRecurring();
   renderDashboard();
   updatePageSub();
+  checkDueRecurrings();
 }
 
 function updatePageSub(){
@@ -2382,7 +2553,7 @@ function renderVerlauf(){
 
   const container = document.getElementById('verlauf-list');
   if(!entries.length){
-    container.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Keine Einträge</div></div>`;
+    container.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
     return;
   }
 
@@ -2473,7 +2644,7 @@ function renderCategories(){
 function renderRecurring(){
   const container = document.getElementById('rec-list');
   if(!DATA.recurring.length){
-    container.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Noch keine Daueraufträge</div></div>`;
+    container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Daueraufträge</div></div>`;
     return;
   }
   const todayStr = today();
@@ -2595,7 +2766,7 @@ function renderDashboard(){
           <div class="zy-divider"></div>
           <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-top:4px">
             <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
-            <div style="font-size:12px;color:var(--text2);line-height:1.5">Lohn via <strong style="color:var(--text)">+</strong> → <strong style="color:var(--text)">Einnahme</strong> am ${CFG.lohnTag||25}. des Monats erfassen.</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">Einnahme erfassen und <strong style="color:var(--text)">«Als Lohn zählen»</strong> aktivieren. Lohntag: ${CFG.lohnTag||25}.</div>
           </div>
           `}
         </div>
@@ -2771,6 +2942,148 @@ function goTab(tab){
 function openMenuOverlay(){ document.getElementById('menu-overlay').classList.add('open'); }
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
 
+// ═══════════════════════════════════════════════════════════════
+// MODULE: NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════
+
+function checkDueRecurrings(){
+  const todayStr = today();
+  if(!CFG.notifications) CFG.notifications = [];
+  const now = new Date();
+  const todayDay = now.getDate();
+
+  DATA.recurring.filter(r=>r.active).forEach(r=>{
+    // Check if today is the execution day
+    if(r.day === todayDay){
+      const notifId = `rec-${r.id}-${todayStr}`;
+      const exists = CFG.notifications.find(n=>n.id===notifId);
+      if(!exists){
+        CFG.notifications.push({
+          id: notifId,
+          type: 'dauerauftrag',
+          recurId: r.id,
+          date: todayStr,
+          title: r.what,
+          body: `CHF ${fmtAmt(r.amt)} · ${r.interval}`,
+          dismissed: false,
+          confirmed: false
+        });
+      }
+    }
+  });
+  cfgSave();
+  updateNotifBadge();
+}
+
+function updateNotifBadge(){
+  const badge = document.getElementById('notif-badge');
+  if(!badge) return;
+  const pending = (CFG.notifications||[]).filter(n=>!n.dismissed&&!n.confirmed).length;
+  if(pending > 0){
+    badge.textContent = pending > 9 ? '9+' : pending;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function toggleNotifOverlay(){
+  const overlay = document.getElementById('notif-overlay');
+  const backdrop = document.getElementById('notif-backdrop');
+  if(overlay.classList.contains('open')){
+    closeNotifOverlay();
+  } else {
+    renderNotifications();
+    overlay.classList.add('open');
+    backdrop.classList.add('open');
+  }
+}
+
+function closeNotifOverlay(){
+  document.getElementById('notif-overlay').classList.remove('open');
+  document.getElementById('notif-backdrop').classList.remove('open');
+}
+
+function renderNotifications(){
+  const body = document.getElementById('notif-body');
+  if(!body) return;
+  const notifs = (CFG.notifications||[]).filter(n=>!n.confirmed).sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(!notifs.length){
+    body.innerHTML = `<div style="text-align:center;padding:32px 24px;color:var(--text3)">
+      <svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:var(--border2);fill:none;stroke-width:1.5;margin-bottom:12px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div style="font-size:14px">Keine Benachrichtigungen</div>
+    </div>`;
+    return;
+  }
+
+  body.innerHTML = notifs.map(n=>`
+    <div class="notif-item${n.dismissed?' dismissed':''}" onclick="openNotifDetail('${n.id}')">
+      <div class="notif-item-icon">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
+      </div>
+      <div class="notif-item-body">
+        <div class="notif-item-title">${esc(n.title)}</div>
+        <div class="notif-item-sub">${esc(n.body)}</div>
+        <div class="notif-item-date">${fmtDate(n.date)}</div>
+      </div>
+      ${!n.dismissed?`<button onclick="event.stopPropagation();dismissNotif('${n.id}')" style="background:none;color:var(--text3);font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;flex-shrink:0">Verwerfen</button>`:''}
+    </div>`).join('');
+}
+
+function dismissNotif(id){
+  const n = (CFG.notifications||[]).find(n=>n.id===id);
+  if(n){ n.dismissed=true; cfgSave(); }
+  renderNotifications();
+  updateNotifBadge();
+}
+
+function openNotifDetail(id){
+  const n = (CFG.notifications||[]).find(n=>n.id===id);
+  if(!n) return;
+  if(n.type==='dauerauftrag'){
+    const rec = DATA.recurring.find(r=>r.id===n.recurId);
+    if(!rec){ toast('Dauerauftrag nicht gefunden','err'); return; }
+    document.getElementById('rcm-notif-id').value = n.id;
+    document.getElementById('rcm-what').value = rec.what;
+    document.getElementById('rcm-amt').value = rec.amt;
+    document.getElementById('rcm-date').value = n.date;
+    fillDropdown('rcm-cat','ausgabe',rec.cat);
+    closeNotifOverlay();
+    openModal('rec-confirm-modal');
+  }
+}
+
+async function confirmRecurringExecution(){
+  const notifId = document.getElementById('rcm-notif-id').value;
+  const what = document.getElementById('rcm-what').value.trim();
+  const amt = parseFloat(document.getElementById('rcm-amt').value)||0;
+  const date = document.getElementById('rcm-date').value;
+  const cat = document.getElementById('rcm-cat').value;
+  if(!what||!amt||!date){ toast('Felder ausfüllen','err'); return; }
+
+  const id = genId('A');
+  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)'};
+  DATA.expenses.push(entry);
+
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)','']]);
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+
+  // Mark notification as confirmed
+  const n = (CFG.notifications||[]).find(n=>n.id===notifId);
+  if(n){ n.confirmed=true; cfgSave(); }
+
+  closeModal('rec-confirm-modal');
+  updateNotifBadge();
+  renderAll();
+  toast('✓ Ausgabe erfasst','ok');
+}
+
 function toggleTheme(){
   const isLight = document.documentElement.dataset.theme==='light';
   document.documentElement.dataset.theme = isLight?'':'light';
@@ -2838,7 +3151,7 @@ function renderLohn(){
   const listEl = document.getElementById('lohn-list');
   if(!listEl) return;
   if(!DATA.incomes.length){
-    listEl.innerHTML = `<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Noch keine Einnahmen erfasst</div></div>`;
+    listEl.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="empty-text">Noch keine Einnahmen erfasst</div></div>`;
     return;
   }
   const byMonth = {};
@@ -2863,7 +3176,7 @@ function renderLohn(){
             <div class="card-row" onclick="openEditModal('${e.id}','einnahme')">
               <div class="card-row-icon" style="background:${catColor(e.cat)}22"><span>${catEmoji(e.cat)}</span></div>
               <div class="card-row-body">
-                <div class="card-row-title">${esc(e.what)}</div>
+                <div class="card-row-title">${esc(e.what)}${e.isLohn?` <span style="font-size:10px;background:rgba(200,245,60,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:600">Lohn</span>`:''}</div>
                 <div class="card-row-sub">${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
               </div>
               <div class="card-row-amount income">+ ${fmtAmt(e.amt)}</div>
@@ -3100,8 +3413,8 @@ function loadDemo(){
     {id:'a006',date:`${y}-${m}-12`,what:'Znacht mit Freunden',cat:'Diverses',amt:52,note:'Pizzeria'},
   ];
   DATA.incomes = [
-    {id:'e001',date:`${y}-${m}-25`,what:'Lohn Siemens',cat:'Siemens',amt:3127,note:''},
-    {id:'e002',date:`${y}-${m}-26`,what:'Lohn Siemens Zusatz',cat:'Siemens',amt:649.80,note:''},
+    {id:'e001',date:`${y}-${m}-25`,what:'Lohn Siemens',cat:'Siemens',amt:3127,note:'',isLohn:true},
+    {id:'e002',date:`${y}-${m}-26`,what:'Lohn Siemens Zusatz',cat:'Siemens',amt:649.80,note:'',isLohn:true},
   ];
   DATA.recurring = [
     {id:'d001',what:'Miete',cat:'Mieti',amt:1023,interval:'monatlich',day:1,note:'',active:true},
@@ -3189,7 +3502,7 @@ async function renderAktien(){
   const listEl = document.getElementById('aktien-list');
   const summaryEl = document.getElementById('aktien-summary-bar');
   if(!show.length){
-    listEl.innerHTML = `<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">${aktienView==='aktiv'?'Keine aktiven Positionen':'Keine historischen Positionen'}</div></div>`;
+    listEl.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div class="empty-text">${aktienView==='aktiv'?'Keine aktiven Positionen':'Keine historischen Positionen'}</div></div>`;
     summaryEl.innerHTML = '';
     return;
   }
