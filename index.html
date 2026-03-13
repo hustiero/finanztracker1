@@ -38,7 +38,7 @@
   --r2: 8px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html{height:100%;overscroll-behavior:none}
+html{height:100%;overscroll-behavior:none;background:var(--bg1)}
 body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
 /* font-size≥16px prevents iOS auto-zoom on input focus */
@@ -680,6 +680,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 [data-theme="light"] .chart-period-btn.active{color:#fff}
 [data-theme="light"] .nav-btn.active{color:var(--accent)}
 [data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
+[data-theme="light"] html{background:var(--bg1)}
 [data-theme="light"] body{background:var(--bg0)}
 [data-theme="light"] #nav{background:var(--bg1)}
 [data-theme="light"] .top-bar{background:var(--bg0)}
@@ -2780,7 +2781,7 @@ function renderVerlauf(){
                 <div class="card-row-title">${esc(e.what)}${isRec?` <span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`:''}</div>
                 <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':'' }${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
               </div>
-              <div class="card-row-amount ${e._type==='einnahme'?'income':'expense'}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
+              <div class="card-row-amount">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
               ${isRec?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
             </div>`;
           }).join('')}
@@ -3562,10 +3563,19 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('show'); });
 });
 
+let _syncSettleTimer;
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot'), label=document.getElementById('sync-label');
+  clearTimeout(_syncSettleTimer);
   dot.className='sync-dot '+s;
-  label.textContent={online:'Verbunden',syncing:'Sync…',error:'Fehler',demo:'Demo'}[s]||s;
+  if(s==='online'){
+    label.style.display='';
+    label.textContent='Verbunden';
+    _syncSettleTimer=setTimeout(()=>{ label.style.display='none'; },2000);
+  } else {
+    label.style.display='';
+    label.textContent={syncing:'Synchronisiert…',error:'Fehler',demo:'Demo'}[s]||s;
+  }
 }
 
 function setLoader(v){ document.getElementById('loader').classList.toggle('show',v); }
