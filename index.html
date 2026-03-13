@@ -1842,6 +1842,20 @@ function avgDailyVarSpend(mo, yr, daysElapsed){
   }).reduce((s,e)=>s+e.amt,0);
   return daysElapsed>0?total/daysElapsed:0;
 }
+// Avg daily variable spend for a full year
+function avgDailyVarSpendYear(yr){
+  const now = new Date();
+  const isCurrentYear = yr === now.getFullYear();
+  const fixCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
+  const total = DATA.expenses.filter(e=>{
+    const d=new Date(e.date+'T12:00:00');
+    return d.getFullYear()===yr && !fixCats.has(e.cat) && !e.excludeAvg;
+  }).reduce((s,e)=>s+e.amt,0);
+  const daysElapsed = isCurrentYear
+    ? Math.floor((now - new Date(yr,0,1))/86400000)+1
+    : (new Date(yr+1,0,1)-new Date(yr,0,1))/86400000;
+  return daysElapsed>0 ? total/daysElapsed : 0;
+}
 function fmtDate(s){ if(!s)return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'numeric'}); }
 function fmtAmt(n){ return (Math.abs(n)).toLocaleString('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
@@ -2693,7 +2707,7 @@ function renderVerlauf(){
   // Filters
   const allCats = [...new Set([...DATA.expenses.map(e=>e.cat),...DATA.incomes.map(e=>e.cat),...DATA.recurring.filter(r=>r.active).map(r=>r.cat)])];
   const filterRow = document.getElementById('verlauf-filters');
-  filterRow.innerHTML = ['alle','Ausgaben','Einnahmen',...allCats.slice(0,12)]
+  filterRow.innerHTML = ['alle','Ausgaben','Einnahmen',...allCats]
     .map(f=>`<button class="filter-chip${verlaufFilter===f?' active':''}" onclick="setVerlaufFilter('${f}')">${f}</button>`)
     .join('');
 
@@ -2883,30 +2897,28 @@ function renderDashboard(){
   const maxMonth = isCurrentYear ? now.getMonth() : 11;
 
   // Current-year-only calculations
-  const z = isCurrentYear ? getZyklusInfo() : null;
-  let todayOut=0, weekOut=0, avgDayThis=0, avgDiff=null;
-  let budgetPct=0, progColor='var(--accent)', rateColor='var(--text3)';
-  const prevMoD = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  if(isCurrentYear && z){
+  let todayOut=0, weekOut=0;
+  if(isCurrentYear){
     const dow = now.getDay()===0?6:now.getDay()-1;
     const ws = new Date(now); ws.setDate(now.getDate()-dow);
     todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
     weekOut  = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
-    avgDayThis = avgDailyVarSpend(now.getMonth(), now.getFullYear(), now.getDate());
-    const daysInPrevMo = new Date(prevMoD.getFullYear(), prevMoD.getMonth()+1, 0).getDate();
-    const avgDayPrev = avgDailyVarSpend(prevMoD.getMonth(), prevMoD.getFullYear(), daysInPrevMo);
-    avgDiff = avgDayPrev>0 ? ((avgDayThis-avgDayPrev)/avgDayPrev*100) : null;
-    budgetPct = z.varBudget>0 ? Math.min(z.varSpent/z.varBudget*100,100) : 0;
-    progColor = budgetPct>90?'var(--red)':budgetPct>70?'var(--yellow)':'var(--accent)';
-    rateColor = z.dailyRate===null?'var(--text3)':z.dailyRate>=0?'var(--accent)':'var(--red)';
   }
+  // Yearly Ø Tagesausgabe (all years)
+  const avgDayYear = avgDailyVarSpendYear(dashYear);
+  const avgDayYearPrev = avgDailyVarSpendYear(dashYear-1);
+  const avgDayYearDiff = avgDayYearPrev>0 ? ((avgDayYear-avgDayYearPrev)/avgDayYearPrev*100) : null;
+  // Lohn % Einnahmen (all years)
+  const yearTotalInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
+  const yearLohnInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear&&e.isLohn;}).reduce((s,e)=>s+e.amt,0);
+  const lohnPct = yearTotalInc>0 ? yearLohnInc/yearTotalInc*100 : 0;
 
   // Monthly trend for dashYear (all months up to maxMonth)
   const trend=[];
   for(let m=0;m<=maxMonth;m++){
     const out=DATA.expenses.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
     const inc=DATA.incomes.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-    trend.push({label:months[m],out,inc,mo:m,yr:dashYear,cur:isCurrentYear&&m===now.getMonth()});
+    trend.push({label:months[m],out,inc,net:inc-out,mo:m,yr:dashYear,cur:isCurrentYear&&m===now.getMonth()});
   }
   const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
 
@@ -2938,47 +2950,8 @@ function renderDashboard(){
       </div>
     </div>
 
-    ${isCurrentYear && z ? `
-    <!-- LOHNZYKLUS CARD -->
-    <div class="section">
-      <div class="zy-card">
-        <div class="zy-header">
-          <div class="zy-title">Lohnzyklus</div>
-          <div class="zy-period">${z.start.getDate()}. ${months[z.start.getMonth()]} – ${z.end.getDate()}. ${months[z.end.getMonth()]} ${z.end.getFullYear()}</div>
-        </div>
-        <div class="zy-body">
-          ${z.hasSalary ? `
-          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
-          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
-          ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}CHF ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
-          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel (Monat)</span><span class="zy-row-val" style="color:var(--accent)">− CHF ${fmtAmt(z.mSparziel)}</span></div>`:''}
-          <div class="zy-divider"></div>
-          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
-          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
-          <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
-          <div class="zy-prog-labels"><span>${z.daysElapsed} von ${z.cycleDays} Tagen</span><span>${budgetPct.toFixed(0)}% des Budgets</span></div>
-          ${z.dailyRate!==null?`
-          <div class="zy-rate-wrap">
-            <div style="display:flex;align-items:baseline;gap:8px">
-              <span class="zy-rate" style="color:${rateColor}">CHF ${fmtAmt(Math.abs(z.dailyRate))}</span>
-              <span style="font-size:13px;color:var(--text2)">/ Tag</span>
-            </div>
-            <div class="zy-rate-sub">${z.dailyRate>=0?'verfügbar':'überzogen'} · ${z.daysLeft} Tage verbleibend</div>
-          </div>`:''}
-          ` : `
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
-          <div class="zy-divider"></div>
-          <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-top:4px">
-            <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
-            <div style="font-size:12px;color:var(--text2);line-height:1.5">Einnahme erfassen und <strong style="color:var(--text)">«Als Lohn zählen»</strong> aktivieren. Lohntag: ${CFG.lohnTag||25}.</div>
-          </div>
-          `}
-        </div>
-      </div>
-    </div>
-
-    <!-- Heute, Woche & Ø Tagesausgabe -->
+    ${isCurrentYear ? `
+    <!-- Heute & Woche stats -->
     <div class="section" style="padding-top:0">
       <div class="stats-grid" style="margin-bottom:0">
         <div class="stat-card">
@@ -2991,15 +2964,6 @@ function renderDashboard(){
           <div class="stat-label">Diese Woche</div>
           <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">
             ${weekOut>0?'− '+fmtAmt(weekOut):'—'}
-          </div>
-        </div>
-        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
-          <div class="stat-label">Ø Tagesausgabe (Monat, ohne Fixkosten)
-            ${avgDiff!==null?`<span style="font-size:11px;color:${avgDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDiff<=0?'↓':'↑'}${Math.abs(avgDiff).toFixed(0)}% vs. ${months[prevMoD.getMonth()]}</span>`:''}
-            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
-          </div>
-          <div class="stat-value" style="font-size:18px;color:${avgDayThis>0?'var(--text)':'var(--text3)'}">
-            ${avgDayThis>0?'CHF '+fmtAmt(avgDayThis):'—'}
           </div>
         </div>
       </div>
@@ -3016,6 +2980,37 @@ function renderDashboard(){
       <div style="overflow-x:auto">${buildBalanceChart(dashboardChartMonths)}</div>
     </div>
     ` : ''}
+
+    <!-- Ø Tagesausgabe (Jahresdurchschnitt) -->
+    <div class="section" style="padding-top:0">
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
+          <div class="stat-label">Ø Tagesausgabe ${dashYear} (ohne Fixkosten)
+            ${avgDayYearDiff!==null?`<span style="font-size:11px;color:${avgDayYearDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDayYearDiff<=0?'↓':'↑'}${Math.abs(avgDayYearDiff).toFixed(0)}% vs. ${dashYear-1}</span>`:''}
+            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
+          </div>
+          <div class="stat-value" style="font-size:18px;color:${avgDayYear>0?'var(--text)':'var(--text3)'}">
+            ${avgDayYear>0?'CHF '+fmtAmt(avgDayYear):'—'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lohn % Einnahmen -->
+    <div class="section" style="padding-top:0">
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Lohn % Einnahmen ${dashYear}</div>
+        ${yearTotalInc>0 ? `
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+          <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:var(--text)">${lohnPct.toFixed(1)}%</span>
+          <span style="font-size:12px;color:var(--text3)">CHF ${fmtAmt(yearLohnInc)} von CHF ${fmtAmt(yearTotalInc)}</span>
+        </div>
+        <div class="zy-prog-wrap" style="margin:0;height:8px">
+          <div class="zy-prog-fill" style="width:${Math.min(lohnPct,100).toFixed(1)}%;background:var(--accent)"></div>
+        </div>
+        ` : `<div style="font-size:13px;color:var(--text3)">Keine Einnahmen erfasst</div>`}
+      </div>
+    </div>
 
     <!-- Jahres-Sparquote -->
     <div class="section" style="padding-top:0">
@@ -3079,6 +3074,7 @@ function renderDashboard(){
                 ${m.out?'− '+fmtAmt(m.out):'—'}
               </div>
               ${m.inc>0?`<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--green)">+ ${fmtAmt(m.inc)}</div>`:''}
+              ${(m.out>0||m.inc>0)?`<div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.net>=0?'var(--green)':'var(--red)'}">= ${m.net>=0?'+':''}${fmtAmt(m.net)}</div>`:''}
             </div>
           </div>
         `).join('')}
@@ -3512,6 +3508,7 @@ async function saveAvgConfig(){
   });
   closeModal('avg-config-modal');
   renderDashboard();
+  if(currentTab==='monat') renderMonat();
   if(!CFG.demo && changed.length){
     for(const r of changed){
       try{
@@ -4113,20 +4110,17 @@ function renderMonat(){
   const dateSet = new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
   const sortedDates = [...dateSet].sort((a,b)=>b.localeCompare(a));
 
-  // Lohnzyklus (current month only)
-  const z = isCurrent ? getZyklusInfo() : null;
-  const budgetPct = z&&z.varBudget>0 ? Math.min(z.varSpent/z.varBudget*100,100) : 0;
-  const progColor = budgetPct>90?'var(--red)':budgetPct>70?'var(--yellow)':'var(--accent)';
-
   // Today/week stats (current month only)
-  let todayOut=0, weekOut=0, avgDayThis=0;
+  let todayOut=0, weekOut=0;
   if(isCurrent){
     const dow = now.getDay()===0?6:now.getDay()-1;
     const ws = new Date(now); ws.setDate(now.getDate()-dow);
     todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
     weekOut = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
-    avgDayThis = avgDailyVarSpend(now.getMonth(), now.getFullYear(), now.getDate());
   }
+  // Ø Tagesausgabe for all months
+  const daysInViewMonth = isCurrent ? now.getDate() : new Date(yr, mo+1, 0).getDate();
+  const avgDayThis = avgDailyVarSpend(mo, yr, daysInViewMonth);
 
   const container = document.getElementById('monat-content');
   if(!container) return;
@@ -4160,7 +4154,7 @@ function renderMonat(){
     </div>
 
     ${isCurrent ? `
-    <!-- Heute & Woche & Avg (current month only) -->
+    <!-- Heute & Woche (current month only) -->
     <div class="section" style="padding-top:0">
       <div class="stats-grid" style="margin-bottom:0">
         <div class="stat-card">
@@ -4171,44 +4165,19 @@ function renderMonat(){
           <div class="stat-label">Diese Woche</div>
           <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">${weekOut>0?'− '+fmtAmt(weekOut):'—'}</div>
         </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Ø Tagesausgabe (all months) -->
+    <div class="section" style="padding-top:0">
+      <div class="stats-grid" style="margin-bottom:0">
         <div class="stat-card" style="grid-column:1/-1">
           <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)</div>
-          <div class="stat-value" style="font-size:18px;color:${avgDayThis>0?'var(--text)':'var(--text3)'}">${avgDayThis>0?'CHF '+fmtAmt(avgDayThis):'—'}</div>
+          <div class="stat-value" style="font-size:18px">CHF ${fmtAmt(avgDayThis)}</div>
         </div>
       </div>
     </div>
-
-    ${z ? `
-    <!-- Lohnzyklus -->
-    <div class="section" style="padding-top:0">
-      <div class="section-title">Lohnzyklus</div>
-      <div class="zy-card">
-        <div class="zy-header">
-          <div class="zy-title">Lohnzyklus</div>
-          <div class="zy-period">${z.start.getDate()}. ${months[z.start.getMonth()]} – ${z.end.getDate()}. ${months[z.end.getMonth()]} ${z.end.getFullYear()}</div>
-        </div>
-        <div class="zy-body">
-          ${z.hasSalary ? `
-          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
-          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
-          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− CHF ${fmtAmt(z.mSparziel)}</span></div>`:''}
-          <div class="zy-divider"></div>
-          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
-          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
-          <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
-          <div class="zy-prog-labels"><span>${z.daysElapsed} von ${z.cycleDays} Tagen</span><span>${budgetPct.toFixed(0)}% des Budgets</span></div>
-          ` : `
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
-          <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-top:4px">
-            <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
-            <div style="font-size:12px;color:var(--text2);line-height:1.5">Lohntag: ${CFG.lohnTag||25}</div>
-          </div>
-          `}
-        </div>
-      </div>
-    </div>` : ''}
-    ` : ''}
 
     ${cats.length ? `
     <!-- Category breakdown -->
