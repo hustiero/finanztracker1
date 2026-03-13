@@ -56,14 +56,23 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
 /* Header */
 .top-bar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px 8px;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  padding:10px 12px 8px;
   background:var(--bg0);
   border-bottom:1px solid var(--border);
   flex-shrink:0;
 }
-.top-bar-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
-.top-bar-sub{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:1px}
+.top-bar-left{display:flex;flex-direction:column;gap:1px}
+.top-bar-title{font-size:16px;font-weight:600;letter-spacing:-.3px}
+.top-bar-sub{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.top-bar-logo{display:flex;align-items:center;justify-content:center}
+.logo-circle{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:#0D0D0F;
+}
+[data-theme="light"] .logo-circle{background:#0D0D0F;color:var(--accent)}
+.top-bar-right{display:flex;align-items:center;justify-content:flex-end;gap:6px}
 
 /* Content */
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
@@ -95,14 +104,15 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);border:none;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 18px rgba(200,245,60,.45);
+  box-shadow:0 4px 22px rgba(255,209,102,.55);
   z-index:200;cursor:pointer;
-  transition:transform .15s, box-shadow .15s, background .15s;
+  transition:transform .3s cubic-bezier(.34,1.2,.64,1), box-shadow .3s, background .4s;
 }
+[data-theme="light"] .fab{box-shadow:0 4px 22px rgba(96,165,250,.55)}
 .fab:active{transform:translateX(-50%) scale(.92)}
-.fab svg{width:26px;height:26px;stroke:var(--bg0);stroke-width:2.5;fill:none}
+.fab svg{width:26px;height:26px;stroke:var(--bg0);stroke-width:2.5;fill:none;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
 .fab.fab-active{background:var(--bg3);box-shadow:0 4px 18px rgba(0,0,0,.4)}
-.fab.fab-active svg{stroke:var(--accent)}
+.fab.fab-active svg{stroke:var(--accent);transform:rotate(45deg)}
 
 /* ═══════════════════════════════════════════════════
    MONATSÜBERSICHT (slide-in view)
@@ -680,24 +690,44 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 [data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
 
 /* ═══════════════════════════════════════════════════
-   MENU OVERLAY
+   MENU OVERLAY (right-side frosted glass)
 ═══════════════════════════════════════════════════ */
 .menu-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.55);
-  z-index:800;display:flex;align-items:flex-end;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .2s;
+  position:fixed;inset:0;
+  z-index:800;pointer-events:none;
 }
-.menu-overlay.open{opacity:1;pointer-events:all}
+.menu-overlay.open{pointer-events:all}
+.menu-overlay-backdrop{
+  position:absolute;inset:0;background:rgba(0,0,0,.25);
+  opacity:0;transition:opacity .3s;
+}
+.menu-overlay.open .menu-overlay-backdrop{opacity:1}
 .menu-overlay-sheet{
-  width:100%;max-width:480px;
-  background:var(--bg1);border-radius:20px 20px 0 0;
-  border-top:1px solid var(--border);
-  padding:0 0 calc(16px + var(--safe-bot));
-  transform:translateY(60px);transition:transform .25s cubic-bezier(.4,0,.2,1);
+  position:absolute;top:0;right:0;bottom:0;
+  width:min(340px,92vw);
+  background:rgba(20,20,23,.82);
+  backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border-left:1px solid var(--border);
+  padding:0 0 calc(24px + var(--safe-bot));
+  padding-top:var(--safe-top);
+  transform:translateX(100%);
+  transition:transform .3s cubic-bezier(.25,.46,.45,.94);
+  display:flex;flex-direction:column;
 }
-.menu-overlay.open .menu-overlay-sheet{transform:translateY(0)}
-.menu-handle{width:36px;height:4px;border-radius:99px;background:var(--border2);margin:12px auto 8px}
-.menu-overlay-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:0 20px 10px}
+[data-theme="light"] .menu-overlay-sheet{background:rgba(245,245,250,.88)}
+.menu-overlay.open .menu-overlay-sheet{transform:translateX(0)}
+.menu-overlay-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 10px;border-bottom:1px solid var(--border);
+}
+.menu-overlay-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.menu-overlay-close-btn{
+  width:32px;height:32px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+}
+.menu-overlay-close-btn svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
+.menu-overlay-items{flex:1;overflow-y:auto;padding:4px 0}
 .menu-overlay-item{
   width:100%;display:flex;align-items:center;gap:14px;
   padding:14px 20px;background:none;color:var(--text);
@@ -718,6 +748,71 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .chart-period-btn{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
 .chart-period-btn.active{background:var(--accent);color:#0D0D0F;border-color:var(--accent)}
 .chart-svg{display:block;width:100%}
+
+/* ═══════════════════════════════════════════════════
+   TAB PAGE TRANSITIONS
+═══════════════════════════════════════════════════ */
+@keyframes tabFadeIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+.tab-page.animating{animation:tabFadeIn .2s ease-out both}
+
+/* ═══════════════════════════════════════════════════
+   SETTINGS TAB
+═══════════════════════════════════════════════════ */
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 0;border-bottom:1px solid var(--border);
+}
+.settings-row:last-child{border-bottom:none}
+.settings-row-label{font-size:14px;font-weight:500}
+.settings-row-sub{font-size:12px;color:var(--text3);margin-top:2px}
+
+/* Verlauf search */
+.verlauf-search-wrap{
+  position:relative;margin:0 16px 8px;
+}
+.verlauf-search-wrap svg{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;pointer-events:none;
+}
+.verlauf-search{
+  width:100%;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r2);padding:9px 12px 9px 34px;
+  color:var(--text);font-size:14px;
+}
+.verlauf-search:focus{border-color:var(--accent)}
+.verlauf-search::placeholder{color:var(--text3)}
+
+/* Aktien search suggest */
+.aktie-search-wrap{position:relative}
+.aktie-suggest{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);
+  z-index:10;max-height:200px;overflow-y:auto;
+}
+.aktie-suggest-item{
+  padding:10px 14px;cursor:pointer;font-size:13px;
+  border-bottom:1px solid var(--border);
+}
+.aktie-suggest-item:last-child{border-bottom:none}
+.aktie-suggest-item:active{background:var(--bg3)}
+.aktie-suggest-name{font-weight:600;margin-bottom:1px}
+.aktie-suggest-sub{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+
+/* Tab nav badge (for dynamic tabs) */
+.nav-icon-float{
+  position:fixed;
+  bottom:calc(var(--safe-bot) + var(--nav-h) + 4px);
+  right:0;
+  width:40px;display:flex;justify-content:center;
+  z-index:200;pointer-events:none;transition:opacity .2s;
+}
+.nav-icon-float-inner{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--bg2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);pointer-events:all;cursor:pointer;
+}
+.nav-icon-float-inner svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.8}
 
 /* ═══════════════════════════════════════════════════
    AKTIEN
@@ -815,14 +910,19 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
   <!-- Top Bar -->
   <div class="top-bar">
-    <div>
+    <div class="top-bar-left">
       <div class="top-bar-title" id="page-title">Eingabe</div>
       <div class="top-bar-sub" id="page-sub">heute</div>
     </div>
-    <div class="sync-row">
-      <div class="sync-dot demo" id="sync-dot"></div>
-      <div class="sync-label" id="sync-label">Demo</div>
-      <button class="settings-btn" id="notif-btn" onclick="toggleNotifOverlay()" style="margin-left:8px" aria-label="Benachrichtigungen">
+    <div class="top-bar-logo">
+      <div class="logo-circle">₣</div>
+    </div>
+    <div class="top-bar-right">
+      <div class="sync-row">
+        <div class="sync-dot demo" id="sync-dot"></div>
+        <div class="sync-label" id="sync-label">Demo</div>
+      </div>
+      <button class="settings-btn" id="notif-btn" onclick="toggleNotifOverlay()" aria-label="Benachrichtigungen">
         <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <div class="notif-badge" id="notif-badge" style="display:none">0</div>
       </button>
@@ -924,6 +1024,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <div id="tab-verlauf" class="tab-page" style="display:none">
       <div class="section">
         <div class="filter-row" id="verlauf-filters"></div>
+      </div>
+      <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="display:none">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
       </div>
       <div id="verlauf-chart-section" style="padding:0 16px 8px"></div>
       <div id="verlauf-list"></div>
@@ -1080,22 +1184,103 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <button class="save-btn" onclick="openNewAktieModal()" style="width:100%">+ Aktie hinzufügen</button>
       </div>
     </div>
+
+    <!-- TAB: Monatsübersicht -->
+    <div id="tab-monat" class="tab-page" style="display:none">
+      <div id="monat-content"></div>
+    </div>
+
+    <!-- TAB: Einstellungen -->
+    <div id="tab-einstellungen" class="tab-page" style="display:none">
+      <div class="section">
+        <div class="section-title">Verbindung</div>
+        <div class="card" style="padding:14px">
+          <div class="form-group">
+            <label class="form-label">Script URL</label>
+            <input id="s-url2" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+          </div>
+          <button class="save-btn" onclick="applySettings2()">Speichern &amp; neu laden</button>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Darstellung</div>
+        <div class="card" style="padding:0 14px">
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Dunkel-Modus</div>
+              <div class="settings-row-sub">Dunkles oder helles Design</div>
+            </div>
+            <div class="toggle-switch" id="theme-toggle-sw" onclick="toggleThemeSwitch()"></div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Navigation</div>
+        <div class="card" style="padding:14px">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Wähle welche Tabs in der unteren Navigation erscheinen (2 konfigurierbare Positionen).</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Slot 1 (links)</label>
+              <select id="nav-slot1" class="form-select" onchange="saveNavSlots()">
+                <option value="verlauf">Verlauf</option>
+                <option value="monat">Monatsübersicht</option>
+                <option value="aktien">Aktien</option>
+                <option value="lohn">Lohn</option>
+                <option value="dauerauftraege">Daueraufträge</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Slot 2 (rechts)</label>
+              <select id="nav-slot2" class="form-select" onchange="saveNavSlots()">
+                <option value="verlauf">Verlauf</option>
+                <option value="monat">Monatsübersicht</option>
+                <option value="aktien">Aktien</option>
+                <option value="lohn">Lohn</option>
+                <option value="dauerauftraege">Daueraufträge</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Export</div>
+        <div class="card" style="padding:14px">
+          <button class="save-btn" onclick="exportExcel()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Als Excel exportieren
+          </button>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">App-Info</div>
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div class="logo-circle" style="width:40px;height:40px;font-size:18px">₣</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:.05em">₣ TRACKER</div>
+              <div style="font-size:12px;color:var(--text3)">Persönlicher Finanztracker</div>
+            </div>
+          </div>
+          <button class="btn-delete" style="width:100%" onclick="resetApp()">App zurücksetzen</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Bottom Navigation -->
+  <!-- Bottom Navigation (dynamic slots) -->
   <nav id="nav">
     <button class="nav-btn" id="nav-dashboard" onclick="goTab('dashboard')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Übersicht
     </button>
-    <button class="nav-btn" id="nav-verlauf" onclick="goTab('verlauf')">
+    <button class="nav-btn" id="nav-slot1-btn" onclick="">
       <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Verlauf
+      <span id="nav-slot1-lbl">Verlauf</span>
     </button>
     <div class="nav-fab-space"></div>
-    <button class="nav-btn" id="nav-aktien" onclick="goTab('aktien')">
-      <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      Aktien
+    <button class="nav-btn" id="nav-slot2-btn" onclick="">
+      <svg viewBox="0 0 24 24" id="nav-slot2-icon"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      <span id="nav-slot2-lbl">Aktien</span>
     </button>
     <button class="nav-btn" id="nav-menu" onclick="openMenuOverlay()">
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -1125,7 +1310,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
       Daueraufträge / Abos
     </button>
-    <button class="menu-overlay-item" onclick="openSettings();closeMenuOverlay()">
+    <button class="menu-overlay-item" onclick="goTab('einstellungen');closeMenuOverlay()">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       Einstellungen
     </button>
@@ -1668,7 +1853,7 @@ function avgDailyVarSpend(mo, yr, daysElapsed){
   const fixCats=new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
   const total=DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===mo&&d.getFullYear()===yr&&!fixCats.has(e.cat);
+    return d.getMonth()===mo&&d.getFullYear()===yr&&!fixCats.has(e.cat)&&!e.excludeAvg;
   }).reduce((s,e)=>s+e.amt,0);
   return daysElapsed>0?total/daysElapsed:0;
 }
@@ -1750,6 +1935,7 @@ function launchApp(){
   if(!CFG.notifications) CFG.notifications = [];
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  renderNav();
   goTab('dashboard');
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
   else{ setSyncStatus('demo'); renderAll(); }
@@ -2279,8 +2465,8 @@ function openMonthView(){
 function closeMonthView(){
   document.getElementById('month-view').classList.remove('open');
 }
-function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} renderMonthView(); }
-function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} renderMonthView(); }
+function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
+function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
 
 function renderMonthView(){
   const now=new Date(), yr=mvYear, mo=mvMonth;
@@ -2551,6 +2737,14 @@ function renderVerlauf(){
 
   entries.sort((a,b)=>b.date.localeCompare(a.date));
 
+  // Search filter (only for 'alle')
+  const searchWrap = document.getElementById('verlauf-search-wrap');
+  if(searchWrap) searchWrap.style.display = verlaufFilter==='alle' ? 'flex' : 'none';
+  if(verlaufFilter==='alle' && verlaufSearch){
+    const q = verlaufSearch.toLowerCase();
+    entries = entries.filter(e=>(e.what||'').toLowerCase().includes(q)||(e.cat||'').toLowerCase().includes(q)||(e.note||'').toLowerCase().includes(q));
+  }
+
   const container = document.getElementById('verlauf-list');
   if(!entries.length){
     container.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
@@ -2586,7 +2780,7 @@ function renderVerlauf(){
                 <div class="card-row-title">${esc(e.what)}${isRec?` <span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`:''}</div>
                 <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':'' }${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
               </div>
-              <div class="card-row-amount expense">− ${fmtAmt(e.amt)}</div>
+              <div class="card-row-amount ${e._type==='einnahme'?'income':'expense'}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
               ${isRec?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
             </div>`;
           }).join('')}
@@ -2916,9 +3110,15 @@ function goTab(tab){
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl) tabEl.style.display='block';
+  // Nav active state: fixed slots + dynamic slots
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  const navBtn = document.getElementById('nav-'+tab);
-  if(navBtn) navBtn.classList.add('active');
+  if(tab==='dashboard'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
+  else {
+    const slots = CFG.navSlots||['verlauf','monat'];
+    if(slots[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
+    else if(slots[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
+    else document.getElementById('nav-menu')?.classList.add('active');
+  }
   // FAB: active (X) state when on eingabe
   const fab = document.getElementById('fab-add');
   if(fab){
@@ -2930,13 +3130,16 @@ function goTab(tab){
   }
   document.getElementById('page-title').textContent = {
     eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', lohn:'Lohn & Einnahmen', aktien:'Aktien'
+    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', lohn:'Lohn & Einnahmen',
+    aktien:'Aktien', monat:'Monatsübersicht', einstellungen:'Einstellungen'
   }[tab]||tab;
   updatePageSub();
   if(tab==='verlauf') renderVerlauf();
   if(tab==='dashboard') renderDashboard();
   if(tab==='lohn') renderLohn();
   if(tab==='aktien') renderAktien();
+  if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); renderMonat(); }
+  if(tab==='einstellungen') renderEinstellungen();
 }
 
 function openMenuOverlay(){ document.getElementById('menu-overlay').classList.add('open'); }
@@ -3063,19 +3266,22 @@ async function confirmRecurringExecution(){
   if(!what||!amt||!date){ toast('Felder ausfüllen','err'); return; }
 
   const id = genId('A');
-  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)'};
+  // Find the matching recurring entry to inherit affectsAvg
+  const n = (CFG.notifications||[]).find(n=>n.id===notifId);
+  const recurEntry = n ? DATA.recurring.find(r=>r.id===n.recurId) : null;
+  const excludeAvg = recurEntry ? !recurEntry.affectsAvg : false;
+  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)',excludeAvg};
   DATA.expenses.push(entry);
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)','']]);
+      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)',excludeAvg?'1':'']]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
 
   // Mark notification as confirmed
-  const n = (CFG.notifications||[]).find(n=>n.id===notifId);
   if(n){ n.confirmed=true; cfgSave(); }
 
   closeModal('rec-confirm-modal');
@@ -3495,7 +3701,7 @@ async function fetchStockPrice(ticker){
 
 async function renderAktien(){
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
-  const activeStocks = positions.filter(s => s.pos.qty > 0.0001);
+  const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
   const histStocks = positions.filter(s => s.pos.qty <= 0.0001 && SDATA.trades.some(t=>t.stockId===s.id));
   const show = aktienView==='aktiv' ? activeStocks : histStocks;
 
@@ -3738,6 +3944,257 @@ function deleteAktie(stockId){
   sdataSave();
   closeAktieDetail();
   toast('✓ Aktie gelöscht','ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: VERLAUF SEARCH
+// ═══════════════════════════════════════════════════════════════
+let verlaufSearch = '';
+function setVerlaufSearch(v){ verlaufSearch=v; renderVerlauf(); }
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: DYNAMIC NAV
+// ═══════════════════════════════════════════════════════════════
+const NAV_ICONS = {
+  verlauf: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  monat: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  aktien: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  lohn: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  dauerauftraege: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>'
+};
+const NAV_LABELS = { verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn', dauerauftraege:'Aufträge' };
+
+function renderNav(){
+  const slots = CFG.navSlots || ['verlauf','monat'];
+  [1,2].forEach(i=>{
+    const key = slots[i-1];
+    const btn = document.getElementById('nav-slot'+i+'-btn');
+    if(!btn) return;
+    btn.onclick = ()=>goTab(key);
+    const svgEl = btn.querySelector('svg');
+    if(svgEl) svgEl.innerHTML = NAV_ICONS[key]||'';
+    const lblEl = btn.querySelector('span');
+    if(lblEl) lblEl.textContent = NAV_LABELS[key]||key;
+  });
+}
+
+function saveNavSlots(){
+  const s1 = document.getElementById('nav-slot1')?.value || 'verlauf';
+  const s2 = document.getElementById('nav-slot2')?.value || 'monat';
+  CFG.navSlots = [s1, s2];
+  cfgSave();
+  renderNav();
+  toast('Navigation aktualisiert','ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: SETTINGS TAB
+// ═══════════════════════════════════════════════════════════════
+function applySettings2(){
+  CFG.scriptUrl = document.getElementById('s-url2').value.trim();
+  CFG.demo = false;
+  cfgSave();
+  location.reload();
+}
+
+function toggleThemeSwitch(){
+  const isLight = document.documentElement.dataset.theme==='light';
+  document.documentElement.dataset.theme = isLight ? '' : 'light';
+  CFG.theme = isLight ? '' : 'light';
+  cfgSave();
+  const sw = document.getElementById('theme-toggle-sw');
+  if(sw) sw.classList.toggle('on', !isLight);
+}
+
+function renderEinstellungen(){
+  const urlEl = document.getElementById('s-url2');
+  if(urlEl) urlEl.value = CFG.scriptUrl||'';
+  const sw = document.getElementById('theme-toggle-sw');
+  if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme==='light');
+  const slots = CFG.navSlots || ['verlauf','monat'];
+  const s1 = document.getElementById('nav-slot1');
+  const s2 = document.getElementById('nav-slot2');
+  if(s1) s1.value = slots[0]||'verlauf';
+  if(s2) s2.value = slots[1]||'monat';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: MONATSÜBERSICHT TAB
+// ═══════════════════════════════════════════════════════════════
+function renderMonat(){
+  const now = new Date();
+  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const wdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const todayStr = today();
+  const yr = mvYear, mo = mvMonth;
+  const isCurrent = yr===now.getFullYear() && mo===now.getMonth();
+
+  const mExp = DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const totalOut = mExp.reduce((s,e)=>s+e.amt,0);
+  const totalIn = mInc.reduce((s,e)=>s+e.amt,0);
+  const bal = totalIn - totalOut;
+
+  // Category breakdown
+  const catMap={};
+  mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const parentMap={};
+  DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
+  const parentTotals={};
+  Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
+  const cats = Object.entries(parentTotals).sort(([,a],[,b])=>b-a).slice(0,8);
+  const maxCat = cats[0]?.[1]||1;
+
+  const dateSet = new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
+  const sortedDates = [...dateSet].sort((a,b)=>b.localeCompare(a));
+
+  // Lohnzyklus (current month only)
+  const z = isCurrent ? getZyklusInfo() : null;
+  const budgetPct = z&&z.varBudget>0 ? Math.min(z.varSpent/z.varBudget*100,100) : 0;
+  const progColor = budgetPct>90?'var(--red)':budgetPct>70?'var(--yellow)':'var(--accent)';
+
+  // Today/week stats (current month only)
+  let todayOut=0, weekOut=0, avgDayThis=0;
+  if(isCurrent){
+    const dow = now.getDay()===0?6:now.getDay()-1;
+    const ws = new Date(now); ws.setDate(now.getDate()-dow);
+    todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
+    weekOut = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
+    avgDayThis = avgDailyVarSpend(now.getMonth(), now.getFullYear(), now.getDate());
+  }
+
+  const container = document.getElementById('monat-content');
+  if(!container) return;
+
+  container.innerHTML = `
+    <!-- Month navigation -->
+    <div class="section" style="padding-bottom:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px">
+        <button class="btn-cancel" onclick="prevMvMonth()" style="padding:8px 16px;font-size:18px">‹</button>
+        <div style="font-size:16px;font-weight:700">${mvMonths[mo]} ${yr}</div>
+        <button class="btn-cancel" onclick="nextMvMonth()" style="padding:8px 16px;font-size:18px" ${isCurrent?'disabled':''}>›</button>
+      </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="section" style="padding-top:0">
+      <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        <div class="stat-card">
+          <div class="stat-label">Einnahmen</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--green);font-weight:500;margin-top:2px">+${fmtAmt(totalIn)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ausgaben</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--red);font-weight:500;margin-top:2px">−${fmtAmt(totalOut)}</div>
+        </div>
+        <div class="stat-card" style="background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'}">
+          <div class="stat-label">Bilanz</div>
+          <div style="font-size:15px;font-family:'DM Mono',monospace;color:${bal>=0?'var(--green)':'var(--red)'};font-weight:500;margin-top:2px">${bal>=0?'+':''}${fmtAmt(bal)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${isCurrent ? `
+    <!-- Heute & Woche & Avg (current month only) -->
+    <div class="section" style="padding-top:0">
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-card">
+          <div class="stat-label">Heute ausgegeben</div>
+          <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">${todayOut>0?'− '+fmtAmt(todayOut):'—'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Diese Woche</div>
+          <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">${weekOut>0?'− '+fmtAmt(weekOut):'—'}</div>
+        </div>
+        <div class="stat-card" style="grid-column:1/-1">
+          <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)</div>
+          <div class="stat-value" style="font-size:18px;color:${avgDayThis>0?'var(--text)':'var(--text3)'}">${avgDayThis>0?'CHF '+fmtAmt(avgDayThis):'—'}</div>
+        </div>
+      </div>
+    </div>
+
+    ${z ? `
+    <!-- Lohnzyklus -->
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Lohnzyklus</div>
+      <div class="zy-card">
+        <div class="zy-header">
+          <div class="zy-title">Lohnzyklus</div>
+          <div class="zy-period">${z.start.getDate()}. ${months[z.start.getMonth()]} – ${z.end.getDate()}. ${months[z.end.getMonth()]} ${z.end.getFullYear()}</div>
+        </div>
+        <div class="zy-body">
+          ${z.hasSalary ? `
+          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
+          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− CHF ${fmtAmt(z.mSparziel)}</span></div>`:''}
+          <div class="zy-divider"></div>
+          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
+          <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
+          <div class="zy-prog-labels"><span>${z.daysElapsed} von ${z.cycleDays} Tagen</span><span>${budgetPct.toFixed(0)}% des Budgets</span></div>
+          ` : `
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
+          <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-top:4px">
+            <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">Lohntag: ${CFG.lohnTag||25}</div>
+          </div>
+          `}
+        </div>
+      </div>
+    </div>` : ''}
+    ` : ''}
+
+    ${cats.length ? `
+    <!-- Category breakdown -->
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Kategorien</div>
+      <div class="card" style="padding:12px 14px">
+        ${cats.map(([cat,amt])=>`
+          <div class="bar-wrap">
+            <div class="bar-label-row">
+              <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
+              <span class="bar-val">CHF ${fmtAmt(amt)}</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${sortedDates.length ? `
+    <!-- Day entries -->
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Einträge</div>
+      <div class="card" style="padding:0">
+        ${sortedDates.map(ds=>{
+          const d = new Date(ds+'T12:00:00');
+          const dExp = DATA.expenses.filter(e=>e.date===ds);
+          const dInc = DATA.incomes.filter(e=>e.date===ds);
+          const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0);
+          const isToday = ds===todayStr;
+          const entries = [...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
+          return `<div class="mv-day-group">
+            <div class="mv-day-hdr">
+              <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
+              <span class="mv-day-totals" style="color:var(--text2)">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
+            </div>
+            ${entries.map(e=>{
+              const par = parentOf(e.cat);
+              const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
+              return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
+                <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
+                <span class="mv-entry-what">${esc(e.what)}</span>
+                <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
+                  ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
+                </span>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`
+    : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
+  `;
 }
 </script>
 </body>
