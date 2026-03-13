@@ -1168,8 +1168,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <div class="section">
         <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" style="width:100%">+ Einnahme erfassen</button>
       </div>
+      <div id="lohn-zyklus-section"></div>
       <div class="section" style="padding-top:0">
-        <div class="section-title">Lohnzyklus</div>
+        <div class="section-title">Einstellungen</div>
         <div class="card" style="padding:14px">
           <div class="form-group">
             <label class="form-label">Lohntag (Tag des Monats)</label>
@@ -1799,11 +1800,10 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  // Fixed costs: active ausgabe Daueraufträge
-  const catMap = {}; DATA.categories.forEach(c=>{catMap[c.name]=c.type;});
-  const fixKosten = DATA.recurring
-    .filter(r=>r.active&&(catMap[r.cat]||'ausgabe')==='ausgabe')
-    .reduce((s,r)=>s+r.amt,0);
+  // Fixed costs: expenses marked isFixkosten within the current period
+  const fixKosten = DATA.expenses
+    .filter(e=>e.isFixkosten && e.date>=startStr && e.date<=endStr)
+    .reduce((s,e)=>s+e.amt,0);
   // Previous cycle carryover
   const prevEnd = new Date(start.getTime()-86400000);
   const prevStart = prevEnd.getDate()>=lt
@@ -1817,14 +1817,16 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  const prevSpent=DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
-  const prevCarryover = prevLohn>0 ? (prevLohn-fixKosten-prevSpent) : 0;
+  const prevFixKosten = DATA.expenses.filter(e=>e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
+  const prevVarSpent  = DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
+  const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
   const mSparziel = CFG.mSparziel||0;
   const cycleDays   = Math.round((end-start)/86400000)+1;
   const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
   const daysLeft    = cycleDays - daysElapsed;
   const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
-  const varSpent    = DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
+  // varSpent: only non-Fixkosten expenses (Fixkosten already deducted in budget)
+  const varSpent    = DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=startStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
   return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0,prevCarryover,mSparziel};
@@ -1977,10 +1979,10 @@ async function loadAll(){
 
     // Load expenses
     try{
-      const res = await apiGet('Ausgaben!A2:G5000');
+      const res = await apiGet('Ausgaben!A2:H5000');
       DATA.expenses = (res.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||''}));
+        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isFixkosten:String(r[7]||'')==='1'}));
     } catch(e){ DATA.expenses=[]; }
 
     // Load incomes
@@ -2106,12 +2108,12 @@ async function saveEntry(){
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
-    const entry = {id,date,what,cat,amt,note};
+    const entry = {id,date,what,cat,amt,note,isFixkosten:false};
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'']]);
+        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -2185,8 +2187,9 @@ async function updateEntry(){
       const row = await apiFindRow(sheet, id);
       if(row){
         const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
-        const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'']] : [[id,date,what,cat,amt,note,'',isLohn]];
-        const updateRange = type==='ausgabe' ? `${sheet}!A${row}:G${row}` : `${sheet}!A${row}:H${row}`;
+        const isFixk = type==='ausgabe' ? (list[idx]?.isFixkosten ? '1' : '0') : '';
+        const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'',isFixk]] : [[id,date,what,cat,amt,note,'',isLohn]];
+        const updateRange = `${sheet}!A${row}:H${row}`;
         await apiUpdate(updateRange, updateVals);
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
       }
@@ -3379,6 +3382,79 @@ function renderLohn(){
   const now = new Date();
   const mNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
+  // Lohnzyklus card + cycle transactions
+  const zSec = document.getElementById('lohn-zyklus-section');
+  if(zSec){
+    const z = getZyklusInfo();
+    const budgetPct = z.varBudget>0 ? Math.min(z.varSpent/z.varBudget*100,100) : 0;
+    const progColor = budgetPct>90?'var(--red)':budgetPct>70?'var(--yellow)':'var(--accent)';
+    const rateColor = z.dailyRate===null?'var(--text3)':z.dailyRate>=0?'var(--accent)':'var(--red)';
+    const cycleInc = DATA.incomes.filter(e=>e.date>=z.startStr&&e.date<=z.endStr).sort((a,b)=>a.date.localeCompare(b.date));
+    const cycleExp = DATA.expenses.filter(e=>e.date>=z.startStr&&e.date<=z.endStr).sort((a,b)=>a.date.localeCompare(b.date));
+    const cycleAll = [...cycleInc.map(e=>({...e,_type:'inc'})),...cycleExp.map(e=>({...e,_type:'exp'}))].sort((a,b)=>a.date.localeCompare(b.date));
+    zSec.innerHTML = `
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Lohnzyklus</div>
+      <div class="zy-card">
+        <div class="zy-header">
+          <div class="zy-title">${z.start.getDate()}. ${mNames[z.start.getMonth()]} – ${z.end.getDate()}. ${mNames[z.end.getMonth()]} ${z.end.getFullYear()}</div>
+          <div class="zy-period">${z.daysElapsed} / ${z.cycleDays} Tage</div>
+        </div>
+        <div class="zy-body">
+          ${z.hasSalary ? `
+          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
+          ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}CHF ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
+          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− CHF ${fmtAmt(z.mSparziel)}</span></div>`:''}
+          <div class="zy-divider"></div>
+          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
+          <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
+          <div class="zy-prog-labels"><span>${budgetPct.toFixed(0)}% des Budgets verbraucht</span><span>${z.daysLeft} Tage verbleibend</span></div>
+          ${z.dailyRate!==null?`
+          <div class="zy-rate-wrap">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span class="zy-rate" style="color:${rateColor}">CHF ${fmtAmt(Math.abs(z.dailyRate))}</span>
+              <span style="font-size:13px;color:var(--text2)">/ Tag ${z.dailyRate>=0?'verfügbar':'überzogen'}</span>
+            </div>
+          </div>`:''}
+          ` : `
+          <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px">
+            <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">Einnahme erfassen und <strong style="color:var(--text)">«Als Lohn zählen»</strong> aktivieren. Lohntag: ${CFG.lohnTag||25}.</div>
+          </div>
+          `}
+        </div>
+      </div>
+    </div>
+
+    ${cycleAll.length ? `
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Buchungen im Zyklus
+        <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">Fixkosten per Taste markieren</span>
+      </div>
+      <div class="card" style="padding:0">
+        ${cycleAll.map(e=>`
+        <div class="card-row" style="padding-right:8px">
+          <div class="card-row-icon" style="background:${catColor(e.cat)}22"><span>${catEmoji(e.cat)}</span></div>
+          <div class="card-row-body">
+            <div class="card-row-title">${esc(e.what)}${e.isLohn?` <span style="font-size:10px;background:rgba(200,245,60,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:600">Lohn</span>`:''}${e.isFixkosten?` <span style="font-size:10px;background:rgba(255,77,109,.12);color:var(--red);border-radius:4px;padding:1px 5px;font-weight:600">Fix</span>`:''}</div>
+            <div class="card-row-sub">${fmtDate(e.date)} · ${esc(e.cat)}</div>
+          </div>
+          <div class="card-row-amount ${e._type==='inc'?'income':''}" style="min-width:60px;text-align:right">
+            ${e._type==='inc'?'+':'−'} ${fmtAmt(e.amt)}
+          </div>
+          ${e._type==='exp' ? `
+          <button onclick="toggleFixkosten('${e.id}')" style="margin-left:6px;padding:5px 8px;font-size:11px;font-weight:600;border:1px solid ${e.isFixkosten?'var(--red)':'var(--border)'};border-radius:6px;background:${e.isFixkosten?'rgba(255,77,109,.1)':'var(--bg3)'};color:${e.isFixkosten?'var(--red)':'var(--text3)'};white-space:nowrap;flex-shrink:0">
+            ${e.isFixkosten?'Fix ✓':'Fix?'}
+          </button>` : `<div style="width:54px"></div>`}
+        </div>`).join('')}
+      </div>
+    </div>
+    ` : ''}`;
+  }
+
   // Monthly income data
   const mData = [];
   for(let i=lohnChartMonths-1; i>=0; i--){
@@ -3468,6 +3544,22 @@ function saveLohnTag(){
   cfgSave();
   toast('✓ Gespeichert','ok');
   renderDashboard();
+}
+
+async function toggleFixkosten(id){
+  const e = DATA.expenses.find(e=>e.id===id);
+  if(!e) return;
+  e.isFixkosten = !e.isFixkosten;
+  renderLohn();
+  renderDashboard();
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Ausgaben', id);
+      if(row) await apiUpdate(`Ausgaben!H${row}`,[[e.isFixkosten?'1':'0']]);
+      setSyncStatus('online');
+    } catch(err){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
+  }
 }
 
 function openSparziel(){
@@ -3687,17 +3779,19 @@ function loadDemo(){
     {id:'k010',name:'Schenkung',type:'einnahme',color:'#FFD93D',sort:10},
   ];
   const t=new Date(); const y=t.getFullYear(); const m=String(t.getMonth()+1).padStart(2,'0');
+  // Previous month for salary and cycle-start expenses
+  const prevD=new Date(t.getFullYear(),t.getMonth()-1,1); const py=prevD.getFullYear(); const pm=String(prevD.getMonth()+1).padStart(2,'0');
   DATA.expenses = [
-    {id:'a001',date:`${y}-${m}-02`,what:'Migros',cat:'Poschte',amt:67.40,note:''},
-    {id:'a002',date:`${y}-${m}-03`,what:'Mittagessen Kantine',cat:'Zmittag',amt:14.50,note:'mit Lea'},
-    {id:'a003',date:`${y}-${m}-05`,what:'Miete',cat:'Mieti',amt:1023,note:''},
-    {id:'a004',date:`${y}-${m}-07`,what:'GA Verlängerung',cat:'SBB',amt:89,note:''},
-    {id:'a005',date:`${y}-${m}-10`,what:'Coop',cat:'Poschte',amt:43.20,note:''},
-    {id:'a006',date:`${y}-${m}-12`,what:'Znacht mit Freunden',cat:'Diverses',amt:52,note:'Pizzeria'},
+    {id:'a001',date:`${y}-${m}-02`,what:'Migros',cat:'Poschte',amt:67.40,note:'',isFixkosten:false},
+    {id:'a002',date:`${y}-${m}-03`,what:'Mittagessen Kantine',cat:'Zmittag',amt:14.50,note:'mit Lea',isFixkosten:false},
+    {id:'a003',date:`${py}-${pm}-26`,what:'Miete',cat:'Mieti',amt:1023,note:'',isFixkosten:true},
+    {id:'a004',date:`${py}-${pm}-28`,what:'GA Verlängerung',cat:'SBB',amt:89,note:'',isFixkosten:true},
+    {id:'a005',date:`${y}-${m}-05`,what:'Coop',cat:'Poschte',amt:43.20,note:'',isFixkosten:false},
+    {id:'a006',date:`${y}-${m}-12`,what:'Znacht mit Freunden',cat:'Diverses',amt:52,note:'Pizzeria',isFixkosten:false},
   ];
   DATA.incomes = [
-    {id:'e001',date:`${y}-${m}-25`,what:'Lohn Siemens',cat:'Siemens',amt:3127,note:'',isLohn:true},
-    {id:'e002',date:`${y}-${m}-26`,what:'Lohn Siemens Zusatz',cat:'Siemens',amt:649.80,note:'',isLohn:true},
+    {id:'e001',date:`${py}-${pm}-25`,what:'Lohn Siemens',cat:'Siemens',amt:3127,note:'',isLohn:true},
+    {id:'e002',date:`${py}-${pm}-26`,what:'Lohn Siemens Zusatz',cat:'Siemens',amt:649.80,note:'',isLohn:true},
   ];
   DATA.recurring = [
     {id:'d001',what:'Miete',cat:'Mieti',amt:1023,interval:'monatlich',day:1,note:'',active:true},
