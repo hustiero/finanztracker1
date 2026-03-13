@@ -723,6 +723,19 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   padding:16px 20px 10px;border-bottom:1px solid var(--border);
 }
 .menu-overlay-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.menu-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:14px 20px 4px;display:block}
+.menu-item-row{display:flex;align-items:center;border-top:1px solid var(--border)}
+.menu-item-row:first-child{border-top:none}
+.menu-item-nav{flex:1;display:flex;align-items:center;gap:14px;padding:13px 8px 13px 20px;background:none;color:var(--text);font-size:15px;font-weight:500;text-align:left;min-width:0}
+.menu-item-nav svg{width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:1.8;flex-shrink:0}
+.menu-item-nav:active{background:var(--bg3)}
+.menu-item-action{padding:0 16px 0 4px;background:none;display:flex;align-items:center;justify-content:center;align-self:stretch}
+.menu-item-action svg{width:18px;height:18px;fill:none;stroke-width:2;stroke:var(--text3)}
+.menu-item-action.unpin svg{stroke:var(--red);opacity:.75}
+.menu-item-action.pin svg{stroke:var(--text2)}
+.menu-item-action:active svg{opacity:1;stroke:var(--accent)}
+.menu-item-action.pin:active svg{stroke:var(--accent)}
+.menu-item-action.unpin:active svg{stroke:var(--red);opacity:1}
 .menu-overlay-close-btn{
   width:32px;height:32px;border-radius:50%;background:var(--bg3);
   border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
@@ -920,8 +933,8 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     </div>
     <div class="top-bar-right">
       <div class="sync-row">
-        <div class="sync-dot demo" id="sync-dot"></div>
         <div class="sync-label" id="sync-label">Demo</div>
+        <div class="sync-dot demo" id="sync-dot"></div>
       </div>
       <button class="settings-btn" id="notif-btn" onclick="toggleNotifOverlay()" aria-label="Benachrichtigungen">
         <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -1218,29 +1231,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <div class="section" style="padding-top:0">
         <div class="section-title">Navigation</div>
         <div class="card" style="padding:14px">
-          <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Wähle welche Tabs in der unteren Navigation erscheinen (2 konfigurierbare Positionen).</p>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Slot 1 (links)</label>
-              <select id="nav-slot1" class="form-select" onchange="saveNavSlots()">
-                <option value="verlauf">Verlauf</option>
-                <option value="monat">Monatsübersicht</option>
-                <option value="aktien">Aktien</option>
-                <option value="lohn">Lohn</option>
-                <option value="dauerauftraege">Daueraufträge</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Slot 2 (rechts)</label>
-              <select id="nav-slot2" class="form-select" onchange="saveNavSlots()">
-                <option value="verlauf">Verlauf</option>
-                <option value="monat">Monatsübersicht</option>
-                <option value="aktien">Aktien</option>
-                <option value="lohn">Lohn</option>
-                <option value="dauerauftraege">Daueraufträge</option>
-              </select>
-            </div>
-          </div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.5">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 2 Tabs erscheinen neben «Übersicht» in der unteren Navigation.</p>
         </div>
       </div>
       <div class="section" style="padding-top:0">
@@ -1274,14 +1265,14 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       Übersicht
     </button>
-    <button class="nav-btn" id="nav-slot1-btn" onclick="">
-      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span id="nav-slot1-lbl">Verlauf</span>
+    <button class="nav-btn" id="nav-slot1-btn" style="display:none" onclick="">
+      <svg viewBox="0 0 24 24"></svg>
+      <span id="nav-slot1-lbl"></span>
     </button>
     <div class="nav-fab-space"></div>
-    <button class="nav-btn" id="nav-slot2-btn" onclick="">
-      <svg viewBox="0 0 24 24" id="nav-slot2-icon"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      <span id="nav-slot2-lbl">Aktien</span>
+    <button class="nav-btn" id="nav-slot2-btn" style="display:none" onclick="">
+      <svg viewBox="0 0 24 24" id="nav-slot2-icon"></svg>
+      <span id="nav-slot2-lbl"></span>
     </button>
     <button class="nav-btn" id="nav-menu" onclick="openMenuOverlay()">
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -1298,23 +1289,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 <div class="menu-overlay" id="menu-overlay" onclick="closeMenuOverlay()">
   <div class="menu-overlay-sheet" onclick="event.stopPropagation()">
     <div class="menu-handle"></div>
-    <div class="menu-overlay-title">Weitere Ansichten</div>
-    <button class="menu-overlay-item" onclick="goTab('lohn');closeMenuOverlay()">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      Lohn &amp; Einnahmen
-    </button>
-    <button class="menu-overlay-item" onclick="goTab('kategorien');closeMenuOverlay()">
-      <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/></svg>
-      Kategorien
-    </button>
-    <button class="menu-overlay-item" onclick="goTab('dauerauftraege');closeMenuOverlay()">
-      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
-      Daueraufträge / Abos
-    </button>
-    <button class="menu-overlay-item" onclick="goTab('einstellungen');closeMenuOverlay()">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Einstellungen
-    </button>
+    <div class="menu-overlay-header">
+      <div class="menu-overlay-title">Navigation</div>
+      <button class="menu-overlay-close-btn" onclick="closeMenuOverlay()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="menu-overlay-items" class="menu-overlay-items"></div>
   </div>
 </div>
 
@@ -1725,12 +1706,16 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0 };
+let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[] };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
   const s = localStorage.getItem(CFG_KEY);
   if(s) CFG = JSON.parse(s);
+  // Migrate from old navSlots to pinnedTabs
+  if(!CFG.pinnedTabs){
+    CFG.pinnedTabs = Array.isArray(CFG.navSlots) ? CFG.navSlots.filter(k=>!!k) : [];
+  }
   document.documentElement.dataset.theme = CFG.theme||'';
 }
 
@@ -3111,13 +3096,13 @@ function goTab(tab){
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl) tabEl.style.display='block';
-  // Nav active state: fixed slots + dynamic slots
+  // Nav active state: fixed dashboard + pinned slots + mehr
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(tab==='dashboard'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
   else {
-    const slots = CFG.navSlots||['verlauf','monat'];
-    if(slots[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
-    else if(slots[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
+    const pinned = CFG.pinnedTabs||[];
+    if(pinned[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
+    else if(pinned[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
     else document.getElementById('nav-menu')?.classList.add('active');
   }
   // FAB: active (X) state when on eingabe
@@ -3143,8 +3128,86 @@ function goTab(tab){
   if(tab==='einstellungen') renderEinstellungen();
 }
 
-function openMenuOverlay(){ document.getElementById('menu-overlay').classList.add('open'); }
+function openMenuOverlay(){ renderMenuOverlay(); document.getElementById('menu-overlay').classList.add('open'); }
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
+
+// All tabs available for pinning / showing in Mehr
+const PINNABLE_TABS = [
+  { key:'verlauf',        label:'Verlauf',              icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
+  { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
+  { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
+  { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+  { key:'dauerauftraege', label:'Daueraufträge / Abos', icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
+  { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
+  { key:'einstellungen',  label:'Einstellungen',         icon:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' },
+];
+
+// Pin icon SVG path
+const PIN_ICON = '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/>';
+const UNPIN_ICON = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+
+function renderMenuOverlay(){
+  const pinned = CFG.pinnedTabs || [];
+  const container = document.getElementById('menu-overlay-items');
+  if(!container) return;
+  let html = '';
+
+  // Section: Tabs pinned to taskbar (with unpin button)
+  if(pinned.length > 0){
+    html += '<span class="menu-section-label">In Taskleiste</span>';
+    pinned.forEach(key=>{
+      const tab = PINNABLE_TABS.find(t=>t.key===key);
+      if(!tab) return;
+      html += `<div class="menu-item-row">
+        <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
+          <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
+        </button>
+        <button class="menu-item-action unpin" onclick="unpinTab('${tab.key}')" aria-label="Aus Taskleiste entfernen">
+          <svg viewBox="0 0 24 24">${UNPIN_ICON}</svg>
+        </button>
+      </div>`;
+    });
+  }
+
+  // Section: All non-pinned tabs (with pin button if < 2 pins)
+  const unpinnedTabs = PINNABLE_TABS.filter(t=>!pinned.includes(t.key));
+  if(unpinnedTabs.length > 0){
+    html += '<span class="menu-section-label">Weitere Ansichten</span>';
+    const canPin = pinned.length < 2;
+    unpinnedTabs.forEach(tab=>{
+      html += `<div class="menu-item-row">
+        <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
+          <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
+        </button>
+        ${canPin
+          ? `<button class="menu-item-action pin" onclick="pinTab('${tab.key}')" aria-label="An Taskleiste anheften"><svg viewBox="0 0 24 24">${PIN_ICON}</svg></button>`
+          : `<div style="width:50px"></div>`}
+      </div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function pinTab(key){
+  if(!CFG.pinnedTabs) CFG.pinnedTabs = [];
+  if(CFG.pinnedTabs.includes(key)) return;
+  if(CFG.pinnedTabs.length >= 2){ toast('Maximal 2 Tabs anheftbar',''); return; }
+  CFG.pinnedTabs.push(key);
+  cfgSave();
+  renderNav();
+  renderMenuOverlay();
+  toast('Tab angeheftet','ok');
+}
+
+function unpinTab(key){
+  if(!CFG.pinnedTabs) return;
+  CFG.pinnedTabs = CFG.pinnedTabs.filter(k=>k!==key);
+  cfgSave();
+  renderNav();
+  renderMenuOverlay();
+  toast('Tab entfernt','ok');
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: NOTIFICATIONS
@@ -3965,36 +4028,26 @@ function setVerlaufSearch(v){ verlaufSearch=v; renderVerlauf(); }
 // ═══════════════════════════════════════════════════════════════
 // MODULE: DYNAMIC NAV
 // ═══════════════════════════════════════════════════════════════
-const NAV_ICONS = {
-  verlauf: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
-  monat: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-  aktien: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-  lohn: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-  dauerauftraege: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>'
+const NAV_LABELS = {
+  verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
+  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.'
 };
-const NAV_LABELS = { verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn', dauerauftraege:'Aufträge' };
 
 function renderNav(){
-  const slots = CFG.navSlots || ['verlauf','monat'];
+  const pinned = CFG.pinnedTabs || [];
   [1,2].forEach(i=>{
-    const key = slots[i-1];
+    const key = pinned[i-1];
     const btn = document.getElementById('nav-slot'+i+'-btn');
     if(!btn) return;
+    if(!key){ btn.style.display='none'; return; }
+    btn.style.display='';
     btn.onclick = ()=>goTab(key);
+    const tab = PINNABLE_TABS ? PINNABLE_TABS.find(t=>t.key===key) : null;
     const svgEl = btn.querySelector('svg');
-    if(svgEl) svgEl.innerHTML = NAV_ICONS[key]||'';
+    if(svgEl && tab) svgEl.innerHTML = tab.icon;
     const lblEl = btn.querySelector('span');
     if(lblEl) lblEl.textContent = NAV_LABELS[key]||key;
   });
-}
-
-function saveNavSlots(){
-  const s1 = document.getElementById('nav-slot1')?.value || 'verlauf';
-  const s2 = document.getElementById('nav-slot2')?.value || 'monat';
-  CFG.navSlots = [s1, s2];
-  cfgSave();
-  renderNav();
-  toast('Navigation aktualisiert','ok');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4021,11 +4074,6 @@ function renderEinstellungen(){
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme==='light');
-  const slots = CFG.navSlots || ['verlauf','monat'];
-  const s1 = document.getElementById('nav-slot1');
-  const s2 = document.getElementById('nav-slot2');
-  if(s1) s1.value = slots[0]||'verlauf';
-  if(s2) s2.value = slots[1]||'monat';
 }
 
 // ═══════════════════════════════════════════════════════════════
