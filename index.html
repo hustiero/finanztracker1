@@ -647,6 +647,36 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .chart-svg{display:block;width:100%}
 
 /* ═══════════════════════════════════════════════════
+   AKTIEN
+═══════════════════════════════════════════════════ */
+.aktie-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:0 16px 10px;overflow:hidden;cursor:pointer;transition:background .12s}
+.aktie-card:active{background:var(--bg3)}
+.aktie-card-top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 6px}
+.aktie-card-bottom{display:flex;gap:14px;padding:4px 14px 12px;flex-wrap:wrap}
+.aktie-name{font-size:15px;font-weight:600;color:var(--text)}
+.aktie-isin{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.aktie-qty-badge{font-size:12px;color:var(--text2);background:var(--bg3);padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.aktie-stat{display:flex;flex-direction:column;gap:2px}
+.aktie-stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.aktie-stat-val{font-size:13px;font-weight:600;font-family:'DM Mono',monospace;color:var(--text)}
+.aktie-pnl-pos{color:var(--green)!important}
+.aktie-pnl-neg{color:var(--red)!important}
+.aktie-pnl-na{color:var(--text3)!important}
+.aktie-summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:0 16px 12px;padding:14px;display:flex;gap:20px;flex-wrap:wrap}
+.trade-tbl-wrap{overflow-x:auto;padding:0 16px 16px}
+.trade-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:500px}
+.trade-tbl th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.trade-tbl td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.trade-tbl tr:last-child td{border-bottom:none}
+.t-kauf{color:var(--green);font-weight:600}
+.t-verk{color:var(--red);font-weight:600}
+.aktie-detail-actions{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.btn-kauf{flex:1;padding:10px;border-radius:var(--r2);background:rgba(61,219,150,.15);color:var(--green);font-size:14px;font-weight:600;border:1px solid rgba(61,219,150,.3)}
+.btn-verk{flex:1;padding:10px;border-radius:var(--r2);background:rgba(255,77,109,.12);color:var(--red);font-size:14px;font-weight:600;border:1px solid rgba(255,77,109,.25)}
+.btn-kauf:active{background:rgba(61,219,150,.3)}
+.btn-verk:active{background:rgba(255,77,109,.3)}
+
+/* ═══════════════════════════════════════════════════
    SPAREN TAB
 ═══════════════════════════════════════════════════ */
 .sparen-explainer{
@@ -953,6 +983,21 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <div id="lohn-chart-section" style="padding:0 16px 0"></div>
       <div id="lohn-list"></div>
     </div>
+
+    <!-- TAB: Aktien -->
+    <div id="tab-aktien" class="tab-page" style="display:none">
+      <div class="section" style="padding-bottom:8px">
+        <div class="type-toggle" style="margin-bottom:0">
+          <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
+          <button class="type-btn income" id="aktien-btn-hist" onclick="setAktienView('historisch')">Historisch</button>
+        </div>
+      </div>
+      <div id="aktien-summary-bar"></div>
+      <div id="aktien-list"></div>
+      <div style="padding:4px 16px 12px">
+        <button class="save-btn" onclick="openNewAktieModal()" style="width:100%">+ Aktie hinzufügen</button>
+      </div>
+    </div>
   </div>
 
   <!-- Bottom Navigation -->
@@ -969,6 +1014,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <button class="nav-btn" id="nav-lohn" onclick="goTab('lohn')">
       <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Lohn
+    </button>
+    <button class="nav-btn" id="nav-aktien" onclick="goTab('aktien')">
+      <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      Aktien
     </button>
     <button class="nav-btn" id="nav-menu" onclick="openMenuOverlay()">
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -1246,6 +1295,110 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
 <div id="toast"></div>
 
+<!-- Aktie Detail slide-in -->
+<div id="aktie-detail" class="month-view">
+  <div class="mv-bar">
+    <button class="mv-back" onclick="closeAktieDetail()">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="mv-bar-title" id="aktie-detail-title">Aktie</div>
+    <button id="aktie-del-btn" onclick="deleteAktie(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;margin-right:4px">Löschen</button>
+  </div>
+  <div class="aktie-detail-actions">
+    <button class="btn-kauf" onclick="openTradeModal('kauf')">↑ Kauf</button>
+    <button class="btn-verk" onclick="openTradeModal('verkauf')">↓ Verkauf</button>
+  </div>
+  <div class="mv-content" id="aktie-detail-content"></div>
+</div>
+
+<!-- Neue Aktie Modal -->
+<div class="modal-overlay" id="new-aktie-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Neue Aktie</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('new-aktie-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input id="na-title" class="form-input" type="text" placeholder="z.B. Apple Inc." autocorrect="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">ISIN</label>
+          <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ticker <span style="color:var(--text3)">(Yahoo)</span></label>
+          <input id="na-ticker" class="form-input" type="text" placeholder="AAPL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Basis-Währung</label>
+        <select id="na-currency" class="form-select">
+          <option>CHF</option><option>EUR</option><option selected>USD</option>
+          <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('new-aktie-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveNewAktie()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trade Modal -->
+<div class="modal-overlay" id="trade-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="trade-modal-title">Kauf erfassen</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('trade-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tm-stockid">
+      <input type="hidden" id="tm-type">
+      <div class="form-group">
+        <label class="form-label">Datum</label>
+        <input id="tm-date" class="form-input" type="date">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Anzahl Aktien</label>
+          <input id="tm-qty" class="form-input" type="number" inputmode="decimal" step="0.0001" min="0" placeholder="0" oninput="updateTradeTotal()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Preis / Aktie</label>
+          <input id="tm-price" class="form-input" type="number" inputmode="decimal" step="0.0001" min="0" placeholder="0.00" oninput="updateTradeTotal()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Währung</label>
+          <select id="tm-currency" class="form-select" onchange="updateTradeTotal()">
+            <option>CHF</option><option>EUR</option><option selected>USD</option>
+            <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Courtage</label>
+          <input id="tm-courtage" class="form-input" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" oninput="updateTradeTotal()">
+        </div>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r2);padding:10px 14px;margin-top:4px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Gesamtbetrag (errechnet)</div>
+        <div id="tm-total-display" style="font-size:20px;font-weight:600;font-family:'DM Mono',monospace;color:var(--text)">—</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('trade-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveTrade()">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════
 // MODULE: CONFIG
@@ -1448,6 +1601,7 @@ async function doConnect(){
 function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchApp(); }
 
 function launchApp(){
+  sdataLoad();
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   goTab('dashboard');
@@ -2605,12 +2759,13 @@ function goTab(tab){
   }
   document.getElementById('page-title').textContent = {
     eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', lohn:'Lohn & Einnahmen'
+    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', lohn:'Lohn & Einnahmen', aktien:'Aktien'
   }[tab]||tab;
   updatePageSub();
   if(tab==='verlauf') renderVerlauf();
   if(tab==='dashboard') renderDashboard();
   if(tab==='lohn') renderLohn();
+  if(tab==='aktien') renderAktien();
 }
 
 function openMenuOverlay(){ document.getElementById('menu-overlay').classList.add('open'); }
@@ -2953,6 +3108,323 @@ function loadDemo(){
     {id:'d002',what:'Handy',cat:'Diverses',amt:45,interval:'monatlich',day:15,note:'Salt',active:true},
     {id:'d003',what:'Ruderkurs',cat:'Sport',amt:526,interval:'halbjährlich',day:1,note:'',active:true},
   ];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: AKTIEN
+// ═══════════════════════════════════════════════════════════════
+const STOCKS_KEY = 'ft_stocks_v1';
+let SDATA = { stocks:[], trades:[] };
+let aktienView = 'aktiv';
+let currentAktieId = null;
+let stockPriceCache = {}; // ticker → { price, currency, ts }
+
+function sdataLoad(){
+  try{ const s=localStorage.getItem(STOCKS_KEY); if(s) SDATA=JSON.parse(s); }
+  catch(e){ SDATA={stocks:[],trades:[]}; }
+}
+function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
+
+// Calculate position: qty held, weighted avg price, total cost
+function calcPosition(stockId){
+  const trades = SDATA.trades.filter(t=>t.stockId===stockId).sort((a,b)=>a.date.localeCompare(b.date));
+  let qty=0, totalCost=0;
+  for(const t of trades){
+    if(t.type==='kauf'){
+      totalCost += t.qty * t.price + (t.courtage||0);
+      qty += t.qty;
+    } else {
+      const avg = qty>0 ? totalCost/qty : 0;
+      totalCost -= t.qty * avg;
+      qty -= t.qty;
+    }
+  }
+  qty = Math.round(qty*1e6)/1e6;
+  if(qty < 0) qty = 0;
+  return { qty, avgPrice: qty>0.0001 ? totalCost/qty : 0, totalCost: qty>0.0001 ? totalCost : 0 };
+}
+
+function fmtPrice(n, ccy){
+  if(n==null||isNaN(n)) return '—';
+  const dec = ccy==='JPY' ? 0 : 2;
+  return n.toLocaleString('de-CH',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtQty(n){
+  if(n==null) return '0';
+  return n===Math.floor(n) ? n.toFixed(0) : parseFloat(n.toFixed(6)).toString();
+}
+
+function setAktienView(v){
+  aktienView = v;
+  document.getElementById('aktien-btn-aktiv').className = 'type-btn'+(v==='aktiv'?' active expense':'');
+  document.getElementById('aktien-btn-hist').className = 'type-btn'+(v==='historisch'?' active income':'');
+  renderAktien();
+}
+
+async function fetchStockPrice(ticker){
+  if(!ticker) return null;
+  const cached = stockPriceCache[ticker];
+  if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
+  try{
+    const r = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+      { signal: AbortSignal.timeout(6000) }
+    );
+    if(!r.ok) return null;
+    const d = await r.json();
+    const meta = d?.chart?.result?.[0]?.meta;
+    if(!meta?.regularMarketPrice) return null;
+    const res = { price: meta.regularMarketPrice, currency: meta.currency||'', ts: Date.now() };
+    stockPriceCache[ticker] = res;
+    return res;
+  } catch(e){ return null; }
+}
+
+async function renderAktien(){
+  const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
+  const activeStocks = positions.filter(s => s.pos.qty > 0.0001);
+  const histStocks = positions.filter(s => s.pos.qty <= 0.0001 && SDATA.trades.some(t=>t.stockId===s.id));
+  const show = aktienView==='aktiv' ? activeStocks : histStocks;
+
+  const listEl = document.getElementById('aktien-list');
+  const summaryEl = document.getElementById('aktien-summary-bar');
+  if(!show.length){
+    listEl.innerHTML = `<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">${aktienView==='aktiv'?'Keine aktiven Positionen':'Keine historischen Positionen'}</div></div>`;
+    summaryEl.innerHTML = '';
+    return;
+  }
+
+  renderAktienList(show, listEl, summaryEl);
+
+  if(aktienView==='aktiv'){
+    const toFetch = activeStocks.filter(s=>s.ticker&&!stockPriceCache[s.ticker]);
+    if(toFetch.length){
+      await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
+      renderAktienList(activeStocks, listEl, summaryEl);
+    }
+  }
+}
+
+function renderAktienList(stocks, listEl, summaryEl){
+  let totalPnl=0, hasPnl=false;
+
+  listEl.innerHTML = stocks.map(s=>{
+    const live = s.ticker ? stockPriceCache[s.ticker] : null;
+    const livePrice = live?.price;
+    let pnlAmt=null, pnlPct=null;
+    if(livePrice && s.pos.qty > 0.0001){
+      pnlAmt = (livePrice - s.pos.avgPrice) * s.pos.qty;
+      pnlPct = s.pos.avgPrice > 0 ? (livePrice/s.pos.avgPrice-1)*100 : 0;
+      totalPnl += pnlAmt; hasPnl = true;
+    }
+    const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
+    const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+    return `
+    <div class="aktie-card" onclick="openAktieDetail('${s.id}')">
+      <div class="aktie-card-top">
+        <div>
+          <div class="aktie-name">${esc(s.title)}</div>
+          <div class="aktie-isin">${esc(s.isin||'')}${s.ticker?' · '+esc(s.ticker):''}</div>
+        </div>
+        <div class="aktie-qty-badge">${fmtQty(s.pos.qty)} Stk.</div>
+      </div>
+      <div class="aktie-card-bottom">
+        <div class="aktie-stat"><div class="aktie-stat-lbl">Ø Kaufpreis</div>
+          <div class="aktie-stat-val">${fmtPrice(s.pos.avgPrice)} ${s.currency||''}</div></div>
+        ${livePrice!=null?`
+        <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
+          <div class="aktie-stat-val">${fmtPrice(livePrice)} ${live.currency||s.currency||''}</div></div>
+        <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
+          <div class="aktie-stat-val ${pc}">${ps}${fmtPrice(pnlAmt)} (${ps}${pnlPct?.toFixed(1)}%)</div></div>
+        `:s.ticker?`<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
+          <div class="aktie-stat-val aktie-pnl-na">Laden…</div></div>`:''}
+        <div class="aktie-stat"><div class="aktie-stat-lbl">Einstand</div>
+          <div class="aktie-stat-val">${fmtPrice(s.pos.totalCost)} ${s.currency||''}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(hasPnl && aktienView==='aktiv'){
+    const pc2 = totalPnl>=0?'aktie-pnl-pos':'aktie-pnl-neg';
+    const ps2 = totalPnl>=0?'+':'';
+    summaryEl.innerHTML = `
+    <div class="aktie-summary-card">
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Gesamt P&amp;L (live)</div>
+        <div class="aktie-stat-val ${pc2}" style="font-size:16px">${ps2}${fmtPrice(totalPnl)}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Positionen</div>
+        <div class="aktie-stat-val">${stocks.length}</div></div>
+    </div>`;
+  } else { summaryEl.innerHTML = ''; }
+}
+
+function openAktieDetail(stockId){
+  currentAktieId = stockId;
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s) return;
+  document.getElementById('aktie-detail-title').textContent = s.title;
+  renderAktieDetail(stockId);
+  document.getElementById('aktie-detail').classList.add('open');
+}
+
+function closeAktieDetail(){
+  document.getElementById('aktie-detail').classList.remove('open');
+  currentAktieId = null;
+  renderAktien();
+}
+
+function renderAktieDetail(stockId){
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s) return;
+  const trades = SDATA.trades.filter(t=>t.stockId===stockId).sort((a,b)=>b.date.localeCompare(a.date));
+  const pos = calcPosition(stockId);
+  const live = s.ticker ? stockPriceCache[s.ticker] : null;
+  const lp = live?.price;
+  let pnlAmt=null, pnlPct=null;
+  if(lp && pos.qty>0.0001){ pnlAmt=(lp-pos.avgPrice)*pos.qty; pnlPct=pos.avgPrice>0?(lp/pos.avgPrice-1)*100:0; }
+  const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
+  const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+
+  document.getElementById('aktie-detail-content').innerHTML = `
+  <div class="section">
+    <div class="aktie-summary-card" style="margin:0;flex-wrap:wrap;gap:16px">
+      <div class="aktie-stat"><div class="aktie-stat-lbl">ISIN</div>
+        <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text)">${esc(s.isin||'—')}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Anzahl</div>
+        <div class="aktie-stat-val">${fmtQty(pos.qty)} Stk.</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Ø Kaufpreis</div>
+        <div class="aktie-stat-val">${fmtPrice(pos.avgPrice)} ${s.currency||''}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Einstand</div>
+        <div class="aktie-stat-val">${fmtPrice(pos.totalCost)} ${s.currency||''}</div></div>
+      ${lp!=null?`
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
+        <div class="aktie-stat-val">${fmtPrice(lp)} ${live.currency||s.currency||''}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
+        <div class="aktie-stat-val ${pc}">${ps}${fmtPrice(pnlAmt)} (${ps}${pnlPct?.toFixed(1)}%)</div></div>`
+      : s.ticker ? `<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
+        <div class="aktie-stat-val aktie-pnl-na" style="cursor:pointer" onclick="refreshStockPrice('${s.id}')">Laden…</div></div>` : ''}
+    </div>
+  </div>
+  <div class="section" style="padding-top:0">
+    <div class="section-title">Trade-Historie</div>
+    ${!trades.length ? `<div class="empty" style="padding:16px 0"><div class="empty-text">Noch keine Trades</div></div>` : `
+    <div class="trade-tbl-wrap">
+      <table class="trade-tbl">
+        <thead><tr>
+          <th>Datum</th><th>Art</th><th>Stk.</th>
+          <th>Preis/Stk.</th><th>Währung</th><th>Courtage</th><th>Gesamt</th><th></th>
+        </tr></thead>
+        <tbody>${trades.map(t=>`
+          <tr>
+            <td style="white-space:nowrap">${fmtDate(t.date)}</td>
+            <td><span class="${t.type==='kauf'?'t-kauf':'t-verk'}">${t.type==='kauf'?'Kauf':'Verkauf'}</span></td>
+            <td>${fmtQty(t.qty)}</td>
+            <td style="font-family:'DM Mono',monospace">${fmtPrice(t.price)}</td>
+            <td>${esc(t.currency||s.currency||'')}</td>
+            <td style="font-family:'DM Mono',monospace">${fmtPrice(t.courtage||0)}</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(t.total)}</td>
+            <td><button onclick="deleteTrade('${t.id}')" style="background:none;color:var(--text3);font-size:14px;padding:2px 6px;border:none;cursor:pointer;line-height:1">×</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>`;
+
+  // Refresh live price in background
+  if(s.ticker) fetchStockPrice(s.ticker).then(p=>{ if(p){ renderAktieDetail(stockId); } });
+}
+
+async function refreshStockPrice(stockId){
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s?.ticker) return;
+  delete stockPriceCache[s.ticker];
+  await fetchStockPrice(s.ticker);
+  renderAktieDetail(stockId);
+}
+
+function openNewAktieModal(){
+  ['na-title','na-isin','na-ticker'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('na-currency').value = 'USD';
+  openModal('new-aktie-modal');
+}
+
+function saveNewAktie(){
+  const title = document.getElementById('na-title').value.trim();
+  if(!title){ toast('Titel erforderlich','err'); return; }
+  const s = {
+    id: 'st_'+Date.now(),
+    title,
+    isin: document.getElementById('na-isin').value.trim().toUpperCase(),
+    ticker: document.getElementById('na-ticker').value.trim().toUpperCase(),
+    currency: document.getElementById('na-currency').value
+  };
+  SDATA.stocks.push(s);
+  sdataSave();
+  closeModal('new-aktie-modal');
+  toast('✓ Aktie hinzugefügt','ok');
+  renderAktien();
+}
+
+function openTradeModal(type){
+  if(!currentAktieId) return;
+  const s = SDATA.stocks.find(s=>s.id===currentAktieId);
+  document.getElementById('tm-stockid').value = currentAktieId;
+  document.getElementById('tm-type').value = type;
+  document.getElementById('trade-modal-title').textContent = type==='kauf' ? 'Kauf erfassen' : 'Verkauf erfassen';
+  document.getElementById('tm-date').value = today();
+  document.getElementById('tm-qty').value = '';
+  document.getElementById('tm-price').value = '';
+  document.getElementById('tm-currency').value = s?.currency||'USD';
+  document.getElementById('tm-courtage').value = '';
+  document.getElementById('tm-total-display').textContent = '—';
+  openModal('trade-modal');
+}
+
+function updateTradeTotal(){
+  const qty = parseFloat(document.getElementById('tm-qty').value)||0;
+  const price = parseFloat(document.getElementById('tm-price').value)||0;
+  const courtage = parseFloat(document.getElementById('tm-courtage').value)||0;
+  const currency = document.getElementById('tm-currency').value;
+  const type = document.getElementById('tm-type').value;
+  const total = type==='kauf' ? qty*price+courtage : qty*price-courtage;
+  document.getElementById('tm-total-display').textContent = qty>0&&price>0 ? `${currency} ${fmtPrice(total)}` : '—';
+}
+
+function saveTrade(){
+  const stockId = document.getElementById('tm-stockid').value;
+  const type = document.getElementById('tm-type').value;
+  const date = document.getElementById('tm-date').value;
+  const qty = parseFloat(document.getElementById('tm-qty').value);
+  const price = parseFloat(document.getElementById('tm-price').value);
+  const currency = document.getElementById('tm-currency').value;
+  const courtage = parseFloat(document.getElementById('tm-courtage').value)||0;
+  if(!date){ toast('Datum erforderlich','err'); return; }
+  if(!qty||qty<=0){ toast('Anzahl erforderlich','err'); return; }
+  if(!price||price<=0){ toast('Preis erforderlich','err'); return; }
+  const total = type==='kauf' ? qty*price+courtage : qty*price-courtage;
+  SDATA.trades.push({ id:'tr_'+Date.now(), stockId, type, date, qty, price, currency, courtage, total });
+  sdataSave();
+  closeModal('trade-modal');
+  const pos = calcPosition(stockId);
+  if(type==='verkauf' && pos.qty <= 0.0001) toast('Vollständig verkauft → Historisch','ok');
+  else toast('✓ Trade gespeichert','ok');
+  renderAktieDetail(stockId);
+}
+
+function deleteTrade(tradeId){
+  if(!confirm('Trade löschen?')) return;
+  SDATA.trades = SDATA.trades.filter(t=>t.id!==tradeId);
+  sdataSave();
+  renderAktieDetail(currentAktieId);
+  toast('✓ Trade gelöscht','ok');
+}
+
+function deleteAktie(stockId){
+  if(!confirm('Aktie und alle Trades löschen?')) return;
+  SDATA.stocks = SDATA.stocks.filter(s=>s.id!==stockId);
+  SDATA.trades = SDATA.trades.filter(t=>t.stockId!==stockId);
+  sdataSave();
+  closeAktieDetail();
+  toast('✓ Aktie gelöscht','ok');
 }
 </script>
 </body>
