@@ -577,6 +577,101 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   display:inline-block;padding:2px 8px;border-radius:99px;
   font-size:11px;font-weight:700;
 }
+
+/* ═══════════════════════════════════════════════════
+   LIGHT MODE
+═══════════════════════════════════════════════════ */
+[data-theme="light"]{
+  --bg0:#F4F4F7;
+  --bg1:#FFFFFF;
+  --bg2:#FFFFFF;
+  --bg3:#EEEEF2;
+  --border:#D8D8E0;
+  --border2:#C8C8D4;
+  --text:#18181E;
+  --text2:#50505E;
+  --text3:#90909C;
+}
+[data-theme="light"] body{background:var(--bg0)}
+[data-theme="light"] #nav{background:var(--bg1)}
+[data-theme="light"] .top-bar{background:var(--bg0)}
+[data-theme="light"] .modal{background:var(--bg1)}
+[data-theme="light"] .month-view{background:var(--bg0)}
+[data-theme="light"] .mv-bar{background:var(--bg0)}
+[data-theme="light"] #setup{background:var(--bg0)}
+[data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
+
+/* ═══════════════════════════════════════════════════
+   MENU OVERLAY
+═══════════════════════════════════════════════════ */
+.menu-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  z-index:800;display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.menu-overlay.open{opacity:1;pointer-events:all}
+.menu-overlay-sheet{
+  width:100%;max-width:480px;
+  background:var(--bg1);border-radius:20px 20px 0 0;
+  border-top:1px solid var(--border);
+  padding:0 0 calc(16px + var(--safe-bot));
+  transform:translateY(60px);transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.menu-overlay.open .menu-overlay-sheet{transform:translateY(0)}
+.menu-handle{width:36px;height:4px;border-radius:99px;background:var(--border2);margin:12px auto 8px}
+.menu-overlay-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:0 20px 10px}
+.menu-overlay-item{
+  width:100%;display:flex;align-items:center;gap:14px;
+  padding:14px 20px;background:none;color:var(--text);
+  font-size:15px;font-weight:500;text-align:left;
+  border-top:1px solid var(--border);
+}
+.menu-overlay-item:first-of-type{border-top:none}
+.menu-overlay-item svg{width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:1.8}
+.menu-overlay-item:active{background:var(--bg3)}
+
+/* ═══════════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════════ */
+.chart-wrap{padding:4px 0 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px;flex-wrap:wrap;gap:6px}
+.chart-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.chart-period-btns{display:flex;gap:4px}
+.chart-period-btn{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.chart-period-btn.active{background:var(--accent);color:#0D0D0F;border-color:var(--accent)}
+.chart-svg{display:block;width:100%}
+
+/* ═══════════════════════════════════════════════════
+   SPAREN TAB
+═══════════════════════════════════════════════════ */
+.sparen-explainer{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px;margin-bottom:0;
+}
+.sparen-explainer h3{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px}
+.sparen-explainer p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:8px}
+.sparen-explainer p:last-child{margin-bottom:0}
+.sparen-explainer strong{color:var(--text)}
+
+/* Wiederkehrend toggle in form */
+.recur-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r2);padding:12px 14px;margin-bottom:12px;cursor:pointer;
+}
+.recur-toggle-label{font-size:14px;font-weight:500;color:var(--text2)}
+.recur-toggle-row.active .recur-toggle-label{color:var(--accent)}
+.toggle-switch{
+  width:42px;height:24px;border-radius:99px;background:var(--bg3);
+  border:1px solid var(--border);position:relative;transition:background .2s,border-color .2s;flex-shrink:0;
+}
+.toggle-switch.on{background:var(--accent);border-color:var(--accent)}
+.toggle-switch::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:18px;height:18px;border-radius:50%;background:var(--text3);
+  transition:transform .2s, background .2s;
+}
+.toggle-switch.on::after{transform:translateX(18px);background:#0D0D0F}
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -633,60 +728,49 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="type-toggle">
           <button class="type-btn active expense" id="type-aus" onclick="setType('ausgabe')">− Ausgabe</button>
           <button class="type-btn income" id="type-ein" onclick="setType('einnahme')">+ Einnahme</button>
-          <button class="type-btn" id="type-rec" onclick="setType('dauerauftrag')" style="flex:none;padding:10px 12px;font-size:13px">🔄 Abo</button>
         </div>
 
-        <!-- Normal entry fields -->
-        <div id="f-entry-section">
-          <div class="form-group">
-            <label class="form-label">Betrag (CHF)</label>
-            <div class="amount-wrap">
-              <span class="amount-currency">CHF</span>
-              <input id="f-amt" class="amount-input" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
-            </div>
+        <div class="form-group">
+          <label class="form-label">Betrag (CHF)</label>
+          <div class="amount-wrap">
+            <span class="amount-currency">CHF</span>
+            <input id="f-amt" class="amount-input" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Datum</label>
-              <input id="f-date" class="form-input" type="date">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Kategorie</label>
-              <select id="f-cat" class="form-select"></select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Beschreibung</label>
-            <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
-            <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Kevin" autocorrect="off">
-          </div>
-
-          <button class="save-btn" onclick="saveEntry()">Eintrag speichern</button>
         </div>
 
-        <!-- Dauerauftrag inline form -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" id="f-date-label">Datum</label>
+            <input id="f-date" class="form-input" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kategorie</label>
+            <select id="f-cat" class="form-select"></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Beschreibung</label>
+          <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
+          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Kevin" autocorrect="off">
+        </div>
+
+        <!-- Wiederkehrende Buchung toggle (only for Ausgabe) -->
+        <div id="f-recur-toggle-wrap" style="margin-bottom:12px">
+          <div class="recur-toggle-row" id="f-recur-row" onclick="toggleRecurringFields()">
+            <span class="recur-toggle-label">🔄 Wiederkehrende Buchung</span>
+            <div class="toggle-switch" id="f-recur-switch"></div>
+          </div>
+        </div>
+
+        <!-- Recurring extra fields (hidden by default) -->
         <div id="f-rec-section" style="display:none">
+          <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
           <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Bezeichnung</label>
-              <input id="f-r-what" class="form-input" placeholder="z.B. Spotify" autocorrect="off">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Betrag CHF</label>
-              <input id="f-r-amt" class="form-input" type="number" inputmode="decimal" placeholder="0.00">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Kategorie</label>
-              <select id="f-r-cat" class="form-select"></select>
-            </div>
             <div class="form-group">
               <label class="form-label">Intervall</label>
               <select id="f-r-interval" class="form-select">
@@ -696,15 +780,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
                 <option>halbjährlich</option>
               </select>
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Buchungstag</label>
               <input id="f-r-day" class="form-input" type="number" min="1" max="31" placeholder="1">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Startdatum</label>
-              <input id="f-r-start" class="form-input" type="date">
             </div>
           </div>
           <div class="form-row">
@@ -712,19 +790,16 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
               <label class="form-label">Kündigungsdatum <span style="color:var(--text3)">(opt.)</span></label>
               <input id="f-r-end" class="form-input" type="date">
             </div>
-            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+            <div class="form-group" style="padding-top:20px">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
                 <input id="f-r-affects-avg" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent)">
                 Zählt für Ø Tagesausgabe
               </label>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Kommentar <span style="color:var(--text3)">(optional)</span></label>
-            <input id="f-r-note" class="form-input" placeholder="optional" autocorrect="off">
-          </div>
-          <button class="save-btn" onclick="saveRecurring('f-r')">Dauerauftrag speichern</button>
         </div>
+
+        <button class="save-btn" id="f-save-btn" onclick="saveEntryOrRecurring()">Eintrag speichern</button>
       </div>
     </div>
 
@@ -733,6 +808,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <div class="section">
         <div class="filter-row" id="verlauf-filters"></div>
       </div>
+      <div id="verlauf-chart-section" style="padding:0 16px 8px"></div>
       <div id="verlauf-list"></div>
     </div>
 
@@ -852,6 +928,49 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <div id="tab-dashboard" class="tab-page" style="display:none">
       <div id="dashboard-content"></div>
     </div>
+
+    <!-- TAB: Sparen / Lohn -->
+    <div id="tab-sparen" class="tab-page" style="display:none">
+      <div class="section">
+        <div class="section-title">Lohnzyklus</div>
+        <div class="sparen-explainer">
+          <h3>Wie funktioniert der Lohnzyklus?</h3>
+          <p>Der Zyklus läuft vom <strong>Lohntag</strong> bis zum Vortag des nächsten Monats (z.B. 25. Feb → 24. März). Sobald du deinen Lohn als Einnahme erfasst, wird automatisch das Budget berechnet.</p>
+          <p>Fixkosten (Daueraufträge) werden direkt abgezogen. Was übrig bleibt, ist dein frei verfügbares Budget – aufgeteilt auf die verbleibenden Tage.</p>
+          <p>Der <strong>Übertrag</strong> aus der Vorperiode (gespartes oder überzogenes) wird ebenfalls berücksichtigt.</p>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="card" style="padding:14px">
+          <div class="form-group">
+            <label class="form-label">Lohntag (Tag des Monats)</label>
+            <input id="sp-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
+            <div style="font-size:12px;color:var(--text3);margin-top:4px">Ab welchem Tag des Monats startet dein Zyklus?</div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Sparziele</div>
+        <div class="sparen-explainer" style="margin-bottom:14px">
+          <h3>Wie funktionieren Sparziele?</h3>
+          <p>Das <strong>monatliche Sparziel</strong> wird vom verfügbaren Budget abgezogen – so stellst du sicher, dass dieser Betrag nie ausgegeben wird. Dein Tagesbudget sinkt entsprechend.</p>
+          <p>Das <strong>Jahres-Sparziel</strong> zeigt in der Übersicht, wie weit du auf Kurs bist – es beeinflusst das Tagesbudget nicht direkt.</p>
+        </div>
+        <div class="card" style="padding:14px">
+          <div class="form-group">
+            <label class="form-label">Monatliches Sparziel (CHF)</label>
+            <input id="sp-msparziel" type="number" min="0" step="50" class="form-input" placeholder="0" style="max-width:160px">
+            <div style="font-size:12px;color:var(--text3);margin-top:4px">Wird vom Zyklusbudget abgezogen (0 = kein Ziel)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jahres-Sparziel (CHF)</label>
+            <input id="sp-sparziel" type="number" min="0" step="100" class="form-input" placeholder="0" style="max-width:160px">
+            <div style="font-size:12px;color:var(--text3);margin-top:4px">Für die Jahres-Sparquote in der Übersicht</div>
+          </div>
+          <button class="save-btn" onclick="saveSparen()">Speichern</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Bottom Navigation -->
@@ -861,23 +980,43 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       Übersicht
     </button>
     <button class="nav-btn" id="nav-verlauf" onclick="goTab('verlauf')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Verlauf
     </button>
     <div class="nav-fab-space"></div>
-    <button class="nav-btn" id="nav-kategorien" onclick="goTab('kategorien')">
-      <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/><path d="M15 9a4 4 0 0 1 0 0"/></svg>
-      Kategorien
+    <button class="nav-btn" id="nav-sparen" onclick="goTab('sparen')">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M20 2a10 10 0 0 0-8 8h8V2z"/></svg>
+      Sparen
     </button>
-    <button class="nav-btn" id="nav-dauerauftraege" onclick="goTab('dauerauftraege')">
-      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
-      Aufträge
+    <button class="nav-btn" id="nav-menu" onclick="openMenuOverlay()">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      Mehr
     </button>
   </nav>
   <!-- Floating Action Button -->
   <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
+</div>
+
+<!-- Menu Overlay -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenuOverlay()">
+  <div class="menu-overlay-sheet" onclick="event.stopPropagation()">
+    <div class="menu-handle"></div>
+    <div class="menu-overlay-title">Weitere Ansichten</div>
+    <button class="menu-overlay-item" onclick="goTab('kategorien');closeMenuOverlay()">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/></svg>
+      Kategorien
+    </button>
+    <button class="menu-overlay-item" onclick="goTab('dauerauftraege');closeMenuOverlay()">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
+      Daueraufträge / Abos
+    </button>
+    <button class="menu-overlay-item" onclick="toggleTheme();closeMenuOverlay()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <span id="theme-label">Hell-Modus</span>
+    </button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════
@@ -1049,25 +1188,28 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <label class="form-label">Script URL</label>
         <input id="s-url" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
       </div>
-      <div class="form-group">
-        <label class="form-label">Lohntag (Tag des Monats)</label>
-        <input id="s-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Zyklus läuft vom Lohntag bis zum Vortag des nächsten.</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Jahres-Sparziel (CHF)</label>
-        <input id="s-sparziel" type="number" min="0" step="100" class="form-input" placeholder="0" style="max-width:160px">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Für die Jahres-Sparquote (0 = kein Ziel)</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Monatliches Sparziel (CHF)</label>
-        <input id="s-msparziel" type="number" min="0" step="50" class="form-input" placeholder="0" style="max-width:160px">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Wird vom variablen Budget pro Zyklus abgezogen (0 = kein Ziel)</div>
-      </div>
     </div>
     <div class="modal-actions" style="flex-direction:column;gap:8px">
       <button class="btn-save" style="width:100%" onclick="applySettings()">Speichern & neu laden</button>
       <button class="btn-delete" style="width:100%;margin-top:4px" onclick="resetApp()">App zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Avg Daily Config Modal -->
+<div class="modal-overlay" id="avg-config-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Ø Tagesausgabe konfigurieren</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('avg-config-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">Wähle welche Fixkosten (Daueraufträge) in den Ø Tagesausgaben mitgezählt werden sollen. Standardmässig sind Fixkosten ausgeschlossen.</p>
+      <div id="avg-config-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveAvgConfig()">Speichern</button>
     </div>
   </div>
 </div>
@@ -1100,6 +1242,7 @@ function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
   const s = localStorage.getItem(CFG_KEY);
   if(s) CFG = JSON.parse(s);
+  document.documentElement.dataset.theme = CFG.theme||'';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1368,15 +1511,70 @@ async function loadAll(){
 // ═══════════════════════════════════════════════════════════════
 let currentEntryType = 'ausgabe';
 
+let recurringMode = false;
+
 function setType(t){
   currentEntryType = t;
   document.getElementById('type-aus').className = 'type-btn'+(t==='ausgabe'?' active expense':'');
   document.getElementById('type-ein').className = 'type-btn'+(t==='einnahme'?' active income':'');
-  document.getElementById('type-rec').className = 'type-btn'+(t==='dauerauftrag'?' active':'');
-  document.getElementById('f-entry-section').style.display = t==='dauerauftrag'?'none':'block';
-  document.getElementById('f-rec-section').style.display = t==='dauerauftrag'?'block':'none';
-  if(t!=='dauerauftrag') fillDropdown('f-cat', t==='ausgabe'?'ausgabe':'einnahme');
-  else fillDropdown('f-r-cat','ausgabe');
+  // Show/hide recurring toggle only for Ausgabe
+  const recWrap = document.getElementById('f-recur-toggle-wrap');
+  if(recWrap) recWrap.style.display = t==='ausgabe'?'block':'none';
+  if(t!=='ausgabe' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  fillDropdown('f-cat', t==='ausgabe'?'ausgabe':'einnahme');
+  document.getElementById('f-date-label').textContent = recurringMode&&t==='ausgabe' ? 'Startdatum' : 'Datum';
+}
+
+function toggleRecurringFields(){
+  recurringMode = !recurringMode;
+  updateRecurToggleUI();
+}
+
+function updateRecurToggleUI(){
+  const sw = document.getElementById('f-recur-switch');
+  const row = document.getElementById('f-recur-row');
+  const sec = document.getElementById('f-rec-section');
+  const btn = document.getElementById('f-save-btn');
+  const dateLabel = document.getElementById('f-date-label');
+  if(sw) sw.className = 'toggle-switch'+(recurringMode?' on':'');
+  if(row) row.className = 'recur-toggle-row'+(recurringMode?' active':'');
+  if(sec) sec.style.display = recurringMode?'block':'none';
+  if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
+  if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';
+}
+
+async function saveEntryOrRecurring(){
+  if(recurringMode && currentEntryType==='ausgabe'){
+    // Build recurring from shared form fields
+    const what = document.getElementById('f-what').value.trim();
+    const amt = parseFloat(document.getElementById('f-amt').value)||0;
+    const cat = document.getElementById('f-cat').value;
+    const start = document.getElementById('f-date').value||'';
+    const interval = document.getElementById('f-r-interval')?.value||'monatlich';
+    const day = parseInt(document.getElementById('f-r-day')?.value)||1;
+    const endDate = document.getElementById('f-r-end')?.value||'';
+    const affectsAvg = document.getElementById('f-r-affects-avg')?.checked||false;
+    const note = document.getElementById('f-note').value.trim();
+    if(!what){ toast('Bezeichnung erforderlich','err'); return; }
+    const id = genId('D');
+    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg};
+    DATA.recurring.push(rec);
+    if(!CFG.demo){
+      setSyncStatus('syncing');
+      try{
+        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+        setSyncStatus('online');
+      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    }
+    // Reset form
+    ['f-amt','f-what','f-note','f-r-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const cb=document.getElementById('f-r-affects-avg'); if(cb) cb.checked=false;
+    recurringMode=false; updateRecurToggleUI();
+    toast('✓ Dauerauftrag gespeichert','ok');
+    renderRecurring(); renderDashboard();
+  } else {
+    saveEntry();
+  }
 }
 
 async function saveEntry(){
@@ -1771,12 +1969,6 @@ function renderMonthView(){
   const todayStr=today();
 
   document.getElementById('mv-content').innerHTML=`
-    <!-- Month banner -->
-    <div style="padding:20px 16px 12px;text-align:center;border-bottom:1px solid var(--border)">
-      <div style="font-size:32px;font-weight:700;letter-spacing:-1px;color:var(--text)">${mvMonths[mo]}</div>
-      <div style="font-size:15px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px">${yr}</div>
-    </div>
-
     <div class="section" style="padding-bottom:0">
       <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
         <div class="stat-card">
@@ -1907,6 +2099,7 @@ function exportExcel(){
 
 // ═══════════════════════════════════════════════════════════════
 let verlaufFilter = 'alle';
+let verlaufChartMonths = 3;
 
 function renderAll(){
   fillAllDropdowns();
@@ -1936,6 +2129,34 @@ function renderVerlauf(){
   filterRow.innerHTML = ['alle','Ausgaben','Einnahmen',...allCats.slice(0,12)]
     .map(f=>`<button class="filter-chip${verlaufFilter===f?' active':''}" onclick="setVerlaufFilter('${f}')">${f}</button>`)
     .join('');
+
+  // Chart section
+  const chartSection = document.getElementById('verlauf-chart-section');
+  if(verlaufFilter==='alle'){
+    const periodBtns = [1,3,6,12].map(m=>
+      `<button class="filter-chip${verlaufChartMonths===m?' active':''}" onclick="setVerlaufMonths(${m})" style="font-size:12px;padding:4px 10px">${m}M</button>`
+    ).join('');
+    const chartHtml = buildBalanceChart(verlaufChartMonths);
+    chartSection.innerHTML = `
+      <div style="display:flex;gap:6px;margin-bottom:8px">${periodBtns}</div>
+      <div style="overflow-x:auto">${chartHtml}</div>`;
+  } else if(verlaufFilter!=='Ausgaben'&&verlaufFilter!=='Einnahmen'){
+    // Category-specific: bar chart last 30 days
+    const days = 30;
+    const todayD = new Date(); todayD.setHours(12,0,0,0);
+    const dayData = {};
+    for(let i=days-1;i>=0;i--){
+      const d=new Date(todayD.getTime()-i*86400000);
+      dayData[dateStr(d)]=0;
+    }
+    const startStr = Object.keys(dayData)[0];
+    const endStr = today();
+    DATA.expenses.filter(e=>e.cat===verlaufFilter&&e.date>=startStr&&e.date<=endStr)
+      .forEach(e=>{ if(dayData[e.date]!==undefined) dayData[e.date]+=e.amt; });
+    chartSection.innerHTML = `<div style="overflow-x:auto">${buildBarChart(dayData, days)}</div>`;
+  } else {
+    chartSection.innerHTML = '';
+  }
 
   // Combine & filter entries
   let entries = [];
@@ -1998,6 +2219,7 @@ function renderVerlauf(){
 }
 
 function setVerlaufFilter(f){ verlaufFilter=f; renderVerlauf(); }
+function setVerlaufMonths(m){ verlaufChartMonths=m; renderVerlauf(); }
 
 function renderCategories(){
   // Also populate new-cat-parent dropdown
@@ -2187,9 +2409,10 @@ function renderDashboard(){
             ${weekOut>0?'− '+fmtAmt(weekOut):'—'}
           </div>
         </div>
-        <div class="stat-card" style="grid-column:1/-1">
+        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
           <div class="stat-label">Ø Tagesausgabe (Monat, ohne Fixkosten)
             ${avgDiff!==null?`<span style="font-size:11px;color:${avgDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDiff<=0?'↓':'↑'}${Math.abs(avgDiff).toFixed(0)}% vs. ${months[prevMoD.getMonth()]}</span>`:''}
+            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
           </div>
           <div class="stat-value" style="font-size:18px;color:${avgDayThis>0?'var(--text)':'var(--text3)'}">
             ${avgDayThis>0?'CHF '+fmtAmt(avgDayThis):'—'}
@@ -2256,33 +2479,6 @@ function renderDashboard(){
     </div>`;
     })()}
 
-    <!-- Tagesverlauf im Zyklus -->
-    ${dayRows.length?`
-    <div class="section" style="padding-top:10px">
-      <div class="section-title">Tagesverlauf</div>
-      <div class="card" style="padding:0">
-        ${dayRows.slice().reverse().map(day=>{
-          const pct=day.allow>0?Math.min(day.spent/day.allow*100,100):0;
-          const barCol=day.spent===0?'var(--border)':day.delta>=0?'var(--green)':'var(--red)';
-          const deltaClass=day.spent===0?'neutral':day.delta>=0?'ok':'over';
-          const deltaSign=day.delta>=0?'+':'−';
-          const lbl=day.isToday?'Heute':(wdays[day.d.getDay()]+' '+day.d.getDate()+'.');
-          const note=day.isFirst?' 💰':'';
-          return `
-          <div class="day-row${day.isToday?' is-today':''}${day.isFirst?' is-first':''}">
-            <div class="day-lbl${day.isToday?' is-today':''}">${lbl}${note}</div>
-            <div class="day-bar-wrap"><div class="day-bar-fill" style="width:${pct.toFixed(1)}%;background:${barCol}"></div></div>
-            <div class="day-spent" style="color:${day.spent>0?'var(--text)':'var(--text3)'}">
-              ${day.spent>0?fmtAmt(day.spent):'—'}
-            </div>
-            <div class="day-delta ${deltaClass}">
-              ${day.spent===0?'':deltaSign+fmtAmt(Math.abs(day.delta))}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`:''}
-
     <!-- Monatsverlauf (mit Einnahmen) -->
     <div class="section" style="padding-top:0">
       <div class="section-title">Monatsverlauf</div>
@@ -2323,7 +2519,8 @@ let currentTab = 'dashboard';
 function goTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
-  document.getElementById('tab-'+tab).style.display='block';
+  const tabEl = document.getElementById('tab-'+tab);
+  if(tabEl) tabEl.style.display='block';
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const navBtn = document.getElementById('nav-'+tab);
   if(navBtn) navBtn.classList.add('active');
@@ -2338,11 +2535,156 @@ function goTab(tab){
   }
   document.getElementById('page-title').textContent = {
     eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dauerauftraege:'Daueraufträge', dashboard:'Übersicht'
+    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', sparen:'Sparen'
   }[tab]||tab;
   updatePageSub();
   if(tab==='verlauf') renderVerlauf();
   if(tab==='dashboard') renderDashboard();
+  if(tab==='sparen') renderSparen();
+}
+
+function openMenuOverlay(){ document.getElementById('menu-overlay').classList.add('open'); }
+function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
+
+function toggleTheme(){
+  const isLight = document.documentElement.dataset.theme==='light';
+  document.documentElement.dataset.theme = isLight?'':'light';
+  CFG.theme = isLight?'':'light';
+  cfgSave();
+  document.getElementById('theme-label').textContent = isLight?'Hell-Modus':'Dunkel-Modus';
+}
+
+function renderSparen(){
+  document.getElementById('sp-lohntag').value = CFG.lohnTag||25;
+  document.getElementById('sp-msparziel').value = CFG.mSparziel||0;
+  document.getElementById('sp-sparziel').value = CFG.sparziel||0;
+}
+
+function saveSparen(){
+  const lt = parseInt(document.getElementById('sp-lohntag').value)||25;
+  CFG.lohnTag = Math.min(Math.max(lt,1),31);
+  CFG.mSparziel = parseFloat(document.getElementById('sp-msparziel').value)||0;
+  CFG.sparziel = parseFloat(document.getElementById('sp-sparziel').value)||0;
+  cfgSave();
+  toast('✓ Gespeichert','ok');
+  renderDashboard();
+}
+
+function openAvgConfig(){
+  const active = DATA.recurring.filter(r=>r.active);
+  if(!active.length){ toast('Keine Daueraufträge vorhanden','err'); return; }
+  document.getElementById('avg-config-list').innerHTML = active.map(r=>`
+    <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <div>
+        <div style="font-size:14px;font-weight:500">${esc(r.what)}</div>
+        <div style="font-size:12px;color:var(--text3)">${r.interval} · CHF ${fmtAmt(r.amt)}</div>
+      </div>
+      <input type="checkbox" data-rid="${r.id}" ${r.affectsAvg?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
+    </label>`).join('');
+  openModal('avg-config-modal');
+}
+
+async function saveAvgConfig(){
+  const checks = document.querySelectorAll('#avg-config-list input[data-rid]');
+  const changed = [];
+  checks.forEach(cb=>{
+    const r = DATA.recurring.find(r=>r.id===cb.dataset.rid);
+    if(r && r.affectsAvg !== cb.checked){ r.affectsAvg=cb.checked; changed.push(r); }
+  });
+  closeModal('avg-config-modal');
+  renderDashboard();
+  if(!CFG.demo && changed.length){
+    for(const r of changed){
+      try{
+        const row = await apiFindRow('Daueraufträge', r.id);
+        if(row) await apiUpdate(`Daueraufträge!K${row}`,[[r.affectsAvg?'1':'0']]);
+      } catch(e){ toast('Sync-Fehler','err'); }
+    }
+    setSyncStatus('online'); toast('✓ Gespeichert','ok');
+  } else toast('✓ Gespeichert','ok');
+}
+
+// ─── CHARTS ────────────────────────────────────────────────────
+
+function buildBarChart(dayData, days){
+  const todayStr = today();
+  const dates = Object.keys(dayData).sort();
+  const maxAmt = Math.max(...Object.values(dayData), 0.01);
+  const W=320, H=100, padL=4, padR=4, padB=22, padT=6;
+  const chartW=W-padL-padR, chartH=H-padB-padT;
+  const barW=Math.max(1, (chartW/days)-1);
+  const bars = dates.map((d,i)=>{
+    const amt=dayData[d];
+    const bh=amt>0?Math.max(2,(amt/maxAmt)*chartH):0;
+    const x=padL+(i/days)*chartW;
+    const y=padT+chartH-bh;
+    const isTday=d===todayStr;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW,1).toFixed(1)}" height="${bh.toFixed(1)}" fill="${isTday?'var(--accent)':'var(--red)'}" opacity="0.75" rx="1"/>`;
+  });
+  const labels=[];
+  dates.forEach((d,i)=>{
+    if(i===0||i%7===0||(i===dates.length-1&&dates.length>4)){
+      const dt=new Date(d+'T12:00:00');
+      labels.push(`<text x="${(padL+(i/days)*chartW).toFixed(1)}" y="${H-4}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${dt.getDate()}.${dt.getMonth()+1}.</text>`);
+    }
+  });
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" height="${H}">${bars.join('')}${labels.join('')}</svg>`;
+}
+
+function buildBalanceChart(months){
+  const now=new Date();
+  const startDate=new Date(now.getFullYear(),now.getMonth()-months+1,1);
+  const startStr=dateStr(startDate), todayStr=today();
+  const events=[];
+  DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:-e.amt}));
+  DATA.incomes.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:e.amt}));
+  events.sort((a,b)=>a.date.localeCompare(b.date));
+  if(!events.length) return `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Keine Daten für diesen Zeitraum</div>`;
+  let bal=0;
+  const pts=[{date:startStr,bal:0}];
+  events.forEach(e=>{bal+=e.amt; pts.push({date:e.date,bal});});
+  if(pts[pts.length-1].date!==todayStr) pts.push({date:todayStr,bal});
+  const W=340,H=130,padL=42,padR=6,padB=22,padT=8;
+  const chartW=W-padL-padR, chartH=H-padB-padT;
+  const totalDays=Math.max(1,Math.round((new Date(todayStr+'T12:00:00')-startDate)/86400000));
+  const mapX=d=>{const days=Math.round((new Date(d+'T12:00:00')-startDate)/86400000); return padL+(days/totalDays)*chartW;};
+  const minBal=Math.min(...pts.map(p=>p.bal),0);
+  const maxBal=Math.max(...pts.map(p=>p.bal),0);
+  const range=maxBal-minBal||1;
+  const mapY=b=>padT+chartH-((b-minBal)/range)*chartH;
+  const poly=pts.map(p=>`${mapX(p.date).toFixed(1)},${mapY(p.bal).toFixed(1)}`).join(' ');
+  const zeroY=mapY(0).toFixed(1);
+  // Area fill
+  const areaPath=`M${mapX(pts[0].date).toFixed(1)},${zeroY} `+pts.map(p=>`L${mapX(p.date).toFixed(1)},${mapY(p.bal).toFixed(1)}`).join(' ')+` L${mapX(pts[pts.length-1].date).toFixed(1)},${zeroY} Z`;
+  // Y labels
+  const yLabels=[[minBal,'var(--red)'],[0,'var(--text3)'],[maxBal,'var(--green)']].filter((v,i,a)=>a.findIndex(x=>x[0]===v[0])===i).map(([v,c])=>{
+    const y=mapY(v).toFixed(1);
+    const abs=Math.abs(v);
+    const lbl=abs>=1000?`${(v/1000).toFixed(1)}k`:Math.round(v).toString();
+    return `<text x="2" y="${y}" font-size="8" fill="${c}" font-family="DM Mono,monospace" dominant-baseline="middle">${lbl}</text>`;
+  });
+  // Month labels on X
+  const xLabels=[];
+  for(let i=0;i<months;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-months+1+i,1);
+    const ds=dateStr(d);
+    if(ds>=startStr&&ds<=todayStr){
+      const mNames=['J','F','M','A','M','J','J','A','S','O','N','D'];
+      xLabels.push(`<text x="${mapX(ds).toFixed(1)}" y="${H-4}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${mNames[d.getMonth()]}</text>`);
+    }
+  }
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" height="${H}">
+    <defs>
+      <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <line x1="${padL}" y1="${zeroY}" x2="${W-padR}" y2="${zeroY}" stroke="var(--border2)" stroke-width="1" stroke-dasharray="3,3"/>
+    <path d="${areaPath}" fill="url(#aGrad)"/>
+    <polyline points="${poly}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${yLabels.join('')}${xLabels.join('')}
+  </svg>`;
 }
 
 function fillDropdown(elId, type, selected=''){
@@ -2356,7 +2698,6 @@ function fillDropdown(elId, type, selected=''){
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
   fillDropdown('r-cat','ausgabe');
-  fillDropdown('f-r-cat','ausgabe');
 }
 
 function fillParentDropdown(elId, type, selected=''){
@@ -2393,18 +2734,11 @@ function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 function openSettings(){
   document.getElementById('s-url').value=CFG.scriptUrl||'';
-  document.getElementById('s-lohntag').value=CFG.lohnTag||25;
-  document.getElementById('s-sparziel').value=CFG.sparziel||0;
-  document.getElementById('s-msparziel').value=CFG.mSparziel||0;
   openModal('settings-modal');
 }
 
 function applySettings(){
   CFG.scriptUrl=document.getElementById('s-url').value.trim();
-  const lt=parseInt(document.getElementById('s-lohntag').value)||25;
-  CFG.lohnTag=Math.min(Math.max(lt,1),31);
-  CFG.sparziel=parseFloat(document.getElementById('s-sparziel').value)||0;
-  CFG.mSparziel=parseFloat(document.getElementById('s-msparziel').value)||0;
   CFG.demo=false; cfgSave(); location.reload();
 }
 
