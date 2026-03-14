@@ -34,12 +34,32 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
   --nav-h: 64px;
-  --r: 12px;
-  --r2: 8px;
+  --r: 14px;
+  --r2: 10px;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.2);
+  --glow-accent: rgba(200,245,60,.06);
+  --glow-blue: rgba(96,165,250,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html{height:100%;overscroll-behavior:none;background:var(--bg1)}
-body{height:100%;background:var(--bg0);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+body{
+  height:100%;background:var(--bg0);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:15px;
+  overflow:hidden;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;
+}
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%, var(--glow-accent) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 100%, var(--glow-blue) 0%, transparent 55%);
+}
+[data-theme="light"] body::before{
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%, rgba(180,220,30,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 100%, rgba(96,165,250,.04) 0%, transparent 55%);
+}
+#app,#setup,#content,.modal-overlay,.month-view,.menu-overlay{position:relative;z-index:1}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
 /* font-size≥16px prevents iOS auto-zoom on input focus */
 input,select,textarea{font-family:inherit;outline:none;border:none;background:none;font-size:16px;-webkit-user-select:text;user-select:text}
@@ -273,6 +293,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .card{
   background:var(--bg2);border:1px solid var(--border);
   border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--card-shadow);
 }
 .card-row{
   display:flex;align-items:center;gap:10px;
@@ -711,6 +732,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   --text3:#90909C;
   --accent:#1B5FE8;
   --accent2:#1450C0;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.07);
+  --glow-accent: rgba(27,95,232,.04);
+  --glow-blue: rgba(96,165,250,.04);
 }
 [data-theme="light"] .chart-period-btn.active{color:#fff}
 [data-theme="light"] .nav-btn.active{color:var(--accent)}
@@ -965,39 +989,36 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   <div class="setup-page active" id="sp-0">
     <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:52px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
     <div class="setup-title">F-Tracker</div>
-    <div class="setup-sub" style="margin-bottom:24px">by SESI Finance</div>
+    <div class="setup-sub" style="margin-bottom:28px">by SESI Finance</div>
 
-    <!-- Quick connect (returning users / already have URL) -->
-    <div class="setup-card">
-      <div class="setup-label">Script URL</div>
-      <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
-    </div>
-    <button id="connect-btn" class="btn-primary" style="margin-top:12px" onclick="doConnect()">Verbinden →</button>
-
-    <!-- Divider: Account -->
-    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:18px 0 10px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:11px;color:var(--text3);letter-spacing:.04em">MIT ACCOUNT</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-    </div>
-    <button class="btn-primary" style="width:100%;max-width:380px;margin-bottom:0" onclick="gotoSetupStep(2)">
+    <!-- Primary: Login -->
+    <button class="btn-primary" style="width:100%;max-width:380px;margin-bottom:10px" onclick="gotoSetupStep(2)">
       <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;display:inline;vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Mit Username &amp; Passwort anmelden
+      Anmelden
     </button>
 
-    <!-- Divider: Neu -->
-    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:16px 0 10px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:11px;color:var(--text3);letter-spacing:.04em">NEU HIER?</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
+    <!-- Secondary: Signup -->
+    <button class="btn-outline-setup" style="width:100%;max-width:380px" onclick="gotoSetupStep(3)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:6px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      Account erstellen
+    </button>
+
+    <div style="height:16px"></div>
+    <button class="btn-ghost" onclick="doDemo()" style="font-size:12px;color:var(--text3)">Demo ansehen</button>
+
+    <!-- Advanced: Script-URL (hidden by default) -->
+    <div style="margin-top:20px;width:100%;max-width:380px;text-align:center">
+      <button class="btn-ghost" style="font-size:11px;color:var(--text3);opacity:.7" onclick="document.getElementById('sp0-scripturl-wrap').style.display=document.getElementById('sp0-scripturl-wrap').style.display==='none'?'block':'none'">Mit Script-URL verbinden ↓</button>
+      <div id="sp0-scripturl-wrap" style="display:none;margin-top:10px">
+        <div class="setup-card" style="margin-bottom:10px">
+          <div class="setup-label">Script URL</div>
+          <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <button id="connect-btn" class="btn-primary" style="width:100%" onclick="doConnect()">Verbinden →</button>
+        <div style="height:8px"></div>
+        <button class="btn-ghost" style="font-size:11px;color:var(--text3)" onclick="gotoSetupStep(1)">Einrichtungsanleitung →</button>
+      </div>
     </div>
-    <button class="btn-outline-setup" style="width:100%;max-width:380px" onclick="gotoSetupStep(1)">
-      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Sheet manuell einrichten (Schritt-für-Schritt)
-    </button>
-
-    <div style="height:10px"></div>
-    <button class="btn-ghost" onclick="doDemo()">Demo ansehen</button>
   </div>
 
   <!-- Page 2: Login -->
@@ -2279,6 +2300,8 @@ async function doConnect(){
   if(!url){ toast('Script URL eintragen','err'); return; }
   if(!url.includes('script.google.com')){ toast('Ungültige Script URL','err'); return; }
   CFG.scriptUrl = url; CFG.demo = false;
+  // Clear account mode state when switching to Script URL mode
+  CFG.sessionToken = ''; CFG.authUser = ''; CFG.authRole = ''; CFG.adminUrl = '';
   cfgSave();
 
   const btn = document.getElementById('connect-btn');
@@ -2357,7 +2380,7 @@ function _profileApply(prof){
 }
 
 async function syncProfileToSheet(){
-  if(CFG.demo || !CFG.scriptUrl){ toast('Nur mit echtem Sheet verfügbar','err'); return; }
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)){ toast('Nur mit echtem Sheet verfügbar','err'); return; }
   try{
     setSyncStatus('syncing');
     await apiUpdate('Einstellungen!A1:B1',[['ft_profile_v1', JSON.stringify(_profileExportable())]]);
@@ -2375,7 +2398,7 @@ async function syncProfileToSheet(){
 // Silent debounced auto-sync — called after any significant layout change
 let _autoSyncTimer = null;
 function autoSyncProfile(){
-  if(CFG.demo || !CFG.scriptUrl) return;
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   clearTimeout(_autoSyncTimer);
   _autoSyncTimer = setTimeout(async ()=>{
     try{
@@ -2479,60 +2502,88 @@ async function checkSheets(){
   }
 }
 
+const DATA_CACHE_KEY = 'ft_datacache_v1';
+const DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function dataCacheSave(){
+  try{
+    localStorage.setItem(DATA_CACHE_KEY, JSON.stringify({
+      ts: Date.now(),
+      DATA: DATA,
+      SDATA: SDATA
+    }));
+  } catch(e){}
+}
+
+function dataCacheLoad(){
+  try{
+    const raw = localStorage.getItem(DATA_CACHE_KEY);
+    if(!raw) return false;
+    const parsed = JSON.parse(raw);
+    if(Date.now() - parsed.ts > DATA_CACHE_TTL) return false;
+    if(parsed.DATA) Object.assign(DATA, parsed.DATA);
+    if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+    return true;
+  } catch(e){ return false; }
+}
+
 async function loadAll(){
   setSyncStatus('syncing'); setLoader(true);
+
+  // Show cached data immediately while fetching
+  const hadCache = dataCacheLoad();
+  if(hadCache) renderAll();
+
   try{
-    // Load categories first (needed for dropdowns)
-    try{
-      const res = await apiGet('Kategorien!A2:F500');
-      DATA.categories = (res.values||[])
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes] = await Promise.allSettled([
+      apiGet('Kategorien!A2:F500'),
+      apiGet('Ausgaben!A2:H5000'),
+      apiGet('Einnahmen!A2:H5000'),
+      apiGet('Daueraufträge!A2:K200'),
+      apiGet('Aktien!A2:F5000'),
+      apiGet('Trades!A2:J5000'),
+      loadProfileFromSheet()
+    ]);
+
+    if(katRes.status==='fulfilled'){
+      DATA.categories = (katRes.value.values||[])
         .filter(r=>r[0])
         .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||''}))
         .sort((a,b)=>a.sort-b.sort);
-    } catch(e){ DATA.categories=[]; }
+    } else { if(!hadCache) DATA.categories=[]; }
 
-    // Load expenses
-    try{
-      const res = await apiGet('Ausgaben!A2:H5000');
-      DATA.expenses = (res.values||[])
+    if(ausgRes.status==='fulfilled'){
+      DATA.expenses = (ausgRes.value.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
         .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isFixkosten:String(r[7]||'')==='1'}));
-    } catch(e){ DATA.expenses=[]; }
+    } else { if(!hadCache) DATA.expenses=[]; }
 
-    // Load incomes
-    try{
-      const res = await apiGet('Einnahmen!A2:H5000');
-      DATA.incomes = (res.values||[])
+    if(einRes.status==='fulfilled'){
+      DATA.incomes = (einRes.value.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
         .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'}));
-    } catch(e){ DATA.incomes=[]; }
+    } else { if(!hadCache) DATA.incomes=[]; }
 
-    // Load recurring
-    try{
-      const res = await apiGet('Daueraufträge!A2:K200');
-      DATA.recurring = (res.values||[])
+    if(dauerRes.status==='fulfilled'){
+      DATA.recurring = (dauerRes.value.values||[])
         .filter(r=>r[0])
         .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
-    } catch(e){ DATA.recurring=[]; }
+    } else { if(!hadCache) DATA.recurring=[]; }
 
-    // Aktien + Trades — optionale Sheets (kein Fehler wenn nicht vorhanden)
-    try {
-      const [sr, tr] = await Promise.all([
-        apiGet('Aktien!A2:F5000'),
-        apiGet('Trades!A2:J5000')
-      ]);
-      const shStocks = (sr.values||[])
+    // Aktien + Trades — optionale Sheets
+    if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
+      const shStocks = (aktRes.value.values||[])
         .filter(r=>r[0]&&String(r[5]||'')!=='1')
         .map(r=>({id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||'CHF'}));
-      const shTrades = (tr.values||[])
+      const shTrades = (tradeRes.value.values||[])
         .filter(r=>r[0]&&String(r[9]||'')!=='1')
         .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),
           qty:parseFloat(r[4])||0,price:parseFloat(r[5])||0,currency:r[6]||'',
           courtage:parseFloat(r[7])||0,total:parseFloat(r[8])||0}));
       if(shStocks.length || shTrades.length){ SDATA.stocks=shStocks; SDATA.trades=shTrades; sdataSave(); }
-    } catch(e){ /* Aktien/Trades-Sheets nicht vorhanden — lokale Daten bleiben erhalten */ }
+    }
 
-    await loadProfileFromSheet();
+    dataCacheSave();
     setSyncStatus('online'); renderAll();
   } catch(e){
     setSyncStatus('error');
@@ -4219,7 +4270,12 @@ function goTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
-  if(tabEl) tabEl.style.display='block';
+  if(tabEl){
+    tabEl.style.display='block';
+    tabEl.classList.remove('animating');
+    void tabEl.offsetWidth; // force reflow
+    tabEl.classList.add('animating');
+  }
   // Nav active state: home (fixed) + pinned slots + mehr
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(tab==='home'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
@@ -5832,11 +5888,12 @@ function applySettings2(){
 
 function toggleThemeSwitch(){
   const isLight = document.documentElement.dataset.theme==='light';
-  document.documentElement.dataset.theme = isLight ? '' : 'light';
-  CFG.theme = isLight ? '' : 'light';
+  const newTheme = isLight ? '' : 'light';
+  document.documentElement.dataset.theme = newTheme;
+  CFG.theme = newTheme;
   cfgSave();
   const sw = document.getElementById('theme-toggle-sw');
-  if(sw) sw.classList.toggle('on', !isLight);
+  if(sw) sw.classList.toggle('on', newTheme!=='light');
 }
 
 function renderEinstellungen(){
@@ -5845,7 +5902,7 @@ function renderEinstellungen(){
   const nameEl = document.getElementById('s-username');
   if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
-  if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme==='light');
+  if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
 
   // Account-Bereich
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
