@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Creates finanztracker_template.xlsx with all 5 sheets."""
+"""Creates finanztracker_template.xlsx — README first, Einstellungen sheet."""
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 wb = Workbook()
@@ -42,9 +42,76 @@ def style_row(ws, row, n_cols, alt=False):
         cell.border = thin_border()
         cell.alignment = Alignment(vertical="center")
 
-# ─── Sheet 1: Ausgaben ─────────────────────────────────────────────────────
-ws_a = wb.active
-ws_a.title = "Ausgaben"
+# ─── Sheet 1: README (first!) ──────────────────────────────────────────────
+ws_r = wb.active
+ws_r.title = "README"
+ws_r.sheet_properties.tabColor = "E5C07B"
+ws_r.column_dimensions["A"].width = 74
+ws_r.column_dimensions["B"].width = 20
+
+# Title bar
+title_cell = ws_r.cell(1, 1, "Finanztracker Setup — Anleitung")
+title_cell.font      = Font(name="Calibri", bold=True, size=16, color=YELLOW)
+title_cell.fill      = DARK_FILL
+title_cell.alignment = Alignment(horizontal="center", vertical="center")
+ws_r.row_dimensions[1].height = 30
+ws_r.merge_cells("A1:B1")
+
+# Helpers — black body text on white background
+def readme_h(row, text):
+    c = ws_r.cell(row, 1, text)
+    c.font      = Font(name="Calibri", bold=True, size=12, color="1A56DB")
+    c.fill      = hex_fill("E8F0FE")
+    c.alignment = Alignment(vertical="center", indent=1)
+    ws_r.row_dimensions[row].height = 20
+
+def readme_b(row, text, indent=0):
+    c = ws_r.cell(row, 1, text)
+    c.font      = Font(name="Calibri", size=11, color="111111")   # black
+    c.alignment = Alignment(vertical="center", wrap_text=True, indent=indent+2)
+    ws_r.row_dimensions[row].height = 16
+
+def readme_blank(row):
+    ws_r.row_dimensions[row].height = 8
+
+readme_blank(2)
+readme_h(3,  "SCHRITT 1 — Diese Datei zu Google Drive hochladen")
+readme_b(4,  "→  Google Drive öffnen → '+Neu' → 'Datei hochladen' → diese Datei wählen", 1)
+readme_b(5,  "→  Rechtsklick auf die Datei → 'Öffnen mit Google Tabellen'", 1)
+readme_b(6,  "→  Google konvertiert das Excel automatisch in ein Google Sheet", 1)
+readme_blank(7)
+readme_h(8,  "SCHRITT 2 — Apps Script bereitstellen")
+readme_b(9,  "→  Im Google Sheet: Erweiterungen → Apps Script", 1)
+readme_b(10, "→  Code.gs einfügen & speichern  (Code findest du in der F-Tracker App unter 'Sheet einrichten')", 1)
+readme_b(11, "→  Bereitstellen → Neue Bereitstellung → Web-App", 1)
+readme_b(12, "→  Ausführen als: Ich  ·  Zugriff: Jeder (auch anonym)", 1)
+readme_b(13, "→  Berechtigungen bestätigen → Script-URL kopieren", 1)
+readme_blank(14)
+readme_h(15, "SCHRITT 3 — App verbinden")
+readme_b(16, "→  F-Tracker öffnen", 1)
+readme_b(17, "→  Script-URL in das URL-Feld einfügen → 'Verbinden' klicken", 1)
+readme_blank(18)
+readme_h(19, "WICHTIG")
+readme_b(20, "⚠  Spalten-Reihenfolge NICHT verändern — die App erwartet exakt diese Struktur.", 1)
+readme_b(21, "⚠  Tabellenblattnamen (Ausgaben, Einnahmen, Daueraufträge, Kategorien, Einstellungen) nicht umbenennen.", 1)
+readme_b(22, "⚠  Zeile 1 (Header) nicht löschen oder verändern.", 1)
+readme_blank(23)
+readme_h(24, "Sheet-Struktur Übersicht")
+readme_b(25, "Ausgaben:      ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
+readme_b(26, "Einnahmen:     ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
+readme_b(27, "Daueraufträge: ID | Was | Kategorie | Betrag | Intervall | Tag | Kommentar | Aktiv | nextDate | startDate | endDate | lastBooked", 1)
+readme_b(28, "Kategorien:    ID | Name | Typ (ausgabe/einnahme) | Farbe (#HEX) | Sortierung", 1)
+readme_b(29, "Einstellungen: App-Einstellungen (automatisch von der App befüllt — nicht manuell bearbeiten)", 1)
+readme_blank(30)
+readme_h(31, "Kategorien anpassen")
+readme_b(32, "→  Im Sheet 'Kategorien' beliebige Zeilen hinzufügen/ändern.", 1)
+readme_b(33, "→  Typ muss exakt 'ausgabe' oder 'einnahme' sein.", 1)
+readme_b(34, "→  Farbe: Hex-Code mit # z.B. #FF6B35", 1)
+
+ws_r.freeze_panes = "A2"
+
+# ─── Sheet 2: Ausgaben ─────────────────────────────────────────────────────
+ws_a = wb.create_sheet("Ausgaben")
 ws_a.sheet_properties.tabColor = "FF6B35"
 cols_a = [
     ("A","ID"), ("B","Datum"), ("C","Beschreibung"),
@@ -53,7 +120,6 @@ cols_a = [
 widths_a = [14, 13, 28, 18, 10, 22, 9]
 set_header(ws_a, cols_a, widths_a)
 ws_a.freeze_panes = "A2"
-# 2 sample rows (leer)
 for i, row_data in enumerate([
     ["a001", "2026-01-01", "Beispiel Supermarkt", "Poschte", 24.5, "", ""],
     ["a002", "2026-01-02", "Beispiel Kaffee",     "Snack",    3.5, "", ""],
@@ -62,9 +128,7 @@ for i, row_data in enumerate([
         ws_a.cell(i, j, val)
     style_row(ws_a, i, 7, alt=(i%2==0))
 
-ws_a.tab_color = "FF6B35"
-
-# ─── Sheet 2: Einnahmen ────────────────────────────────────────────────────
+# ─── Sheet 3: Einnahmen ────────────────────────────────────────────────────
 ws_e = wb.create_sheet("Einnahmen")
 ws_e.sheet_properties.tabColor = "3DBF6B"
 cols_e = [
@@ -81,7 +145,7 @@ for i, row_data in enumerate([
         ws_e.cell(i, j, val)
     style_row(ws_e, i, 7, alt=(i%2==0))
 
-# ─── Sheet 3: Daueraufträge ────────────────────────────────────────────────
+# ─── Sheet 4: Daueraufträge ────────────────────────────────────────────────
 ws_d = wb.create_sheet("Daueraufträge")
 ws_d.sheet_properties.tabColor = "61AFEF"
 cols_d = [
@@ -99,11 +163,9 @@ for i, row_data in enumerate([
     for j, val in enumerate(row_data, 1):
         ws_d.cell(i, j, val)
     style_row(ws_d, i, 12, alt=(i%2==0))
-# Note on Intervall values
-ws_d.cell(15, 1, "Gültige Intervall-Werte:").font = Font(color="888888", italic=True)
-ws_d.cell(16, 1, "monatlich | wöchentlich | halbjährlich | jährlich | semestral").font = Font(color="888888", italic=True)
+ws_d.cell(15, 1, "Gültige Intervall-Werte: monatlich | wöchentlich | halbjährlich | jährlich | semestral").font = Font(color="777777", italic=True, size=10)
 
-# ─── Sheet 4: Kategorien ───────────────────────────────────────────────────
+# ─── Sheet 5: Kategorien ───────────────────────────────────────────────────
 ws_k = wb.create_sheet("Kategorien")
 ws_k.sheet_properties.tabColor = "C678DD"
 cols_k = [("A","ID"), ("B","Name"), ("C","Typ"), ("D","Farbe"), ("E","Sortierung")]
@@ -147,7 +209,6 @@ for i, cat in enumerate(categories, start=2):
     for j, val in enumerate(cat, 1):
         ws_k.cell(i, j, val)
     style_row(ws_k, i, 5, alt=(i%2==0))
-    # Color swatch in column D
     hex_col = cat[3].lstrip("#")
     try:
         ws_k.cell(i, 4).fill = PatternFill("solid", fgColor=hex_col)
@@ -155,74 +216,52 @@ for i, cat in enumerate(categories, start=2):
     except:
         pass
 
-# ─── Sheet 5: README ───────────────────────────────────────────────────────
-ws_r = wb.create_sheet("README")
-ws_r.sheet_properties.tabColor = "E5C07B"
-ws_r.column_dimensions["A"].width = 72
-ws_r.column_dimensions["B"].width = 20
+# ─── Sheet 6: Einstellungen ────────────────────────────────────────────────
+ws_s = wb.create_sheet("Einstellungen")
+ws_s.sheet_properties.tabColor = "888888"
+ws_s.column_dimensions["A"].width = 20
+ws_s.column_dimensions["B"].width = 80
 
-# Title
-title_cell = ws_r.cell(1, 1, "Finanztracker Setup — Anleitung")
-title_cell.font      = Font(name="Calibri", bold=True, size=16, color=YELLOW)
-title_cell.fill      = DARK_FILL
-title_cell.alignment = Alignment(horizontal="center", vertical="center")
-ws_r.row_dimensions[1].height = 30
-ws_r.merge_cells("A1:B1")
+# Header
+h1 = ws_s.cell(1, 1, "Schlüssel")
+h2 = ws_s.cell(1, 2, "Wert (JSON)")
+for h in [h1, h2]:
+    h.font      = HEADER_FONT
+    h.fill      = DARK_FILL
+    h.alignment = Alignment(horizontal="center", vertical="center")
+    h.border    = thin_border()
+ws_s.row_dimensions[1].height = 20
 
-def readme_h(row, text):
-    c = ws_r.cell(row, 1, text)
-    c.font  = Font(name="Calibri", bold=True, size=12, color="61AFEF")
-    c.fill  = hex_fill("0D1B2A")
-    c.alignment = Alignment(vertical="center", indent=1)
-    ws_r.row_dimensions[row].height = 18
+# Prefill with empty profile
+import json
+default_profile = json.dumps({
+    "ft_profile_v1": True,
+    "userName": "",
+    "theme": "",
+    "lohnTag": 25,
+    "sparziel": 0,
+    "mSparziel": 0,
+    "pinnedTabs": [],
+    "homeWidgets": None,
+    "notifSettings": {}
+})
+ws_s.cell(2, 1, "ft_profile_v1")
+ws_s.cell(2, 2, default_profile)
+style_row(ws_s, 2, 2)
+ws_s.row_dimensions[2].height = 18
 
-def readme_b(row, text, indent=0):
-    c = ws_r.cell(row, 1, text)
-    c.font  = Font(name="Calibri", size=11, color="C0C8D8")
-    c.alignment = Alignment(vertical="center", wrap_text=True, indent=indent+2)
-    ws_r.row_dimensions[row].height = 16
+# Info rows
+info_font = Font(name="Calibri", color="111111", size=10, italic=True)
+ws_s.cell(4, 1, "HINWEIS:").font  = Font(name="Calibri", bold=True, size=10, color="AA3300")
+ws_s.cell(5, 1, "→  Dieses Tabellenblatt wird automatisch von der F-Tracker App befüllt.").font = info_font
+ws_s.cell(6, 1, "→  Bitte keine manuellen Änderungen vornehmen.").font = info_font
+ws_s.cell(7, 1, "→  Gespeichert werden: Kacheln-Layout, Tab-Pins, Name, Theme, Einstellungen.").font = info_font
 
-def readme_blank(row):
-    ws_r.row_dimensions[row].height = 8
+ws_s.freeze_panes = "A2"
+ws_s.sheet_view.showGridLines = False
 
-readme_blank(2)
-readme_h(3,  "SCHRITT 1 — Diese Datei zu Google Drive hochladen")
-readme_b(4,  "→  Google Drive öffnen → '+Neu' → 'Datei hochladen' → diese Datei wählen", 1)
-readme_b(5,  "→  Rechtsklick auf die Datei → 'Öffnen mit Google Tabellen'", 1)
-readme_b(6,  "→  Google konvertiert das Excel automatisch in ein Google Sheet", 1)
-readme_blank(7)
-readme_h(8,  "SCHRITT 2 — Apps Script bereitstellen")
-readme_b(9,  "→  Im Google Sheet: Erweiterungen → Apps Script", 1)
-readme_b(10, "→  Code.gs einfügen & speichern  (Code findest du in der F-Tracker App unter Einrichten)", 1)
-readme_b(11, "→  Bereitstellen → Neue Bereitstellung → Web-App", 1)
-readme_b(12, "→  Ausführen als: Ich  ·  Zugriff: Jeder (auch anonym)", 1)
-readme_b(13, "→  Berechtigungen bestätigen → Script-URL kopieren", 1)
-readme_blank(14)
-readme_h(15, "SCHRITT 3 — App verbinden")
-readme_b(16, "→  F-Tracker öffnen", 1)
-readme_b(17, "→  Script-URL in das URL-Feld einfügen → 'Verbinden' klicken", 1)
-readme_blank(18)
-readme_h(19, "WICHTIG")
-readme_b(20, "⚠  Spalten-Reihenfolge NICHT verändern — die App erwartet exakt diese Struktur.", 1)
-readme_b(21, "⚠  Tabellenblattnamen (Ausgaben, Einnahmen, Daueraufträge, Kategorien) nicht umbenennen.", 1)
-readme_b(22, "⚠  Zeile 1 (Header) nicht löschen oder verändern.", 1)
-readme_blank(23)
-readme_h(24, "Sheet-Struktur Übersicht")
-readme_b(25, "Ausgaben:      ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
-readme_b(26, "Einnahmen:     ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
-readme_b(27, "Daueraufträge: ID | Was | Kategorie | Betrag | Intervall | Tag | Kommentar | Aktiv | nextDate | startDate | endDate | lastBooked", 1)
-readme_b(28, "Kategorien:    ID | Name | Typ (ausgabe/einnahme) | Farbe (#HEX) | Sortierung", 1)
-readme_blank(29)
-readme_h(30, "Kategorien anpassen")
-readme_b(31, "→  Im Sheet 'Kategorien' beliebige Zeilen hinzufügen/ändern.", 1)
-readme_b(32, "→  Typ muss exakt 'ausgabe' oder 'einnahme' sein.", 1)
-readme_b(33, "→  Farbe: Hex-Code mit # z.B. #FF6B35", 1)
-
-# Freeze & tab bg
-ws_r.freeze_panes = "A2"
-
-# ─── Global sheet styling ──────────────────────────────────────────────────
-for ws in [ws_a, ws_e, ws_d, ws_k, ws_r]:
+# ─── Global styling ────────────────────────────────────────────────────────
+for ws in [ws_r, ws_a, ws_e, ws_d, ws_k]:
     ws.sheet_view.showGridLines = False
 
 out = "/home/user/finanztracker1/finanztracker_template.xlsx"
