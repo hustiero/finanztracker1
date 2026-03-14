@@ -3343,7 +3343,7 @@ function renderWidgetContent(key){
 function renderWidgetGreeting(){
   const now = new Date();
   const h = now.getHours();
-  const greet = h<11 ? 'Guten Morgen' : h<17 ? 'Guten Tag' : 'Guten Abend';
+  const greet = h<11 ? 'Guete Morge' : h<17 ? 'Grüezi' : 'Guete Abig';
   const name = CFG.userName ? `, ${CFG.userName}` : '';
   const wday = now.toLocaleDateString('de-CH',{weekday:'long'});
   const dat  = now.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'});
