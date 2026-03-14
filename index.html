@@ -932,6 +932,25 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   transition:transform .2s, background .2s;
 }
 .toggle-switch.on::after{transform:translateX(18px);background:#0D0D0F}
+/* ═══════════════════════════════════════════════════
+   AUTH / ACCOUNT
+═══════════════════════════════════════════════════ */
+.auth-tabs{display:flex;gap:0;border-radius:var(--r2);overflow:hidden;border:1px solid var(--border);margin-bottom:16px;flex-shrink:0}
+.auth-tab-btn{flex:1;padding:9px 0;font-size:13px;font-weight:600;background:var(--bg2);color:var(--text3);border:none;cursor:pointer;transition:background .15s,color .15s}
+.auth-tab-btn.active{background:var(--accent);color:#0D0D0F}
+.auth-input-pw-wrap{position:relative}
+.auth-input-pw-wrap .form-input{padding-right:42px}
+.auth-pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;align-items:center}
+.auth-pw-eye svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}
+.admin-user-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);gap:8px}
+.admin-user-row:last-child{border-bottom:none}
+.admin-user-name{font-size:14px;font-weight:600}
+.admin-user-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.admin-user-actions{display:flex;gap:6px;flex-shrink:0}
+.admin-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--accent);color:#000;margin-left:6px}
+.admin-badge.user{background:var(--bg3);color:var(--text3)}
+/* account strip in top bar */
+.auth-user-chip{font-size:11px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-right:4px;white-space:nowrap;overflow:hidden;max-width:80px;text-overflow:ellipsis}
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -955,21 +974,110 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     </div>
     <button id="connect-btn" class="btn-primary" style="margin-top:12px" onclick="doConnect()">Verbinden →</button>
 
-    <!-- Divider -->
-    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:18px 0 12px">
+    <!-- Divider: Account -->
+    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:18px 0 10px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:11px;color:var(--text3);letter-spacing:.04em">MIT ACCOUNT</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <button class="btn-primary" style="width:100%;max-width:380px;margin-bottom:0" onclick="gotoSetupStep(2)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;display:inline;vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Mit Username &amp; Passwort anmelden
+    </button>
+
+    <!-- Divider: Neu -->
+    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:16px 0 10px">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <span style="font-size:11px;color:var(--text3);letter-spacing:.04em">NEU HIER?</span>
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
-
-    <!-- New user: step-by-step setup guide -->
     <button class="btn-outline-setup" style="width:100%;max-width:380px" onclick="gotoSetupStep(1)">
       <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Sheet einrichten (Schritt-für-Schritt)
+      Sheet manuell einrichten (Schritt-für-Schritt)
     </button>
 
     <div style="height:10px"></div>
     <button class="btn-ghost" onclick="doDemo()">Demo ansehen</button>
+  </div>
+
+  <!-- Page 2: Login -->
+  <div class="setup-page" id="sp-2">
+    <button class="setup-back-btn" onclick="gotoSetupStep(0)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zurück
+    </button>
+    <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:52px;font-weight:700;color:var(--accent);letter-spacing:-.05em;margin-top:8px">₣</div>
+    <div class="setup-title" style="margin-bottom:4px">Anmelden</div>
+    <div class="setup-sub" style="margin-bottom:20px">Dein F-Tracker Account</div>
+
+    <div class="setup-card" style="width:100%;max-width:380px">
+      <div class="form-group">
+        <label class="form-label">Benutzername</label>
+        <input id="auth-user" class="setup-input" autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="deinname" onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+      </div>
+      <div class="form-group" style="margin-bottom:6px">
+        <label class="form-label">Passwort</label>
+        <div class="auth-input-pw-wrap">
+          <input id="auth-pw" class="form-input setup-input" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthLogin()">
+          <button class="auth-pw-eye" type="button" onclick="togglePwVis('auth-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div id="auth-admin-url-wrap" style="display:none">
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label" style="color:var(--text3);font-size:11px">Admin Script URL (einmalig)</label>
+          <input id="auth-admin-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
+        </div>
+      </div>
+    </div>
+
+    <button id="auth-login-btn" class="btn-primary" style="margin-top:12px;width:100%;max-width:380px" onclick="doAuthLogin()">Anmelden →</button>
+    <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(3)">Noch kein Konto? Registrieren</button>
+    <button class="btn-ghost" style="margin-top:2px;font-size:11px;color:var(--text3)" onclick="document.getElementById('auth-admin-url-wrap').style.display=document.getElementById('auth-admin-url-wrap').style.display==='none'?'block':'none'">⚙ Admin-URL konfigurieren</button>
+    <div style="height:8px"></div>
+    <button class="btn-ghost" onclick="doDemo()" style="font-size:12px;color:var(--text3)">Demo ansehen</button>
+  </div>
+
+  <!-- Page 3: Signup -->
+  <div class="setup-page" id="sp-3">
+    <button class="setup-back-btn" onclick="gotoSetupStep(2)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zurück zum Login
+    </button>
+    <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:52px;font-weight:700;color:var(--accent);letter-spacing:-.05em;margin-top:8px">₣</div>
+    <div class="setup-title" style="margin-bottom:4px">Konto erstellen</div>
+    <div class="setup-sub" style="margin-bottom:20px">Neuer F-Tracker Account</div>
+
+    <div class="setup-card" style="width:100%;max-width:380px">
+      <div class="form-group">
+        <label class="form-label">Benutzername</label>
+        <input id="su-user" class="setup-input" autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="deinname (mind. 3 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw').focus()">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">a–z, 0–9, _ . - erlaubt</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Passwort</label>
+        <div class="auth-input-pw-wrap">
+          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()">
+          <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Passwort bestätigen</label>
+        <div class="auth-input-pw-wrap">
+          <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()">
+          <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw2',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div id="su-admin-url-wrap">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
+          <input id="su-admin-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">Vom Admin bereitgestellt · wird einmalig gespeichert</div>
+        </div>
+      </div>
+    </div>
+
+    <button id="auth-signup-btn" class="btn-primary" style="margin-top:12px;width:100%;max-width:380px" onclick="doAuthSignup()">Konto erstellen →</button>
+    <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(2)">Bereits registriert? Anmelden</button>
   </div>
 
   <!-- Page 1: Setup guide (template + script) -->
@@ -1313,6 +1421,45 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </div>
     </div>
 
+    <!-- TAB: Admin (nur für role=admin) -->
+    <div id="tab-admin" class="tab-page" style="display:none">
+      <div class="section">
+        <div class="section-title">Benutzer-Verwaltung</div>
+        <div class="card" style="padding:14px">
+          <div id="admin-users-list" style="padding:4px 0"><div style="color:var(--text3);font-size:13px">Lade…</div></div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Admin Code.gs</div>
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+            Dieser Code kommt in das <b style="color:var(--text)">Admin-Sheet</b> (nicht ins User-Sheet!) unter <b style="color:var(--text)">Erweiterungen → Apps Script</b>.
+          </div>
+          <button class="btn-outline-setup" onclick="toggleAdminCodeGs(this)" style="font-size:11px">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Admin Code.gs anzeigen &amp; kopieren
+          </button>
+          <div id="admin-codeg-block" style="display:none;margin-top:10px;position:relative">
+            <pre id="admin-codeg-pre" style="background:#0d0d15;color:#abb2bf;border-radius:8px;padding:12px;font-size:10px;font-family:'DM Mono',monospace;line-height:1.5;overflow:auto;max-height:220px;border:1px solid var(--border);white-space:pre;margin:0"></pre>
+            <button onclick="copyAdminCodeGs()" style="position:absolute;top:8px;right:8px;background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600">Kopieren</button>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Einladungslink</div>
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+            Dieser Link enthält die Admin-URL. Teile ihn mit neuen Benutzern — sie können sich direkt registrieren.
+          </div>
+          <div id="admin-invite-link" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px 10px;word-break:break-all;margin-bottom:8px"></div>
+          <button class="btn-outline-setup" onclick="copyInviteLink()" style="font-size:11px">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Link kopieren
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB: Monatsübersicht -->
     <div id="tab-monat" class="tab-page" style="display:none">
       <div id="monat-content"></div>
@@ -1320,7 +1467,31 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
     <!-- TAB: Einstellungen -->
     <div id="tab-einstellungen" class="tab-page" style="display:none">
-      <div class="section">
+      <!-- Account-Bereich (nur bei Account-Modus sichtbar) -->
+      <div class="section" id="settings-account-section" style="display:none">
+        <div class="section-title">Account</div>
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:14px;font-weight:600" id="settings-auth-name">–</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px" id="settings-auth-role">–</div>
+            </div>
+            <button class="btn-outline-setup" onclick="doLogout()" style="font-size:12px;padding:6px 12px">Ausloggen</button>
+          </div>
+          <div style="font-size:12px;color:var(--text3)">Passwort ändern:</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="settings-new-pw" type="password" class="form-input" placeholder="Neues Passwort" style="flex:1;font-size:12px">
+            <button class="save-btn" onclick="doChangePw()" style="padding:0 14px;white-space:nowrap">Ändern</button>
+          </div>
+          <div id="settings-admin-link" style="display:none;margin-top:10px">
+            <button class="btn-outline-setup" onclick="goTab('admin')" style="width:100%;font-size:12px">
+              <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Admin-Panel öffnen
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="section" id="settings-url-section">
         <div class="section-title">Verbindung</div>
         <div class="card" style="padding:14px">
           <div class="form-group">
@@ -1857,7 +2028,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -1875,11 +2046,21 @@ function cfgLoad(){
 // ═══════════════════════════════════════════════════════════════
 
 async function apiCall(params){
-  const url = CFG.scriptUrl + '?' + new URLSearchParams(params).toString();
+  const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
+  const baseUrl = isAccountMode ? CFG.adminUrl : CFG.scriptUrl;
+  const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
+  const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
   const r = await fetch(url);
   if(!r.ok) throw new Error('HTTP '+r.status);
   const data = await r.json();
-  if(data.error) throw new Error(data.error);
+  if(data.error){
+    if((data.error||'').includes('Sitzung abgelaufen')){
+      CFG.sessionToken=''; CFG.authUser=''; CFG.authRole=''; cfgSave();
+      toast('Sitzung abgelaufen – bitte neu anmelden','err');
+      setTimeout(()=>location.reload(), 2500);
+    }
+    throw new Error(data.error);
+  }
   return data;
 }
 
@@ -2066,10 +2247,26 @@ function catEmoji(name){
 // ═══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', ()=>{
   cfgLoad();
+
+  // Read adminUrl from sharing link: ?adminUrl=https://...
+  const urlParams = new URLSearchParams(window.location.search);
+  const adminUrlParam = urlParams.get('adminUrl');
+  if(adminUrlParam && adminUrlParam.includes('script.google.com')){
+    CFG.adminUrl = adminUrlParam;
+    cfgSave();
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   document.getElementById('f-date').value = today();
 
-  if(CFG.scriptUrl){
-    // Pre-fill settings
+  if(CFG.sessionToken && CFG.adminUrl){
+    // Account-Modus: Session vorhanden → direkt starten (Token wird beim ersten API-Call geprüft)
+    launchApp();
+  } else if(CFG.adminUrl){
+    // Admin-URL bekannt, aber keine Session → Login anzeigen
+    gotoSetupStep(2);
+    document.getElementById('su-admin-url').value = CFG.adminUrl;
+  } else if(CFG.scriptUrl){
     document.getElementById('cfg-url').value = CFG.scriptUrl;
     launchApp();
   } else if(CFG.demo){
@@ -2099,12 +2296,18 @@ async function doConnect(){
 function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchApp(); }
 
 function doLogout(){
-  const isDemoMode = CFG.demo;
-  const msg = isDemoMode
+  const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
+  const msg = CFG.demo
     ? 'Demo-Modus beenden?'
-    : 'Ausloggen? Die Script-URL wird entfernt. Alle lokalen Buchungsdaten bleiben erhalten.';
+    : isAccountMode
+      ? `Als "${CFG.authUser}" ausloggen?`
+      : 'Ausloggen? Die Script-URL wird entfernt.';
   if(!confirm(msg)) return;
-  CFG.scriptUrl = ''; CFG.demo = false;
+  // Fire-and-forget server-side session invalidation
+  if(isAccountMode && CFG.sessionToken){
+    fetch(CFG.adminUrl + '?' + new URLSearchParams({action:'logout', token: CFG.sessionToken})).catch(()=>{});
+  }
+  CFG.scriptUrl = ''; CFG.sessionToken = ''; CFG.authUser = ''; CFG.authRole = ''; CFG.demo = false;
   cfgSave();
   location.reload();
 }
@@ -4038,7 +4241,7 @@ function goTab(tab){
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dauerauftraege:'Daueraufträge', dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
-    aktien:'Aktien', monat:'Monatsübersicht', einstellungen:'Einstellungen'
+    aktien:'Aktien', monat:'Monatsübersicht', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
   if(tab==='home') renderHome();
@@ -4049,6 +4252,7 @@ function goTab(tab){
   if(tab==='einstellungen') renderNotifSettings();
   if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); renderMonat(); }
   if(tab==='einstellungen') renderEinstellungen();
+  if(tab==='admin') renderAdmin();
 }
 
 let menuEditMode = false;
@@ -4837,6 +5041,162 @@ function loadDemo(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: ACCOUNT AUTH
+// ═══════════════════════════════════════════════════════════════
+
+async function sha256(msg){
+  const buf = new TextEncoder().encode(msg);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function togglePwVis(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.querySelector('svg').innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+async function doAuthLogin(){
+  const user = (document.getElementById('auth-user').value||'').trim().toLowerCase();
+  const pw   = (document.getElementById('auth-pw').value)||'';
+  if(!user||!pw){ toast('Benutzername und Passwort eingeben','err'); return; }
+
+  const adminUrlInput = (document.getElementById('auth-admin-url').value||'').trim();
+  const adminUrl = adminUrlInput || CFG.adminUrl;
+  if(!adminUrl){ toast('Admin-Script-URL fehlt → ⚙ konfigurieren','err'); return; }
+
+  const btn = document.getElementById('auth-login-btn');
+  btn.disabled=true; btn.textContent='Anmelden…';
+  try{
+    const hash = await sha256(pw);
+    const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'login',user,hash}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
+    CFG.scriptUrl=''; CFG.demo=false;
+    cfgSave();
+    launchApp();
+  }catch(e){
+    toast('Fehler: '+e.message,'err');
+    btn.disabled=false; btn.textContent='Anmelden →';
+  }
+}
+
+async function doAuthSignup(){
+  const user  = (document.getElementById('su-user').value||'').trim().toLowerCase();
+  const pw    = (document.getElementById('su-pw').value)||'';
+  const pw2   = (document.getElementById('su-pw2').value)||'';
+  const adminUrl = (document.getElementById('su-admin-url').value||'').trim() || CFG.adminUrl;
+  if(!user||!pw||!pw2){ toast('Alle Felder ausfüllen','err'); return; }
+  if(pw!==pw2){ toast('Passwörter stimmen nicht überein','err'); return; }
+  if(pw.length<6){ toast('Passwort: min. 6 Zeichen','err'); return; }
+  if(!adminUrl){ toast('Admin-Script-URL eintragen','err'); return; }
+
+  const btn = document.getElementById('auth-signup-btn');
+  btn.disabled=true; btn.textContent='Konto wird erstellt…';
+  try{
+    const hash = await sha256(pw);
+    const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
+    CFG.scriptUrl=''; CFG.demo=false;
+    cfgSave();
+    toast('✓ Konto erstellt — willkommen, '+d.username+'!','ok');
+    launchApp();
+  }catch(e){
+    toast('Fehler: '+e.message,'err');
+    btn.disabled=false; btn.textContent='Konto erstellen →';
+  }
+}
+
+async function doChangePw(){
+  const newPw = (document.getElementById('settings-new-pw').value||'').trim();
+  if(newPw.length<6){ toast('Passwort: min. 6 Zeichen','err'); return; }
+  if(!confirm('Passwort wirklich ändern?')) return;
+  try{
+    const newHash = await sha256(newPw);
+    // Use admin_reset_pw on own account (admin) or a dedicated self-reset endpoint
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'change_pw',token:CFG.sessionToken,newHash}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    document.getElementById('settings-new-pw').value='';
+    toast('✓ Passwort geändert','ok');
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+// ─── Admin Panel ─────────────────────────────────────────────
+
+async function renderAdmin(){
+  if(CFG.authRole!=='admin'){ document.getElementById('admin-users-list').innerHTML='<div style="color:var(--text3);font-size:13px">Kein Zugriff.</div>'; return; }
+  // Invite link
+  const invEl = document.getElementById('admin-invite-link');
+  if(invEl){
+    const invUrl = window.location.origin + window.location.pathname + '?adminUrl=' + encodeURIComponent(CFG.adminUrl);
+    invEl.textContent = invUrl;
+  }
+  document.getElementById('admin-users-list').innerHTML = '<div style="color:var(--text3);font-size:13px">Lade Benutzerliste…</div>';
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_list',token:CFG.sessionToken}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    renderAdminUserList(d.users||[]);
+  }catch(e){
+    document.getElementById('admin-users-list').innerHTML='<div style="color:var(--red);font-size:12px">'+esc(e.message)+'</div>';
+  }
+}
+
+function renderAdminUserList(users){
+  const el = document.getElementById('admin-users-list');
+  if(!users.length){ el.innerHTML='<div style="color:var(--text3);font-size:13px">Noch keine Benutzer.</div>'; return; }
+  el.innerHTML = users.map(u=>`
+  <div class="admin-user-row">
+    <div style="min-width:0">
+      <div class="admin-user-name">${esc(u.username)}<span class="admin-badge ${u.role==='admin'?'':'user'}">${u.role==='admin'?'Admin':'User'}</span></div>
+      <div class="admin-user-meta">Erstellt: ${u.createdAt?u.createdAt.slice(0,10):'–'} · Login: ${u.lastLogin?u.lastLogin.slice(0,10):'–'}</div>
+      ${u.sheetUrl?`<div class="admin-user-meta"><a href="${esc(u.sheetUrl)}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:10px">Sheet öffnen ↗</a></div>`:''}
+    </div>
+    <div class="admin-user-actions">
+      <button onclick="adminResetPw('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">Reset PW</button>
+      ${u.username!==CFG.authUser?`<button onclick="adminDeleteUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:var(--red);cursor:pointer">Löschen</button>`:''}
+    </div>
+  </div>`).join('');
+}
+
+async function adminResetPw(target){
+  const newPw = prompt(`Neues temporäres Passwort für "${target}":`, '');
+  if(!newPw||newPw.length<6){ toast('Mindestens 6 Zeichen','err'); return; }
+  try{
+    const newHash = await sha256(newPw);
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_reset_pw',token:CFG.sessionToken,target,newHash}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    toast(`✓ PW für ${target} geändert: ${newPw}`, 'ok');
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+async function adminDeleteUser(target){
+  if(!confirm(`Benutzer "${target}" und alle Session-Einträge löschen?\n\nDas persönliche Sheet wird NICHT gelöscht.`)) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_delete',token:CFG.sessionToken,target}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    toast('✓ Benutzer gelöscht','ok');
+    renderAdmin();
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+function copyInviteLink(){
+  const invUrl = window.location.origin + window.location.pathname + '?adminUrl=' + encodeURIComponent(CFG.adminUrl);
+  if(navigator.clipboard) navigator.clipboard.writeText(invUrl).then(()=>toast('✓ Einladungslink kopiert','ok')).catch(()=>toast('Clipboard n/a','err'));
+  else{ const ta=document.createElement('textarea');ta.value=invUrl;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('✓ Einladungslink kopiert','ok'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: CODE.GS HELPER
 // ═══════════════════════════════════════════════════════════════
 const CODE_GS = `function doGet(e) {
@@ -4895,6 +5255,205 @@ function copyCodeGs() {
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     toast('✓ Code.gs kopiert!', 'ok');
   }
+}
+
+// ─── Admin Code.gs ──────────────────────────────────────────
+const ADMIN_CODE_GS = `// ═══════════════════════════════════════════════════
+// F-TRACKER ADMIN CODE.GS
+// Nur im Admin-Sheet deployen (nicht im User-Sheet!)
+// Bereitstellen → Web-App · Ausführen als: Ich · Zugriff: Jeder
+// ═══════════════════════════════════════════════════
+
+const SESSION_HOURS = 720; // 30 Tage
+
+function doGet(e) {
+  const p = e.parameter || {};
+  try { return _json(_handle(p)); }
+  catch(err) { return _json({ error: err.toString() }); }
+}
+
+function _handle(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (p.action === 'signup') return _signup(ss, p);
+  if (p.action === 'login')  return _login(ss, p);
+  const session = _checkSession(ss, p.token);
+  if (!session) return { error: 'Sitzung abgelaufen. Bitte neu anmelden.' };
+  const user = _getUser(ss, session.username);
+  if (!user) return { error: 'Benutzer nicht gefunden.' };
+  if (p.action === 'logout')     return _logout(ss, p.token);
+  if (p.action === 'get')        return _proxyGet(user.sheetId, p);
+  if (p.action === 'append')     return _proxyAppend(user.sheetId, p);
+  if (p.action === 'update')     return _proxyUpdate(user.sheetId, p);
+  if (p.action === 'meta')       return _proxyMeta(user.sheetId);
+  if (p.action === 'change_pw')  return _changePw(ss, session.username, p);
+  if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
+  if (p.action === 'admin_list')     return _adminList(ss);
+  if (p.action === 'admin_delete')   return _adminDelete(ss, p);
+  if (p.action === 'admin_reset_pw') return _adminResetPw(ss, p);
+  return { error: 'Unbekannte Aktion: ' + (p.action || '(keine)') };
+}
+
+function _signup(ss, p) {
+  if (!p.user || !p.hash) return { error: 'Benutzername und Passwort erforderlich.' };
+  const user = p.user.trim().toLowerCase();
+  if (user.length < 3) return { error: 'Benutzername: mind. 3 Zeichen.' };
+  if (!/^[a-z0-9._-]+$/.test(user)) return { error: 'Nur a–z 0–9 . _ - erlaubt.' };
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === user) return { error: 'Benutzername bereits vergeben.' };
+  const newSs = SpreadsheetApp.create('FTracker – ' + user);
+  _initUserSheet(newSs);
+  sheet.appendRow([user, p.hash, newSs.getId(), newSs.getUrl(), new Date().toISOString(), 'user', '']);
+  const token = _createSession(ss, user);
+  return { ok: true, token, username: user, role: 'user' };
+}
+
+function _login(ss, p) {
+  if (!p.user || !p.hash) return { error: 'Benutzername und Passwort erforderlich.' };
+  const user = p.user.trim().toLowerCase();
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).toLowerCase() === user && rows[i][1] === p.hash) {
+      sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
+      const token = _createSession(ss, user);
+      return { ok: true, token, username: user, role: rows[i][5] || 'user' };
+    }
+  }
+  return { error: 'Benutzername oder Passwort falsch.' };
+}
+
+function _logout(ss, token) {
+  const sheet = ss.getSheetByName('Sessions');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (rows[i][0] === token) { sheet.deleteRow(i + 1); break; }
+  return { ok: true };
+}
+
+function _changePw(ss, username, p) {
+  if (!p.newHash) return { error: 'newHash fehlt' };
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === username.toLowerCase()) {
+      sheet.getRange(i + 1, 2).setValue(p.newHash);
+      return { ok: true };
+    }
+  return { error: 'Benutzer nicht gefunden' };
+}
+
+function _checkSession(ss, token) {
+  if (!token) return null;
+  const sheet = ss.getSheetByName('Sessions');
+  const rows = sheet.getDataRange().getValues();
+  const now = new Date();
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === token) {
+      if (new Date(rows[i][2]) > now) return { username: rows[i][1] };
+      sheet.deleteRow(i + 1); return null;
+    }
+  }
+  return null;
+}
+
+function _createSession(ss, username) {
+  const token = Utilities.getUuid();
+  const expires = new Date(Date.now() + SESSION_HOURS * 3600 * 1000);
+  ss.getSheetByName('Sessions').appendRow([token, username, expires.toISOString()]);
+  return token;
+}
+
+function _getUser(ss, username) {
+  const rows = ss.getSheetByName('Users').getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === username.toLowerCase())
+      return { username: rows[i][0], sheetId: rows[i][2], sheetUrl: rows[i][3], role: rows[i][5] || 'user' };
+  return null;
+}
+
+function _proxyGet(sheetId, p) {
+  return { values: SpreadsheetApp.openById(sheetId).getRange(p.range).getValues() };
+}
+function _proxyAppend(sheetId, p) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+  const rows = JSON.parse(p.values);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  return { ok: true };
+}
+function _proxyUpdate(sheetId, p) {
+  SpreadsheetApp.openById(sheetId).getRange(p.range).setValues(JSON.parse(p.values));
+  return { ok: true };
+}
+function _proxyMeta(sheetId) {
+  return { sheets: SpreadsheetApp.openById(sheetId).getSheets().map(s => ({ properties: { title: s.getName() } })) };
+}
+
+function _adminList(ss) {
+  const rows = ss.getSheetByName('Users').getDataRange().getValues();
+  const users = [];
+  for (let i = 1; i < rows.length; i++)
+    if (rows[i][0]) users.push({ username: rows[i][0], sheetUrl: rows[i][3], createdAt: rows[i][4], lastLogin: rows[i][6] || '', role: rows[i][5] || 'user' });
+  return { users };
+}
+function _adminDelete(ss, p) {
+  if (!p.target) return { error: 'target fehlt' };
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === p.target.toLowerCase()) { sheet.deleteRow(i + 1); return { ok: true }; }
+  return { error: 'Benutzer nicht gefunden' };
+}
+function _adminResetPw(ss, p) {
+  if (!p.target || !p.newHash) return { error: 'target + newHash fehlen' };
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === p.target.toLowerCase()) {
+      sheet.getRange(i + 1, 2).setValue(p.newHash); return { ok: true };
+    }
+  return { error: 'Benutzer nicht gefunden' };
+}
+
+function _initUserSheet(ss) {
+  const def = ss.getSheets()[0]; def.setName('Ausgaben');
+  _hdr(def, ['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isFixkosten']);
+  [['Einnahmen',['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isLohn']],
+   ['Daueraufträge',['ID','Was','Kategorie','Betrag','Intervall','Tag','Kommentar','Aktiv','nextDate','startDate','endDate','lastBooked']],
+   ['Kategorien',['ID','Name','Typ','Farbe','Sortierung']],
+   ['Einstellungen',['Schlüssel','Wert']],
+   ['Aktien',['ID','Titel','ISIN','Ticker','Währung','Deleted']],
+   ['Trades',['ID','AktieID','Typ','Datum','Anzahl','Preis','Währung','Courtage','Gesamt','Deleted']],
+  ].forEach(([name,headers])=>_hdr(ss.insertSheet(name),headers));
+  const cats=[['k001','Zmittag','ausgabe','#FF6B35',1],['k002','Snack','ausgabe','#F7931E',2],
+    ['k003','Ferien','ausgabe','#00D4AA',3],['k004','Poschte','ausgabe','#4ECDC4',4],
+    ['k005','Znacht','ausgabe','#FF6B6B',5],['k006','Chleider','ausgabe','#E06C75',6],
+    ['k007','Technik','ausgabe','#61AFEF',7],['k008','Mieti','ausgabe','#E5C07B',8],
+    ['k009','Gsundheit','ausgabe','#56B6C2',9],['k010','Internet','ausgabe','#98C379',10],
+    ['k011','Diverses','ausgabe','#888888',11],['k012','Lohn','einnahme','#C8F53C',12],
+    ['k013','Twint','einnahme','#00C9A7',13],['k014','Diverses','einnahme','#AAAAAA',14]];
+  ss.getSheetByName('Kategorien').getRange(2,1,cats.length,5).setValues(cats);
+}
+function _hdr(sh,headers){sh.getRange(1,1,1,headers.length).setValues([headers]);}
+
+function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}`;
+
+function toggleAdminCodeGs(btn) {
+  const block = document.getElementById('admin-codeg-block');
+  const pre = document.getElementById('admin-codeg-pre');
+  if (!pre.textContent) pre.textContent = ADMIN_CODE_GS;
+  const shown = block.style.display !== 'none';
+  block.style.display = shown ? 'none' : 'block';
+  const icon = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+  btn.innerHTML = icon + (shown ? 'Admin Code.gs anzeigen &amp; kopieren' : 'Admin Code.gs ausblenden');
+}
+
+function copyAdminCodeGs() {
+  if(navigator.clipboard) navigator.clipboard.writeText(ADMIN_CODE_GS).then(()=>toast('✓ Admin Code.gs kopiert!','ok')).catch(()=>toast('Clipboard n/a','err'));
+  else{ const ta=document.createElement('textarea');ta.value=ADMIN_CODE_GS;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('✓ Admin Code.gs kopiert!','ok'); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5146,7 +5705,7 @@ function saveNewAktie(){
   };
   SDATA.stocks.push(s);
   sdataSave();
-  if(!CFG.demo && CFG.scriptUrl){
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
     apiAppend('Aktien',[[s.id,s.title,s.isin,s.ticker,s.currency,'']]).catch(e=>toast('Aktie Sheet-Sync: '+e.message,'err'));
   }
   closeModal('new-aktie-modal');
@@ -5194,7 +5753,7 @@ function saveTrade(){
   const tr = { id:'tr_'+Date.now(), stockId, type, date, qty, price, currency, courtage, total };
   SDATA.trades.push(tr);
   sdataSave();
-  if(!CFG.demo && CFG.scriptUrl){
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
     apiAppend('Trades',[[tr.id,tr.stockId,tr.type,tr.date,tr.qty,tr.price,tr.currency,tr.courtage,tr.total,'']]).catch(e=>toast('Trade Sheet-Sync: '+e.message,'err'));
   }
   closeModal('trade-modal');
@@ -5217,7 +5776,7 @@ function deleteTrade(tradeId){
 
 function deleteAktie(stockId){
   if(!confirm('Aktie und alle Trades löschen?')) return;
-  if(!CFG.demo && CFG.scriptUrl){
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
     apiFindRow('Aktien',stockId).then(row=>{ if(row) apiUpdate(`Aktien!F${row}:F${row}`,[['1']]); }).catch(()=>{});
     SDATA.trades.filter(t=>t.stockId===stockId).forEach(t=>{
       apiFindRow('Trades',t.id).then(row=>{ if(row) apiUpdate(`Trades!J${row}:J${row}`,[['1']]); }).catch(()=>{});
@@ -5287,6 +5846,21 @@ function renderEinstellungen(){
   if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme==='light');
+
+  // Account-Bereich
+  const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
+  const accSection = document.getElementById('settings-account-section');
+  const urlSection = document.getElementById('settings-url-section');
+  if(accSection) accSection.style.display = isAccountMode ? '' : 'none';
+  if(urlSection) urlSection.style.display = isAccountMode ? 'none' : '';
+  if(isAccountMode){
+    const nameD = document.getElementById('settings-auth-name');
+    if(nameD) nameD.textContent = CFG.authUser||'–';
+    const roleD = document.getElementById('settings-auth-role');
+    if(roleD) roleD.textContent = CFG.authRole==='admin' ? '👑 Admin' : 'Benutzer';
+    const adminLink = document.getElementById('settings-admin-link');
+    if(adminLink) adminLink.style.display = CFG.authRole==='admin' ? '' : 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
