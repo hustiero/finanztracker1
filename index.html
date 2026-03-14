@@ -742,6 +742,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .menu-overlay-close-btn svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
 .menu-overlay-items{flex:1;overflow-y:auto;padding:4px 0}
 .menu-overlay-footer{border-top:2px solid var(--border);flex-shrink:0}
+/* ── Home Widget Dashboard ─────────────────────────────── */
+.widget-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);margin:0 16px 12px;padding:16px}
+.widget-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px}
+.home-edit-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg1)}
+.home-edit-drag{font-size:18px;color:var(--text3);line-height:1;cursor:grab;flex-shrink:0;user-select:none}
+.home-edit-btn{min-width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 6px}
+.home-avail-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border)}
 .menu-overlay-item{
   width:100%;display:flex;align-items:center;gap:14px;
   padding:14px 20px;background:none;color:var(--text);
@@ -1160,6 +1167,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     </div>
 
     <!-- TAB: Dashboard -->
+    <!-- TAB: Home (Widget-Dashboard) -->
+    <div id="tab-home" class="tab-page" style="display:none;padding-top:8px"></div>
+
     <div id="tab-dashboard" class="tab-page" style="display:none">
       <div id="dashboard-content"></div>
     </div>
@@ -1218,6 +1228,15 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         </div>
       </div>
       <div class="section" style="padding-top:0">
+        <div class="section-title">Profil</div>
+        <div class="card" style="padding:14px">
+          <div class="form-group">
+            <label class="form-label">Dein Name (für Home-Begrüssung)</label>
+            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Luca" oninput="CFG.userName=this.value.trim();cfgSave();if(currentTab==='home')renderHome()">
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
         <div class="section-title">Darstellung</div>
         <div class="card" style="padding:0 14px">
           <div class="settings-row">
@@ -1266,9 +1285,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
   <!-- Bottom Navigation (dynamic slots) -->
   <nav id="nav">
-    <button class="nav-btn" id="nav-dashboard" onclick="goTab('dashboard')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Übersicht
+    <button class="nav-btn" id="nav-dashboard" onclick="goTab('home')">
+      <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
     </button>
     <button class="nav-btn" id="nav-slot1-btn" style="display:none" onclick="">
       <svg viewBox="0 0 24 24"></svg>
@@ -1712,7 +1731,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{} };
+let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -1957,7 +1976,7 @@ function launchApp(){
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   renderNav();
-  goTab('dashboard');
+  goTab('home');
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
   else{ setSyncStatus('demo'); renderAll(); }
   updateNotifBadge();
@@ -2679,6 +2698,7 @@ function renderAll(){
   renderCategories();
   renderRecurring();
   renderDashboard();
+  renderHome();
   updatePageSub();
   checkDueRecurrings();
   checkAllNotifications();
@@ -2905,6 +2925,300 @@ function renderRecurring(){
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
   }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total Fixkosten / Monat</span><span style="font-family:'DM Mono',monospace;font-weight:600">CHF ${fmtAmt(totalFix)}</span></div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  HOME TAB – WIDGET SYSTEM
+// ═══════════════════════════════════════════════════
+const WIDGET_CATALOG = [
+  { key:'greeting',      label:'Begrüssung',           sub:'Persönliche Begrüssung mit Datum' },
+  { key:'lohnzyklus',    label:'Lohnzyklus',            sub:'Budget, Ausgaben & Tagesrate im Zyklus' },
+  { key:'tagesavg',      label:'Ø Tagesausgaben',       sub:'Durchschnittliche Ausgaben pro Tag (laufender Monat)' },
+  { key:'topKategorien', label:'Top Kategorien',        sub:'Top 5 Ausgabenkategorien im Lohnzyklus' },
+  { key:'monatsverlauf', label:'Monatsverlauf',         sub:'Ausgaben-Balken der letzten 6 Monate' },
+  { key:'heuteAusgaben', label:'Heutige Ausgaben',      sub:'Alle Buchungen von heute' },
+  { key:'sparquote',     label:'Sparquote',             sub:'Monatliche Sparquote im Vergleich zum Ziel' },
+  { key:'lohnPct',       label:'Lohnzyklus %',          sub:'Wie viel % des Budgets bereits ausgegeben' },
+];
+const DEFAULT_HOME_WIDGETS = ['greeting','lohnzyklus','tagesavg','topKategorien','heuteAusgaben'];
+let homeEditMode = false;
+
+function getHomeWidgets(){
+  if(!CFG.homeWidgets || CFG.homeWidgets.length===0) return [...DEFAULT_HOME_WIDGETS];
+  return CFG.homeWidgets;
+}
+
+function saveHomeWidgets(arr){ CFG.homeWidgets=arr; cfgSave(); }
+
+function toggleHomeEdit(){
+  homeEditMode = !homeEditMode;
+  renderHome();
+}
+
+function addWidget(key){
+  const w = getHomeWidgets();
+  if(!w.includes(key)){ w.push(key); saveHomeWidgets(w); }
+  renderHome();
+}
+
+function removeWidget(key){
+  const w = getHomeWidgets().filter(k=>k!==key);
+  saveHomeWidgets(w);
+  renderHome();
+}
+
+function moveWidget(key, dir){
+  const w = getHomeWidgets();
+  const i = w.indexOf(key);
+  if(i<0) return;
+  const j = i + dir;
+  if(j<0 || j>=w.length) return;
+  [w[i],w[j]] = [w[j],w[i]];
+  saveHomeWidgets(w);
+  renderHome();
+}
+
+function renderHome(){
+  const el = document.getElementById('tab-home');
+  if(!el) return;
+  const widgets = getHomeWidgets();
+  const available = WIDGET_CATALOG.filter(c=>!widgets.includes(c.key));
+  let html = '';
+
+  // Active widgets
+  widgets.forEach((key,idx)=>{
+    const def = WIDGET_CATALOG.find(c=>c.key===key);
+    if(!def) return;
+    html += `<div class="widget-card" id="widget-card-${key}">`;
+    if(homeEditMode){
+      html += `<div class="home-edit-row">
+        <span class="home-edit-drag">⠿</span>
+        <span style="flex:1;font-size:13px;font-weight:600">${def.label}</span>
+        <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''}>↓</button>
+        <button class="home-edit-btn" style="color:var(--red)" onclick="removeWidget('${key}')">✕</button>
+      </div>`;
+    } else {
+      html += renderWidgetContent(key);
+    }
+    html += `</div>`;
+  });
+
+  // Available to add (edit mode only)
+  if(homeEditMode && available.length>0){
+    html += `<div style="margin:0 16px 12px;padding:12px 0">
+      <div class="widget-title" style="padding:0 0 8px">Verfügbare Kacheln</div>`;
+    available.forEach(def=>{
+      html += `<div class="home-avail-row">
+        <div>
+          <div style="font-size:13px;font-weight:600">${def.label}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${def.sub}</div>
+        </div>
+        <button class="home-edit-btn" style="color:var(--accent);border-color:var(--accent)" onclick="addWidget('${def.key}')">+ Hinzufügen</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Edit toggle button
+  html += `<div style="padding:16px;text-align:center">
+    <button onclick="toggleHomeEdit()" style="background:${homeEditMode?'var(--accent)':'var(--bg3)'};color:${homeEditMode?'var(--bg0)':'var(--text2)'};border:1px solid ${homeEditMode?'var(--accent)':'var(--border)'};border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
+      ${homeEditMode ? '✓ Fertig' : '⊞ Kacheln bearbeiten'}
+    </button>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function renderWidgetContent(key){
+  switch(key){
+    case 'greeting':      return renderWidgetGreeting();
+    case 'lohnzyklus':    return renderWidgetLohnzyklus();
+    case 'tagesavg':      return renderWidgetTagesavg();
+    case 'topKategorien': return renderWidgetTopKategorien();
+    case 'monatsverlauf': return renderWidgetMonatverlauf();
+    case 'heuteAusgaben': return renderWidgetHeuteAusgaben();
+    case 'sparquote':     return renderWidgetSparquote();
+    case 'lohnPct':       return renderWidgetLohnPct();
+    default: return '';
+  }
+}
+
+function renderWidgetGreeting(){
+  const now = new Date();
+  const h = now.getHours();
+  const greet = h<11 ? 'Guten Morgen' : h<17 ? 'Guten Tag' : 'Guten Abend';
+  const name = CFG.userName ? `, ${CFG.userName}` : '';
+  const wday = now.toLocaleDateString('de-CH',{weekday:'long'});
+  const dat  = now.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'});
+  return `<div style="padding:4px 0">
+    <div style="font-size:20px;font-weight:700;letter-spacing:-.3px">${greet}${name}</div>
+    <div style="font-size:13px;color:var(--text3);margin-top:4px">${wday}, ${dat}</div>
+  </div>`;
+}
+
+function renderWidgetLohnzyklus(){
+  const z = getZyklusInfo();
+  if(!z.hasSalary){
+    return `<div><div class="widget-title">Lohnzyklus</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
+  }
+  const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
+  const barColor = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
+  const startLabel = z.startStr.slice(8)+'.'+z.startStr.slice(5,7)+'.';
+  const endLabel   = z.endStr.slice(8)+'.'+z.endStr.slice(5,7)+'.';
+  return `<div>
+    <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">CHF ${fmtAmt(Math.abs(z.varRemaining))}</span>
+      <span style="font-size:12px;color:var(--text3)">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
+    </div>
+    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
+      <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
+      <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.varSpent)}</span></span>
+      <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.varBudget)}</span></span>
+    </div>
+    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: <span style="color:var(--accent);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.dailyRate)}/Tag</span> (${z.daysLeft} Tage verbleibend)</div>`:''}
+  </div>`;
+}
+
+function renderWidgetTagesavg(){
+  const now = new Date();
+  const mo = now.getMonth(), yr = now.getFullYear();
+  const daysEl = now.getDate();
+  const avg = avgDailyVarSpend(mo, yr, daysEl);
+  return `<div>
+    <div class="widget-title">Ø Tagesausgaben – ${now.toLocaleDateString('de-CH',{month:'long',year:'numeric'})}</div>
+    <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:-1px">CHF ${fmtAmt(avg)}</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:4px">Durchschnitt über ${daysEl} Tage</div>
+  </div>`;
+}
+
+function renderWidgetTopKategorien(){
+  const {startStr,endStr} = getCycleRange();
+  const catMap = {};
+  DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr).forEach(e=>{
+    const c = e.cat||'Sonstiges';
+    catMap[c]=(catMap[c]||0)+e.amt;
+  });
+  const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(sorted.length===0) return `<div><div class="widget-title">Top Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben im Zyklus.</div></div>`;
+  const max = sorted[0][1];
+  return `<div>
+    <div class="widget-title">Top Kategorien im Lohnzyklus</div>
+    ${sorted.map(([cat,amt])=>{
+      const pct = Math.round(amt/max*100);
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span style="color:var(--text2)">${cat}</span>
+          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)}</span>
+        </div>
+        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderWidgetMonatverlauf(){
+  const now = new Date();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({mo:d.getMonth(),yr:d.getFullYear(),label:d.toLocaleDateString('de-CH',{month:'short'})});
+  }
+  const totals = months.map(m=>{
+    const s=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-01`;
+    const e=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-${String(new Date(m.yr,m.mo+1,0).getDate()).padStart(2,'0')}`;
+    return DATA.expenses.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amt,0);
+  });
+  const max = Math.max(...totals,1);
+  const barH = 48;
+  return `<div>
+    <div class="widget-title">Monatsverlauf (6 Monate)</div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:${barH+20}px;padding-bottom:18px;position:relative">
+      ${totals.map((t,i)=>{
+        const h = Math.max(4,Math.round(t/max*barH));
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%">
+          <div style="width:100%;height:${h}px;background:${i===5?'var(--accent)':'var(--bg3)'};border-radius:3px 3px 0 0"></div>
+          <div style="font-size:9px;color:var(--text3);white-space:nowrap">${months[i].label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+      <span>Max: CHF ${fmtAmt(max)}</span>
+      <span>Akt.: CHF ${fmtAmt(totals[5])}</span>
+    </div>
+  </div>`;
+}
+
+function renderWidgetHeuteAusgaben(){
+  const t = today();
+  const entries = DATA.expenses.filter(e=>e.date===t).sort((a,b)=>b.amt-a.amt);
+  if(entries.length===0) return `<div><div class="widget-title">Heutige Ausgaben</div><div style="color:var(--text3);font-size:13px">Heute noch keine Ausgaben.</div></div>`;
+  const total = entries.reduce((s,e)=>s+e.amt,0);
+  return `<div>
+    <div class="widget-title">Heutige Ausgaben – <span style="font-family:'DM Mono',monospace;color:var(--text)">CHF ${fmtAmt(total)}</span></div>
+    ${entries.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid var(--border)">
+      <div>
+        <div style="font-size:13px">${e.what}</div>
+        <div style="font-size:11px;color:var(--text3)">${e.cat}</div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600">CHF ${fmtAmt(e.amt)}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderWidgetSparquote(){
+  const z = getZyklusInfo();
+  if(!z.hasSalary) return `<div><div class="widget-title">Sparquote</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
+  const ziel = CFG.mSparziel||0;
+  const saved = z.lohn - z.fixKosten - z.varSpent;
+  const pct = z.lohn>0 ? Math.round(saved/z.lohn*100) : 0;
+  const zielPct = z.lohn>0 && ziel>0 ? Math.round(ziel/z.lohn*100) : 0;
+  const barColor = saved<0?'var(--red)':pct>=zielPct?'var(--green)':'var(--yellow)';
+  return `<div>
+    <div class="widget-title">Sparquote (laufender Zyklus)</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <span style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:${barColor}">${pct}%</span>
+      ${zielPct>0?`<span style="font-size:12px;color:var(--text3)">Ziel: ${zielPct}%</span>`:''}
+    </div>
+    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
+      <div style="height:100%;width:${Math.min(100,Math.max(0,pct))}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+    </div>
+    <div style="margin-top:6px;font-size:12px;color:var(--text3)">
+      Gespart: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(saved)}</span>
+      ${ziel>0?` / Ziel: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(ziel)}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function renderWidgetLohnPct(){
+  const z = getZyklusInfo();
+  if(!z.hasSalary) return `<div><div class="widget-title">Lohnzyklus %</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
+  const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
+  const r = 36;
+  const circ = 2*Math.PI*r;
+  const dash = circ*(1-pct/100);
+  const color = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
+  return `<div style="display:flex;align-items:center;gap:16px">
+    <div>
+      <div class="widget-title">Budget verwendet</div>
+      <svg width="90" height="90" viewBox="0 0 90 90">
+        <circle cx="45" cy="45" r="${r}" fill="none" stroke="var(--bg3)" stroke-width="8"/>
+        <circle cx="45" cy="45" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+          stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"
+          stroke-linecap="round" transform="rotate(-90 45 45)"/>
+        <text x="45" y="50" text-anchor="middle" fill="${color}" font-size="16" font-weight="700" font-family="DM Mono,monospace">${pct}%</text>
+      </svg>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;color:var(--text3)">Ausgegeben</div>
+      <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">CHF ${fmtAmt(z.varSpent)}</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:8px">Budget</div>
+      <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">CHF ${fmtAmt(z.varBudget)}</div>
+    </div>
+  </div>`;
 }
 
 function renderDashboard(){
@@ -3145,16 +3459,16 @@ function openMonthViewAt(mo,yr){
 // ═══════════════════════════════════════════════════════════════
 // MODULE: UI HELPERS
 // ═══════════════════════════════════════════════════════════════
-let currentTab = 'dashboard';
+let currentTab = 'home';
 
 function goTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl) tabEl.style.display='block';
-  // Nav active state: fixed dashboard + pinned slots + mehr
+  // Nav active state: home (fixed) + pinned slots + mehr
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  if(tab==='dashboard'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
+  if(tab==='home'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
   else {
     const pinned = CFG.pinnedTabs||[];
     if(pinned[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
@@ -3168,14 +3482,15 @@ function goTab(tab){
     fab.innerHTML = tab==='eingabe'
       ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    fab.onclick = tab==='eingabe' ? ()=>goTab('dashboard') : ()=>goTab('eingabe');
+    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
   }
   document.getElementById('page-title').textContent = {
-    eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dauerauftraege:'Daueraufträge', dashboard:'Übersicht', lohn:'Lohn & Einnahmen',
+    home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
+    dauerauftraege:'Daueraufträge', dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
     aktien:'Aktien', monat:'Monatsübersicht', einstellungen:'Einstellungen'
   }[tab]||tab;
   updatePageSub();
+  if(tab==='home') renderHome();
   if(tab==='verlauf') renderVerlauf();
   if(tab==='dashboard') renderDashboard();
   if(tab==='lohn') renderLohn();
@@ -3192,6 +3507,7 @@ function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); 
 
 // All tabs available for pinning / showing in Mehr
 const PINNABLE_TABS = [
+  { key:'dashboard',      label:'Jahresübersicht',      icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
   { key:'verlauf',        label:'Verlauf',              icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
   { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
   { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
@@ -4290,7 +4606,7 @@ function setVerlaufSearch(v){ verlaufSearch=v; renderVerlauf(); }
 // MODULE: DYNAMIC NAV
 // ═══════════════════════════════════════════════════════════════
 const NAV_LABELS = {
-  verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
+  dashboard:'Jahresüb.', verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
   dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.'
 };
 
@@ -4333,6 +4649,8 @@ function toggleThemeSwitch(){
 function renderEinstellungen(){
   const urlEl = document.getElementById('s-url2');
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
+  const nameEl = document.getElementById('s-username');
+  if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme==='light');
 }
