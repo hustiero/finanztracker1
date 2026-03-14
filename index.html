@@ -1865,9 +1865,25 @@ function avgDailyVarSpend(mo, yr, daysElapsed){
   const fixCats=new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
   const total=DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===mo&&d.getFullYear()===yr&&!fixCats.has(e.cat)&&!e.excludeAvg;
+    return d.getMonth()===mo&&d.getFullYear()===yr&&!fixCats.has(e.cat)&&!e.excludeAvg&&!e.isFixkosten;
   }).reduce((s,e)=>s+e.amt,0);
   return daysElapsed>0?total/daysElapsed:0;
+}
+// Smart prev-month avg: categories marked isFixkosten in currMo/currYr are also excluded from prev month
+function avgDailyVarSpendPrevComp(currMo, currYr){
+  const prevMo = currMo===0?11:currMo-1;
+  const prevYr = currMo===0?currYr-1:currYr;
+  const daysInPrev = new Date(prevYr,prevMo+1,0).getDate();
+  const dauerCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
+  const currFixCats = new Set(DATA.expenses
+    .filter(e=>e.isFixkosten && new Date(e.date+'T12:00:00').getMonth()===currMo && new Date(e.date+'T12:00:00').getFullYear()===currYr)
+    .map(e=>e.cat));
+  const exclCats = new Set([...dauerCats,...currFixCats]);
+  const total = DATA.expenses.filter(e=>{
+    const d=new Date(e.date+'T12:00:00');
+    return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!exclCats.has(e.cat)&&!e.excludeAvg&&!e.isFixkosten;
+  }).reduce((s,e)=>s+e.amt,0);
+  return {avg:daysInPrev>0?total/daysInPrev:0, prevMo, prevYr};
 }
 // Avg daily variable spend for a full year
 function avgDailyVarSpendYear(yr){
@@ -1876,7 +1892,7 @@ function avgDailyVarSpendYear(yr){
   const fixCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
   const total = DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
-    return d.getFullYear()===yr && !fixCats.has(e.cat) && !e.excludeAvg;
+    return d.getFullYear()===yr && !fixCats.has(e.cat) && !e.excludeAvg && !e.isFixkosten;
   }).reduce((s,e)=>s+e.amt,0);
   const daysElapsed = isCurrentYear
     ? Math.floor((now - new Date(yr,0,1))/86400000)+1
@@ -2931,17 +2947,25 @@ function renderRecurring(){
 //  HOME TAB – WIDGET SYSTEM
 // ═══════════════════════════════════════════════════
 const WIDGET_CATALOG = [
-  { key:'greeting',      label:'Begrüssung',           sub:'Persönliche Begrüssung mit Datum' },
-  { key:'lohnzyklus',    label:'Lohnzyklus',            sub:'Budget, Ausgaben & Tagesrate im Zyklus' },
-  { key:'tagesavg',      label:'Ø Tagesausgaben',       sub:'Durchschnittliche Ausgaben pro Tag (laufender Monat)' },
-  { key:'topKategorien', label:'Top Kategorien',        sub:'Top 5 Ausgabenkategorien im Lohnzyklus' },
-  { key:'monatsverlauf', label:'Monatsverlauf',         sub:'Ausgaben-Balken der letzten 6 Monate' },
-  { key:'heuteAusgaben', label:'Heutige Ausgaben',      sub:'Alle Buchungen von heute' },
-  { key:'sparquote',     label:'Sparquote',             sub:'Monatliche Sparquote im Vergleich zum Ziel' },
-  { key:'lohnPct',       label:'Lohnzyklus %',          sub:'Wie viel % des Budgets bereits ausgegeben' },
+  { key:'greeting',        label:'Begrüssung',              sub:'Persönliche Begrüssung mit Datum' },
+  { key:'lohnzyklus',      label:'Lohnzyklus',              sub:'Budget, Ausgaben & Tagesrate im Zyklus' },
+  { key:'tagesavg',        label:'Ø Tagesausgaben',         sub:'Durchschnittliche Ausgaben pro Tag (laufender Monat, ohne Fixkosten)' },
+  { key:'topKategorien',   label:'Top Kategorien (Zyklus)', sub:'Top 5 Ausgabenkategorien im Lohnzyklus' },
+  { key:'monatsverlauf',   label:'Monatsverlauf (6 Mo.)',   sub:'Ausgaben-Balken der letzten 6 Monate' },
+  { key:'heuteAusgaben',   label:'Heutige Ausgaben',        sub:'Alle Buchungen von heute' },
+  { key:'sparquote',       label:'Zyklus-Sparquote',        sub:'Sparquote im laufenden Lohnzyklus' },
+  { key:'lohnPct',         label:'Lohnzyklus %',            sub:'Wie viel % des Budgets bereits ausgegeben (Donut)' },
+  { key:'monatSummary',    label:'Monats-Zusammenfassung',  sub:'Einnahmen, Ausgaben & Bilanz + Ø Tagesausgabe aktueller Monat' },
+  { key:'monatKategorien', label:'Monats-Kategorien',       sub:'Top Ausgabenkategorien des aktuellen Monats' },
+  { key:'kontostand',      label:'Kontostand-Verlauf',      sub:'Kontostand-Linienchart der letzten Monate' },
+  { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
+  { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
+  { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
+  { key:'aktienPortfolio', label:'Aktienportfolio',         sub:'Gesamtübersicht Aktien-Positionen & P&L' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','lohnzyklus','tagesavg','topKategorien','heuteAusgaben'];
 let homeEditMode = false;
+let homeKontoMonths = 3;
 
 function getHomeWidgets(){
   if(!CFG.homeWidgets || CFG.homeWidgets.length===0) return [...DEFAULT_HOME_WIDGETS];
@@ -3032,14 +3056,21 @@ function renderHome(){
 
 function renderWidgetContent(key){
   switch(key){
-    case 'greeting':      return renderWidgetGreeting();
-    case 'lohnzyklus':    return renderWidgetLohnzyklus();
-    case 'tagesavg':      return renderWidgetTagesavg();
-    case 'topKategorien': return renderWidgetTopKategorien();
-    case 'monatsverlauf': return renderWidgetMonatverlauf();
-    case 'heuteAusgaben': return renderWidgetHeuteAusgaben();
-    case 'sparquote':     return renderWidgetSparquote();
-    case 'lohnPct':       return renderWidgetLohnPct();
+    case 'greeting':         return renderWidgetGreeting();
+    case 'lohnzyklus':       return renderWidgetLohnzyklus();
+    case 'tagesavg':         return renderWidgetTagesavg();
+    case 'topKategorien':    return renderWidgetTopKategorien();
+    case 'monatsverlauf':    return renderWidgetMonatverlauf();
+    case 'heuteAusgaben':    return renderWidgetHeuteAusgaben();
+    case 'sparquote':        return renderWidgetSparquote();
+    case 'lohnPct':          return renderWidgetLohnPct();
+    case 'monatSummary':     return renderWidgetMonatSummary();
+    case 'monatKategorien':  return renderWidgetMonatKategorien();
+    case 'kontostand':       return renderWidgetKontostand();
+    case 'jahresSparquote':  return renderWidgetJahresSparquote();
+    case 'jahresKategorien': return renderWidgetJahresKategorien();
+    case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
+    case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
     default: return '';
   }
 }
@@ -3218,6 +3249,211 @@ function renderWidgetLohnPct(){
       <div style="font-size:13px;color:var(--text3);margin-top:8px">Budget</div>
       <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">CHF ${fmtAmt(z.varBudget)}</div>
     </div>
+  </div>`;
+}
+
+function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
+
+function renderWidgetMonatSummary(){
+  const now = new Date();
+  const mo = now.getMonth(), yr = now.getFullYear();
+  const mExp = DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const totalOut = mExp.reduce((s,e)=>s+e.amt,0);
+  const totalIn  = mInc.reduce((s,e)=>s+e.amt,0);
+  const bal      = totalIn - totalOut;
+  const avgDay   = avgDailyVarSpend(mo, yr, now.getDate());
+  const prevC    = avgDailyVarSpendPrevComp(mo, yr);
+  const diffPct  = prevC.avg>0 ? (avgDay-prevC.avg)/prevC.avg*100 : null;
+  const mNames   = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  return `<div>
+    <div class="widget-title">Monats-Zusammenfassung – ${mNames[mo]} ${yr}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="text-align:center">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Einnahmen</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)">+${fmtAmt(totalIn)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Ausgaben</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--red)">−${fmtAmt(totalOut)}</div>
+      </div>
+      <div style="text-align:center;background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'};border-radius:6px;padding:4px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Bilanz</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${bal>=0?'+':''}${fmtAmt(bal)}</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:8px;cursor:pointer" onclick="openAvgConfig()">
+      <div style="font-size:11px;color:var(--text3)">Ø Tagesausgabe (ohne Fixkosten)
+        ${diffPct!==null?`<span style="color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:4px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
+        <span style="margin-left:4px">⚙</span>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;margin-top:2px">CHF ${fmtAmt(avgDay)}</div>
+    </div>
+  </div>`;
+}
+
+function renderWidgetMonatKategorien(){
+  const now = new Date();
+  const mo = now.getMonth(), yr = now.getFullYear();
+  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
+  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
+  const catMap={};
+  DATA.expenses.filter(x=>x.date>=s&&x.date<=e).forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
+  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!sorted.length) return `<div><div class="widget-title">Monats-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben diesen Monat.</div></div>`;
+  const total=Object.values(catMap).reduce((a,v)=>a+v,0);
+  const mNames=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  return `<div>
+    <div class="widget-title">Monats-Kategorien – ${mNames[mo]}</div>
+    ${sorted.map(([cat,amt])=>{
+      const pct=total>0?Math.round(amt/total*100):0;
+      const col=catColor(cat);
+      return `<div style="margin-bottom:7px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block"></span>${esc(cat)}</span>
+          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)} <span style="color:var(--text3)">${pct}%</span></span>
+        </div>
+        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.8"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderWidgetKontostand(){
+  return `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="widget-title" style="margin-bottom:0">Kontostand-Verlauf</div>
+      <div style="display:flex;gap:3px">
+        ${[1,3,6,12].map(m=>`<button onclick="setHomeKontoMonths(${m});event.stopPropagation()" style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid ${homeKontoMonths===m?'var(--accent)':'var(--border)'};background:${homeKontoMonths===m?'rgba(200,245,60,.15)':'var(--bg3)'};color:${homeKontoMonths===m?'var(--accent)':'var(--text3)'}">${m}M</button>`).join('')}
+      </div>
+    </div>
+    <div style="overflow-x:auto">${buildBalanceChart(homeKontoMonths)}</div>
+  </div>`;
+}
+
+function renderWidgetJahresSparquote(){
+  const now = new Date();
+  const yr = now.getFullYear();
+  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const sparziel=CFG.sparziel||0;
+  const yMonths=[];
+  for(let m=0;m<=now.getMonth();m++){
+    const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    yMonths.push({label:months[m],net:inc-out,cur:m===now.getMonth()});
+  }
+  const yearSaved=yMonths.reduce((s,m)=>s+m.net,0);
+  const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
+  const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
+  const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
+  return `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="widget-title" style="margin-bottom:0">Jahres-Sparquote ${yr}</div>
+      <button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor};margin-bottom:${sparziel?'8px':'12px'}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</div>
+    ${sparziel>0?`<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: CHF ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
+      <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
+    </div>`:''}
+    ${yMonths.map(m=>{
+      const isPos=m.net>=0;
+      const bw=Math.min(Math.abs(m.net)/maxNet*100,100).toFixed(1);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'}">${m.label}</div>
+        <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px"><div style="width:${bw}%;height:100%;background:${isPos?'var(--green)':'var(--red)'};border-radius:2px"></div></div>
+        <div style="width:72px;text-align:right;font-size:10px;font-family:'DM Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}${fmtAmt(m.net)}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderWidgetJahresKategorien(){
+  const yr = new Date().getFullYear();
+  const catMap={};
+  DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr).forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben erfasst.</div></div>`;
+  const total=Object.values(catMap).reduce((a,v)=>a+v,0);
+  return `<div>
+    <div class="widget-title">Jahres-Kategorien ${yr}</div>
+    ${sorted.map(([cat,amt])=>{
+      const pct=total>0?Math.round(amt/total*100):0;
+      const col=catColor(cat);
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${col}"></div><span style="font-size:13px">${esc(cat)}</span></div>
+          <div style="font-size:12px;font-family:'DM Mono',monospace"><span style="color:var(--text3)">${pct}%</span> CHF ${fmtAmt(amt)}</div>
+        </div>
+        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.7"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderWidgetMonatsverlaufJahr(){
+  const now = new Date();
+  const yr = now.getFullYear();
+  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const trend=[];
+  for(let m=0;m<=now.getMonth();m++){
+    const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    trend.push({label:months[m],out,inc,net:inc-out,cur:m===now.getMonth()});
+  }
+  if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
+  const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
+  return `<div>
+    <div class="widget-title">Monatsverlauf ${yr}</div>
+    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="openMonthViewAt(${trend.indexOf(m)},${yr})">
+      <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+        <div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${m.out?Math.max(m.out/maxT*100,2).toFixed(1):0}%;background:${m.cur?'var(--accent)':'var(--red)'};border-radius:2px;opacity:${m.cur?1:.7}"></div></div>
+        ${m.inc>0?`<div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${Math.max(m.inc/maxT*100,2).toFixed(1)}%;background:var(--green);border-radius:2px;opacity:.7"></div></div>`:''}
+      </div>
+      <div style="min-width:70px;text-align:right;font-size:10px;font-family:'DM Mono',monospace">
+        <div style="color:${m.cur?'var(--accent)':'var(--red)'}">${m.out?'−'+fmtAmt(m.out):'—'}</div>
+        ${m.net!==0?`<div style="color:${m.net>=0?'var(--green)':'var(--red)'}">${m.net>=0?'+':''}${fmtAmt(m.net)}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderWidgetAktienPortfolio(){
+  const active = SDATA.stocks.filter(s=>{
+    const pos = calcPosition(s.id);
+    return pos.qty > 0.0001;
+  });
+  if(!active.length) return `<div><div class="widget-title">Aktienportfolio</div><div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div></div>`;
+  let totalCost=0, totalPnl=0, hasPnl=false;
+  const rows = active.map(s=>{
+    const pos = calcPosition(s.id);
+    const live = s.ticker ? stockPriceCache[s.ticker] : null;
+    const lp = live?.price;
+    totalCost += pos.totalCost;
+    let pnlAmt=null, pnlPct=null;
+    if(lp && pos.qty>0.0001){ pnlAmt=(lp-pos.avgPrice)*pos.qty; pnlPct=pos.avgPrice>0?(lp/pos.avgPrice-1)*100:0; totalPnl+=pnlAmt; hasPnl=true; }
+    const pc = pnlAmt==null?'var(--text3)':pnlAmt>=0?'var(--green)':'var(--red)';
+    const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+      <div>
+        <div style="font-size:13px;font-weight:600">${esc(s.title)}</div>
+        <div style="font-size:11px;color:var(--text3)">${fmtQty(pos.qty)} Stk. · Ø ${fmtPrice(pos.avgPrice)}</div>
+      </div>
+      <div style="text-align:right">
+        ${pnlAmt!=null?`<div style="font-size:12px;font-family:'DM Mono',monospace;color:${pc}">${ps}${fmtPrice(pnlAmt)}</div><div style="font-size:10px;color:${pc}">${ps}${pnlPct?.toFixed(1)}%</div>`:lp!=null?'':`<div style="font-size:11px;color:var(--text3)">kein Kurs</div>`}
+      </div>
+    </div>`;
+  });
+  const pnlColor = totalPnl>=0?'var(--green)':'var(--red)';
+  return `<div>
+    <div class="widget-title">Aktienportfolio</div>
+    ${hasPnl?`<div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <div><div style="font-size:11px;color:var(--text3)">Einstand</div><div style="font-family:'DM Mono',monospace;font-size:14px">${fmtPrice(totalCost)}</div></div>
+      <div style="text-align:right"><div style="font-size:11px;color:var(--text3)">Gesamt P&amp;L</div><div style="font-family:'DM Mono',monospace;font-size:14px;color:${pnlColor}">${totalPnl>=0?'+':''}${fmtPrice(totalPnl)}</div></div>
+    </div>`:''}
+    ${rows.join('')}
+    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Alle Aktien →</button></div>
   </div>`;
 }
 
@@ -4696,6 +4932,11 @@ function renderMonat(){
   // Ø Tagesausgabe for all months
   const daysInViewMonth = isCurrent ? now.getDate() : new Date(yr, mo+1, 0).getDate();
   const avgDayThis = avgDailyVarSpend(mo, yr, daysInViewMonth);
+  // Vormonat comparison
+  const _prevComp = avgDailyVarSpendPrevComp(mo, yr);
+  const avgDayPrev = _prevComp.avg;
+  const _prevMoNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const avgDayDiff = avgDayPrev>0 ? (avgDayThis-avgDayPrev)/avgDayPrev*100 : null;
 
   const container = document.getElementById('monat-content');
   if(!container) return;
@@ -4747,8 +4988,11 @@ function renderMonat(){
     <!-- Ø Tagesausgabe (all months) -->
     <div class="section" style="padding-top:0">
       <div class="stats-grid" style="margin-bottom:0">
-        <div class="stat-card" style="grid-column:1/-1">
-          <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)</div>
+        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
+          <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)
+            ${avgDayDiff!==null?`<span style="font-size:11px;color:${avgDayDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDayDiff<=0?'↓':'↑'}${Math.abs(avgDayDiff).toFixed(0)}% vs. ${_prevMoNames[_prevComp.prevMo]}</span>`:''}
+            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
+          </div>
           <div class="stat-value" style="font-size:18px">CHF ${fmtAmt(avgDayThis)}</div>
         </div>
       </div>
