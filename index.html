@@ -219,6 +219,36 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 }
 .btn-outline-setup:active{opacity:.7}
 
+/* ─── Setup Wizard ─────────────────────────── */
+.setup-progress{
+  display:none;align-items:center;gap:0;
+  position:absolute;top:calc(20px + var(--safe-top));left:50%;transform:translateX(-50%);
+}
+.setup-step-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--border2);
+  transition:background .25s;
+}
+.setup-step-dot.active{background:var(--accent)}
+.setup-step-line{width:28px;height:2px;background:var(--border);transition:background .25s}
+.setup-step-line.active{background:var(--accent)}
+.setup-page{display:none;width:100%;max-width:380px;flex-direction:column;align-items:center}
+.setup-page.active{display:flex}
+.setup-tagline{font-size:14px;color:var(--text2);text-align:center;margin-bottom:6px}
+.setup-brand{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:40px}
+.setup-back-btn{
+  display:flex;align-items:center;gap:5px;color:var(--text3);font-size:13px;
+  padding:0 0 20px 0;align-self:flex-start;
+}
+.setup-back-btn:active{opacity:.6}
+.setup-page-title{font-size:20px;font-weight:700;letter-spacing:-.5px;align-self:flex-start;margin-bottom:4px}
+.setup-page-sub{font-size:13px;color:var(--text2);align-self:flex-start;margin-bottom:20px;line-height:1.5}
+.setup-step-row{display:flex;align-items:flex-start;gap:12px}
+.setup-step-num{
+  width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0D0D0F;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;flex-shrink:0;margin-top:2px;
+}
+
 /* ═══════════════════════════════════════════════════
    SYNC STATUS
 ═══════════════════════════════════════════════════ */
@@ -911,41 +941,94 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
      SETUP SCREEN
 ════════════════════════════════════ -->
 <div id="setup">
-  <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
-  <div class="setup-title">F-Tracker</div>
-  <div class="setup-sub">SESI FINANCE</div>
+  <!-- Progress dots (hidden on page 0) -->
+  <div class="setup-progress" id="setup-progress">
+    <div class="setup-step-dot active" id="ssd-0"></div>
+    <div class="setup-step-line" id="ssl-0"></div>
+    <div class="setup-step-dot" id="ssd-1"></div>
+    <div class="setup-step-line" id="ssl-1"></div>
+    <div class="setup-step-dot" id="ssd-2"></div>
+  </div>
 
-  <!-- Step 1: Template -->
-  <div class="setup-card" style="margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0">1</div>
-      <div>
-        <div class="setup-label" style="margin-bottom:0">Google Sheet vorbereiten</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">4 CSV-Vorlagen herunterladen &amp; in dein Sheet importieren</div>
+  <!-- Page 0: Welcome -->
+  <div class="setup-page active" id="sp-0">
+    <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:52px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
+    <div class="setup-title">F-Tracker</div>
+    <div class="setup-tagline">Dein persönlicher Finanztracker</div>
+    <div class="setup-brand">by SESI Finance</div>
+    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" onclick="gotoSetupStep(1)">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;display:inline;vertical-align:middle;margin-right:6px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        Jetzt einrichten
+      </button>
+      <div style="text-align:center;color:var(--text3);font-size:12px;padding:2px 0">— oder —</div>
+      <button class="btn-ghost" onclick="doDemo()">Demo ansehen</button>
+    </div>
+  </div>
+
+  <!-- Page 1: Sheet + Script Setup -->
+  <div class="setup-page" id="sp-1">
+    <button class="setup-back-btn" onclick="gotoSetupStep(0)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zurück
+    </button>
+    <div class="setup-page-title">Google Sheet einrichten</div>
+    <div class="setup-page-sub">Einmalige Einrichtung — dauert ca. 5–10 Min.</div>
+
+    <div class="setup-card" style="margin-bottom:10px">
+      <div class="setup-step-row" style="margin-bottom:10px">
+        <div class="setup-step-num">1</div>
+        <div>
+          <div class="setup-label" style="margin-bottom:3px">Vorlage herunterladen</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.6">4 CSV-Dateien inkl. Standard-Kategorien. Im Google Sheet importieren: <b style="color:var(--text2)">Datei → Importieren</b> (pro Tab).</div>
+        </div>
+      </div>
+      <button class="btn-outline-setup" onclick="downloadBlankTemplate()">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Template herunterladen (4 CSV)
+      </button>
+    </div>
+
+    <div class="setup-card">
+      <div class="setup-step-row">
+        <div class="setup-step-num">2</div>
+        <div>
+          <div class="setup-label" style="margin-bottom:6px">Apps Script bereitstellen</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.9">
+            1. Google Sheet → <b style="color:var(--text2)">Erweiterungen → Apps Script</b><br>
+            2. Code.gs einfügen &amp; speichern<br>
+            3. <b style="color:var(--text2)">Bereitstellen → Neue Bereitstellung → Web-App</b><br>
+            4. Ausführen als: <b style="color:var(--text2)">Ich</b> · Zugriff: <b style="color:var(--text2)">Jeder</b><br>
+            5. URL kopieren → nächster Schritt
+          </div>
+        </div>
       </div>
     </div>
-    <button class="btn-outline-setup" onclick="downloadBlankTemplate()">
-      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Blank Template herunterladen (4 CSV)
+
+    <button class="btn-primary" style="margin-top:14px" onclick="gotoSetupStep(2)">Weiter →</button>
+  </div>
+
+  <!-- Page 2: Connect -->
+  <div class="setup-page" id="sp-2">
+    <button class="setup-back-btn" onclick="gotoSetupStep(1)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zurück
     </button>
-  </div>
+    <div class="setup-page-title">App verbinden</div>
+    <div class="setup-page-sub">Füge die Apps Script URL aus Schritt 2 ein.</div>
 
-  <!-- Step 2: Connect -->
-  <div class="setup-card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0D0D0F;flex-shrink:0">2</div>
-      <div class="setup-label" style="margin-bottom:0">Apps Script URL eingeben</div>
+    <div class="setup-card">
+      <div class="setup-label">Apps Script URL</div>
+      <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>
-    <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
+
+    <button id="connect-btn" class="btn-primary" style="margin-top:12px" onclick="doConnect()">Verbinden →</button>
+
+    <p class="setup-hint" style="margin-top:18px">
+      <b>Verbindung schlägt fehl?</b><br>
+      Web-App neu bereitstellen (nicht Testbereitstellung). Zugriff auf «Jeder» setzen und Berechtigungen bestätigen.
+    </p>
   </div>
-
-  <button id="connect-btn" class="btn-primary" onclick="doConnect()">Verbinden →</button>
-  <button class="btn-ghost" onclick="doDemo()">Demo-Modus starten</button>
-
-  <p class="setup-hint">
-    <b>Noch kein Apps Script?</b><br>
-    Google Sheet → Erweiterungen → Apps Script → Code.gs einfügen → Als Web-App bereitstellen → URL kopieren
-  </p>
 </div>
 
 <!-- ═══════════════════════════════════
@@ -1255,10 +1338,33 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <div class="section" style="padding-top:0">
         <div class="section-title">Profil</div>
         <div class="card" style="padding:14px">
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom:0">
             <label class="form-label">Dein Name (für Home-Begrüssung)</label>
             <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Luca" oninput="CFG.userName=this.value.trim();cfgSave();if(currentTab==='home')renderHome()">
           </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Profil-Sync</div>
+        <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:12px;color:var(--text2);line-height:1.6">
+            Einstellungen geräteübergreifend nutzen: im Google Sheet speichern oder als Datei exportieren/importieren.
+          </div>
+          <button class="save-btn" onclick="syncProfileToSheet()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Im Sheet speichern
+          </button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn-outline-setup" onclick="exportProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportieren
+            </button>
+            <button class="btn-outline-setup" onclick="importProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importieren
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.5">«Im Sheet speichern» benötigt ein Tab «Einstellungen» im Google Sheet. Beim nächsten App-Start wird das Profil automatisch geladen.</div>
         </div>
       </div>
       <div class="section" style="padding-top:0">
@@ -2008,12 +2114,127 @@ function doLogout(){
   location.reload();
 }
 
+// ── Setup Wizard ─────────────────────────────────────────
+function gotoSetupStep(n){
+  document.querySelectorAll('.setup-page').forEach((el,i)=>{
+    el.classList.toggle('active', i===n);
+  });
+  for(let i=0;i<=2;i++){
+    const dot = document.getElementById('ssd-'+i);
+    if(dot) dot.classList.toggle('active', i<=n);
+  }
+  for(let i=0;i<=1;i++){
+    const line = document.getElementById('ssl-'+i);
+    if(line) line.classList.toggle('active', i<n);
+  }
+  const prog = document.getElementById('setup-progress');
+  if(prog) prog.style.display = n===0 ? 'none' : 'flex';
+}
+
+// ── Profile Sync (Google Sheet "Einstellungen") ───────────
+function _profileExportable(){
+  return {
+    ft_profile_v1: true,
+    userName:      CFG.userName||'',
+    theme:         CFG.theme||'',
+    lohnTag:       CFG.lohnTag||25,
+    sparziel:      CFG.sparziel||0,
+    mSparziel:     CFG.mSparziel||0,
+    pinnedTabs:    CFG.pinnedTabs||[],
+    homeWidgets:   CFG.homeWidgets||null,
+    notifSettings: CFG.notifSettings||{}
+  };
+}
+function _profileApply(prof){
+  if(!prof || !prof.ft_profile_v1) return;
+  if(prof.userName      !== undefined) CFG.userName      = prof.userName;
+  if(prof.theme         !== undefined){ CFG.theme = prof.theme; document.documentElement.dataset.theme = prof.theme||''; }
+  if(prof.lohnTag       !== undefined) CFG.lohnTag       = prof.lohnTag;
+  if(prof.sparziel      !== undefined) CFG.sparziel      = prof.sparziel;
+  if(prof.mSparziel     !== undefined) CFG.mSparziel     = prof.mSparziel;
+  if(prof.pinnedTabs    !== undefined) CFG.pinnedTabs    = prof.pinnedTabs;
+  if(prof.homeWidgets   !== undefined) CFG.homeWidgets   = prof.homeWidgets;
+  if(prof.notifSettings !== undefined) CFG.notifSettings = prof.notifSettings;
+  cfgSave();
+}
+
+async function syncProfileToSheet(){
+  if(CFG.demo || !CFG.scriptUrl){ toast('Nur mit echtem Sheet verfügbar','err'); return; }
+  try{
+    setSyncStatus('syncing');
+    await apiUpdate('Einstellungen!A1:B1',[['ft_profile_v1', JSON.stringify(_profileExportable())]]);
+    setSyncStatus('online');
+    toast('Profil im Sheet gespeichert','ok');
+  }catch(e){
+    setSyncStatus('error');
+    const hint = (e.message||'').includes('400') || (e.message||'').includes('Unable')
+      ? 'Tab "Einstellungen" im Sheet erstellen!'
+      : e.message;
+    toast('Fehler: '+hint,'err');
+  }
+}
+
+async function loadProfileFromSheet(){
+  if(CFG.demo || !CFG.scriptUrl) return false;
+  try{
+    const res = await apiGet('Einstellungen!A1:B1');
+    const rows = res.values||[];
+    if(rows[0] && rows[0][0]==='ft_profile_v1' && rows[0][1]){
+      _profileApply(JSON.parse(rows[0][1]));
+      return true;
+    }
+  }catch(e){ /* silent — sheet may not exist */ }
+  return false;
+}
+
+function exportProfileJSON(){
+  const blob = new Blob([JSON.stringify(_profileExportable(),null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='ftracker_profil.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Profil exportiert','ok');
+}
+
+function importProfileJSON(){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange = async (ev)=>{
+    const file = ev.target.files[0]; if(!file) return;
+    try{
+      const prof = JSON.parse(await file.text());
+      if(!prof.ft_profile_v1){ toast('Ungültige Profil-Datei','err'); return; }
+      _profileApply(prof);
+      renderAll(); renderNav();
+      toast('Profil importiert','ok');
+    }catch(e){ toast('Fehler: '+e.message,'err'); }
+  };
+  document.body.appendChild(inp); inp.click(); document.body.removeChild(inp);
+}
+
 function downloadBlankTemplate(){
+  // Pre-filled default categories (standard German labels, matching sheet column order)
+  const kategorienRows = [
+    'ID,Name,Typ,Farbe,Sort,Elternkategorie',
+    'k001,Lebensmittel,ausgabe,#4ECDC4,1,',
+    'k002,Restaurant,ausgabe,#FF6B35,2,',
+    'k003,Wohnen & Nebenkosten,ausgabe,#E5C07B,3,',
+    'k004,Transport & Verkehr,ausgabe,#E63946,4,',
+    'k005,Sport & Freizeit,ausgabe,#FF9F43,5,',
+    'k006,Abonnemente,ausgabe,#9B59B6,6,',
+    'k007,Kleidung & Shopping,ausgabe,#3498DB,7,',
+    'k008,Gesundheit,ausgabe,#2ECC71,8,',
+    'k009,Urlaub & Reisen,ausgabe,#00D4AA,9,',
+    'k010,Diverses,ausgabe,#888888,10,',
+    'k011,Lohn,einnahme,#C8F53C,11,',
+    'k012,Nebenverdienst,einnahme,#00C9A7,12,',
+    'k013,Sonstiges,einnahme,#FFD93D,13,'
+  ].join('\n');
+
   const files = [
     { name:'FTracker_Ausgaben.csv',       content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isFixkosten\n' },
     { name:'FTracker_Einnahmen.csv',      content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isLohn\n' },
     { name:'FTracker_Dauerauftraege.csv', content:'ID,Was,Kategorie,Betrag,Intervall,Buchungstag,Notiz,Aktiv,Start,Enddatum,affectsAvg\n' },
-    { name:'FTracker_Kategorien.csv',     content:'ID,Name,Typ,Farbe,Sort,Elternkategorie\n' }
+    { name:'FTracker_Kategorien.csv',     content: kategorienRows + '\n' }
   ];
   files.forEach((f,i)=>{
     setTimeout(()=>{
@@ -2025,7 +2246,6 @@ function downloadBlankTemplate(){
       setTimeout(()=>URL.revokeObjectURL(url), 1000);
     }, i*350);
   });
-  // Also show notification if in app context
   try{ toast('4 CSV-Vorlagen werden heruntergeladen…','ok'); } catch(e){}
 }
 
@@ -2113,6 +2333,7 @@ async function loadAll(){
         .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
     } catch(e){ DATA.recurring=[]; }
 
+    await loadProfileFromSheet();
     setSyncStatus('online'); renderAll();
   } catch(e){
     setSyncStatus('error');
