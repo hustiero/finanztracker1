@@ -237,7 +237,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .setup-brand{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:40px}
 .setup-back-btn{
   display:flex;align-items:center;gap:5px;color:var(--text3);font-size:13px;
-  padding:0 0 20px 0;align-self:flex-start;
+  padding:0 0 20px 0;align-self:flex-start;background:none;border:none;box-shadow:none;
 }
 .setup-back-btn:active{opacity:.6}
 .setup-page-title{font-size:20px;font-weight:700;letter-spacing:-.5px;align-self:flex-start;margin-bottom:4px}
@@ -1327,7 +1327,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="card" style="padding:14px">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label">Dein Name (für Home-Begrüssung)</label>
-            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();if(currentTab==='home')renderHome()">
+            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
           </div>
         </div>
       </div>
@@ -2159,6 +2159,19 @@ async function syncProfileToSheet(){
       : e.message;
     toast('Fehler: '+hint,'err');
   }
+}
+
+// Silent debounced auto-sync — called after any significant layout change
+let _autoSyncTimer = null;
+function autoSyncProfile(){
+  if(CFG.demo || !CFG.scriptUrl) return;
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(async ()=>{
+    try{
+      await apiUpdate('Einstellungen!A1:B1',[['ft_profile_v1', JSON.stringify(_profileExportable())]]);
+      setSyncStatus('online');
+    }catch(e){ /* silent — Einstellungen tab may not exist yet */ }
+  }, 3000);
 }
 
 async function loadProfileFromSheet(){
@@ -3208,7 +3221,7 @@ function getHomeWidgets(){
   return CFG.homeWidgets;
 }
 
-function saveHomeWidgets(arr){ CFG.homeWidgets=arr; cfgSave(); }
+function saveHomeWidgets(arr){ CFG.homeWidgets=arr; cfgSave(); autoSyncProfile(); }
 
 function toggleHomeEdit(){
   homeEditMode = !homeEditMode;
@@ -3968,6 +3981,13 @@ function openMonthViewAt(mo,yr){
 let currentTab = 'home';
 
 function goTab(tab){
+  // Home button while in edit mode → exit edit mode instead of re-navigating
+  if(tab === 'home' && currentTab === 'home' && homeEditMode){
+    homeEditMode = false;
+    renderHome();
+    return;
+  }
+  if(homeEditMode) homeEditMode = false;
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
@@ -4111,7 +4131,7 @@ function pinTab(key){
   if(CFG.pinnedTabs.includes(key)) return;
   if(CFG.pinnedTabs.length >= 2){ toast('Maximal 2 Tabs anheftbar',''); return; }
   CFG.pinnedTabs.push(key);
-  cfgSave();
+  cfgSave(); autoSyncProfile();
   renderNav();
   renderMenuOverlay();
   toast('Tab angeheftet','ok');
@@ -4120,7 +4140,7 @@ function pinTab(key){
 function unpinTab(key){
   if(!CFG.pinnedTabs) return;
   CFG.pinnedTabs = CFG.pinnedTabs.filter(k=>k!==key);
-  cfgSave();
+  cfgSave(); autoSyncProfile();
   renderNav();
   renderMenuOverlay();
   toast('Tab entfernt','ok');
