@@ -2073,7 +2073,7 @@ async function doConnect(){
   const url = document.getElementById('cfg-url').value.trim();
   if(!url){ toast('Script URL eintragen','err'); return; }
   if(!url.includes('script.google.com')){ toast('Ungültige Script URL','err'); return; }
-  CFG = {scriptUrl:url, demo:false};
+  CFG.scriptUrl = url; CFG.demo = false;
   cfgSave();
 
   const btn = document.getElementById('connect-btn');
@@ -2199,41 +2199,12 @@ function importProfileJSON(){
 }
 
 function downloadBlankTemplate(){
-  // Pre-filled default categories (standard German labels, matching sheet column order)
-  const kategorienRows = [
-    'ID,Name,Typ,Farbe,Sort,Elternkategorie',
-    'k001,Lebensmittel,ausgabe,#4ECDC4,1,',
-    'k002,Restaurant,ausgabe,#FF6B35,2,',
-    'k003,Wohnen & Nebenkosten,ausgabe,#E5C07B,3,',
-    'k004,Transport & Verkehr,ausgabe,#E63946,4,',
-    'k005,Sport & Freizeit,ausgabe,#FF9F43,5,',
-    'k006,Abonnemente,ausgabe,#9B59B6,6,',
-    'k007,Kleidung & Shopping,ausgabe,#3498DB,7,',
-    'k008,Gesundheit,ausgabe,#2ECC71,8,',
-    'k009,Urlaub & Reisen,ausgabe,#00D4AA,9,',
-    'k010,Diverses,ausgabe,#888888,10,',
-    'k011,Lohn,einnahme,#C8F53C,11,',
-    'k012,Nebenverdienst,einnahme,#00C9A7,12,',
-    'k013,Sonstiges,einnahme,#FFD93D,13,'
-  ].join('\n');
-
-  const files = [
-    { name:'FTracker_Ausgaben.csv',       content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isFixkosten\n' },
-    { name:'FTracker_Einnahmen.csv',      content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isLohn\n' },
-    { name:'FTracker_Dauerauftraege.csv', content:'ID,Was,Kategorie,Betrag,Intervall,Buchungstag,Notiz,Aktiv,Start,Enddatum,affectsAvg\n' },
-    { name:'FTracker_Kategorien.csv',     content: kategorienRows + '\n' }
-  ];
-  files.forEach((f,i)=>{
-    setTimeout(()=>{
-      const blob = new Blob(['\ufeff'+f.content],{type:'text/csv;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = f.name;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    }, i*350);
-  });
-  try{ toast('4 CSV-Vorlagen werden heruntergeladen…','ok'); } catch(e){}
+  // Single Excel file with all sheets + README (located next to index.html)
+  const a = document.createElement('a');
+  a.href = './finanztracker_template.xlsx';
+  a.download = 'finanztracker_template.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  try{ toast('Excel-Vorlage wird heruntergeladen…','ok'); } catch(e){}
 }
 
 function generateAppIcon(){
