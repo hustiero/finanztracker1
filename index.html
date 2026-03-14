@@ -124,7 +124,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   background:var(--accent);border:none;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 22px rgba(255,209,102,.55);
-  z-index:200;cursor:pointer;
+  z-index:650;cursor:pointer;
   transition:transform .3s cubic-bezier(.34,1.2,.64,1), box-shadow .3s, background .4s;
 }
 [data-theme="light"] .fab{box-shadow:0 4px 22px rgba(96,165,250,.55)}
@@ -1425,6 +1425,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </div>
       <div id="lohn-chart-section" style="padding:0 16px 0"></div>
       <div id="lohn-list"></div>
+      <div id="lohn-fixkosten-section" class="section" style="padding-top:0"></div>
     </div>
 
     <!-- TAB: Aktien -->
@@ -2049,7 +2050,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[] };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2203,6 +2204,118 @@ function getRecurringOccurrences(startStr, endStr){
   return results;
 }
 
+// ═══════════════════════════════════════════════════
+// ZENTRALE LOGIK-SCHICHT (Point 2 + 3)
+// ═══════════════════════════════════════════════════
+
+// Central fixkosten check: per-entry flag OR category in CFG.fixkostenKats
+// OR entry is from a recurring that has affectsAvg=false (i.e. it's a standing fixed cost)
+function isFixkostenEntry(e){
+  if(!e) return false;
+  if(e.isFixkosten) return true;
+  if((CFG.fixkostenKats||[]).includes(e.cat)) return true;
+  if(e.recurringId){
+    const r = DATA.recurring.find(r=>r.id===e.recurringId);
+    if(r && !r.affectsAvg) return true;
+  }
+  // Virtual recurring entries (from getRecurringInstances / getRecurringOccurrences)
+  if(e.isRecurring){
+    const r = DATA.recurring.find(r=>r.id===e._recurId);
+    if(r && !r.affectsAvg) return true;
+  }
+  return false;
+}
+
+// Returns all expense-like objects (manual + optional Daueraufträge) for a date range.
+// kategorien: null = all, else array of category names to include
+// inclDauerauftraege: if true, includes recurring occurrences from getRecurringOccurrences
+function getAusgaben(von, bis, kategorien=null, inclDauerauftraege=true){
+  let items = DATA.expenses.filter(e=>e.date>=von&&e.date<=bis);
+  if(inclDauerauftraege){
+    const recur = getRecurringOccurrences(von, bis);
+    // Don't double-count: skip recurring occurrences that are already materialized
+    const materializedKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
+    items = [...items, ...recur.filter(r=>!materializedKeys.has(r._recurId+'_'+r.date))];
+  }
+  if(kategorien) items = items.filter(e=>kategorien.includes(e.cat));
+  return items;
+}
+
+// Returns income entries for a date range
+function getEinnahmen(von, bis){
+  return DATA.incomes.filter(e=>e.date>=von&&e.date<=bis);
+}
+
+// Returns net balance (incomes - expenses incl. recurring) for a date range
+function getNetto(von, bis){
+  const inc = getEinnahmen(von,bis).reduce((s,e)=>s+e.amt,0);
+  const out = getAusgaben(von,bis).reduce((s,e)=>s+e.amt,0);
+  return inc - out;
+}
+
+// Returns fixkosten entries for a date range (manual + recurring fixed costs)
+function getFixkosten(von, bis){
+  return getAusgaben(von,bis).filter(e=>isFixkostenEntry(e));
+}
+
+// Materialize a single recurring occurrence as a real DATA.expenses entry.
+// amt/what/cat/note can be overridden (for user-edited confirmation).
+async function materialisiereDauerauftrag(recurId, date, amt, what, cat, note){
+  const r = DATA.recurring.find(r=>r.id===recurId);
+  if(!r) return false;
+  // Duplicate guard
+  if(DATA.expenses.some(e=>e.recurringId===recurId&&e.date===date)){
+    toast('Bereits gebucht','err'); return false;
+  }
+  const id = genId('A');
+  const isFixk = !r.affectsAvg;
+  const entry = {id, date, what:what||r.what, cat:cat||r.cat, amt:amt||r.amt,
+    note:note||r.note||'', recurringId:recurId, isFixkosten:isFixk};
+  DATA.expenses.push(entry);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Ausgaben',[[id,date,entry.what,entry.cat,entry.amt,entry.note,recurId,isFixk?'1':'0']]);
+      setSyncStatus('online');
+    } catch(err){ setSyncStatus('error'); toast('Sync-Fehler: '+err.message,'err'); }
+  }
+  toast('✓ Dauerauftrag gebucht','ok');
+  renderAll();
+  return true;
+}
+
+// Materialize ALL overdue occurrences for a past month (called automatically when viewing past months)
+function materialisiereDauerauftraege(mo, yr){
+  const now = new Date();
+  // Only for past months — never current month
+  if(yr===now.getFullYear()&&mo===now.getMonth()) return;
+  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
+  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
+  const instances = getRecurringInstances(s,e);
+  let changed = false;
+  for(const occ of instances){
+    if(DATA.expenses.some(ex=>ex.recurringId===occ._recurId&&ex.date===occ.date)) continue;
+    const r = DATA.recurring.find(r=>r.id===occ._recurId);
+    const id = genId('A');
+    const isFixk = r ? !r.affectsAvg : true;
+    DATA.expenses.push({id,date:occ.date,what:occ.what,cat:occ.cat,amt:occ.amt,
+      note:occ.note||'',recurringId:occ._recurId,isFixkosten:isFixk,isMaterialized:true});
+    changed = true;
+  }
+  return changed;
+}
+
+// Toggle a category in CFG.fixkostenKats
+function toggleFixkostenKat(cat){
+  const arr = CFG.fixkostenKats||[];
+  const idx = arr.indexOf(cat);
+  if(idx===-1) arr.push(cat); else arr.splice(idx,1);
+  CFG.fixkostenKats = arr;
+  cfgSave();
+  renderLohn();
+  renderAll();
+}
+
 function getZyklusInfo(){
   const {start,end} = getCycleRange();
   const now = new Date();
@@ -2216,11 +2329,11 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  // Fixed costs: manual isFixkosten expenses + recurring fixed occurrences within cycle
+  // Fixed costs: uses central isFixkostenEntry() which respects CFG.fixkostenKats
   const recurInCycle = getRecurringOccurrences(startStr, endStr);
   const fixKosten = [
-    ...DATA.expenses.filter(e=>e.isFixkosten&&e.date>=startStr&&e.date<=endStr),
-    ...recurInCycle.filter(e=>e.isFixkosten)
+    ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
+    ...recurInCycle.filter(e=>isFixkostenEntry(e))
   ].reduce((s,e)=>s+e.amt,0);
   // Previous cycle carryover
   const prevEnd = new Date(start.getTime()-86400000);
@@ -2236,8 +2349,8 @@ function getZyklusInfo(){
     return false;
   }).reduce((s,e)=>s+e.amt,0);
   const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr);
-  const prevFixKosten = [...DATA.expenses.filter(e=>e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr),...prevRecur.filter(e=>e.isFixkosten)].reduce((s,e)=>s+e.amt,0);
-  const prevVarSpent  = [...DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr),...prevRecur.filter(e=>!e.isFixkosten)].reduce((s,e)=>s+e.amt,0);
+  const prevFixKosten = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&isFixkostenEntry(e)),...prevRecur.filter(e=>isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
+  const prevVarSpent  = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&!isFixkostenEntry(e)),...prevRecur.filter(e=>!isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
   const mSparziel = CFG.mSparziel||0;
   const cycleDays   = Math.round((end-start)/86400000)+1;
@@ -2246,8 +2359,8 @@ function getZyklusInfo(){
   const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
   // varSpent: non-fixkosten manual expenses + non-fixkosten recurring (already capped at today)
   const varSpent = [
-    ...DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=startStr&&e.date<=todayStr),
-    ...recurInCycle.filter(e=>!e.isFixkosten)
+    ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
+    ...recurInCycle.filter(e=>!isFixkostenEntry(e))
   ].reduce((s,e)=>s+e.amt,0);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
@@ -2261,10 +2374,10 @@ function parentOf(catName){ const c=DATA.categories.find(c=>c.name===catName); r
 function avgDailyVarSpend(mo, yr, daysElapsed){
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const recur=getRecurringOccurrences(s,e).filter(r=>!r.isFixkosten); // only affectsAvg=true recurring
+  const recur=getRecurringOccurrences(s,e).filter(r=>!isFixkostenEntry(r));
   const allExp=[...DATA.expenses.filter(ex=>{
     const d=new Date(ex.date+'T12:00:00');
-    return d.getMonth()===mo&&d.getFullYear()===yr&&!ex.isFixkosten&&!ex.excludeAvg;
+    return d.getMonth()===mo&&d.getFullYear()===yr&&!isFixkostenEntry(ex)&&!ex.excludeAvg;
   }),...recur];
   const total=allExp.reduce((a,ex)=>a+ex.amt,0);
   return daysElapsed>0?total/daysElapsed:0;
@@ -2627,7 +2740,7 @@ async function loadAll(){
     if(ausgRes.status==='fulfilled'){
       DATA.expenses = (ausgRes.value.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isFixkosten:String(r[7]||'')==='1'}));
+        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',recurringId:r[6]||'',isFixkosten:String(r[7]||'')==='1'}));
     } else { if(!hadCache) DATA.expenses=[]; }
 
     if(einRes.status==='fulfilled'){
@@ -2763,7 +2876,7 @@ async function saveEntry(){
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
-    const entry = {id,date,what,cat,amt,note,isFixkosten:false};
+    const entry = {id,date,what,cat,amt,note,recurringId:'',isFixkosten:false};
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
@@ -2811,6 +2924,29 @@ function openEditModal(id, type){
   document.getElementById('edit-note').value = entry.note||'';
   document.getElementById('edit-modal-title').textContent = type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten';
   fillDropdown('edit-cat', type, entry.cat);
+  document.getElementById('edit-modal').dataset.recurringId = '';
+
+  openModal('edit-modal');
+}
+
+// Open edit modal pre-filled from a virtual Dauerauftrag entry.
+// If already materialized: opens normal edit modal for that entry.
+// Otherwise: opens modal in "new from recurring" mode.
+function openMaterializeModal(recurId, date){
+  const existing = DATA.expenses.find(e=>e.recurringId===recurId&&e.date===date);
+  if(existing){ openEditModal(existing.id,'ausgabe'); return; }
+  const r = DATA.recurring.find(r=>r.id===recurId);
+  if(!r) return;
+
+  document.getElementById('edit-id').value = '';   // empty = new entry
+  document.getElementById('edit-type').value = 'ausgabe';
+  document.getElementById('edit-amt').value = r.amt;
+  document.getElementById('edit-date').value = date;
+  document.getElementById('edit-what').value = r.what;
+  document.getElementById('edit-note').value = r.note||'';
+  document.getElementById('edit-modal-title').textContent = 'Dauerauftrag buchen';
+  fillDropdown('edit-cat', 'ausgabe', r.cat);
+  document.getElementById('edit-modal').dataset.recurringId = recurId;
 
   openModal('edit-modal');
 }
@@ -2825,6 +2961,14 @@ async function updateEntry(){
   const note = document.getElementById('edit-note').value.trim();
 
   if(!amt||!date||!what){ toast('Felder ausfüllen','err'); return; }
+
+  // New entry from recurring (Dauerauftrag buchen)
+  const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
+  if(!id && recurringId){
+    closeModal('edit-modal');
+    await materialisiereDauerauftrag(recurringId, date, amt, what, cat, note);
+    return;
+  }
 
   const list = type==='ausgabe'?DATA.expenses:DATA.incomes;
   const idx = list.findIndex(e=>e.id===id);
@@ -3736,13 +3880,20 @@ function buildTagesavgCard(mo, yr){
   </div>`;
 }
 
-// Day entry group — identical to renderMonat()'s day sections
-function buildDayGroup(ds, dExp, dInc){
+// Day entry group with optional virtual recurring entries (dRec).
+// Virtual recurring appear with a "DA" badge; clicking opens openMaterializeModal().
+function buildDayGroup(ds, dExp, dInc, dRec){
   const wdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   const d = new Date(ds+'T12:00:00');
   const isToday = ds===today();
-  const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0);
-  const entries = [...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
+  // Filter virtual recurring: skip ones already materialized
+  const dRecVirtual = (dRec||[]).filter(r=>!DATA.expenses.some(e=>e.recurringId===r._recurId&&e.date===ds));
+  const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0) - dRecVirtual.reduce((s,e)=>s+e.amt,0);
+  const entries = [
+    ...dInc.map(e=>({...e,t:'i'})),
+    ...dExp.map(e=>({...e,t:'e'})),
+    ...dRecVirtual.map(e=>({...e,t:'r'}))
+  ];
   return `<div class="mv-day-group">
     <div class="mv-day-hdr">
       <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
@@ -3751,6 +3902,13 @@ function buildDayGroup(ds, dExp, dInc){
     ${entries.map(e=>{
       const par = parentOf(e.cat);
       const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
+      if(e.t==='r'){
+        return `<div class="mv-entry" onclick="openMaterializeModal('${e._recurId}','${e.date}')" style="cursor:pointer;opacity:.65">
+          <span class="mv-entry-cat" style="color:var(--text3)">↻ ${catLabel}</span>
+          <span class="mv-entry-what">${esc(e.what)}<span style="font-size:10px;margin-left:5px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text3)">DA</span></span>
+          <span class="mv-entry-amt" style="color:var(--text3)">−${fmtAmt(e.amt)}</span>
+        </div>`;
+      }
       return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
         <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
         <span class="mv-entry-what">${esc(e.what)}</span>
@@ -4951,6 +5109,48 @@ function renderLohn(){
         </div>
       </div>`;
     }).join('');
+
+  // ── Fixkosten-Kategorien Management (Point 2) ──────────────────────────────
+  const fkEl = document.getElementById('lohn-fixkosten-section');
+  if(fkEl){
+    const allCats = [...new Set([
+      ...DATA.expenses.map(e=>e.cat),
+      ...DATA.recurring.filter(r=>r.active).map(r=>r.cat)
+    ])].filter(Boolean).sort();
+    const fkKats = CFG.fixkostenKats||[];
+    // Daueraufträge with !affectsAvg are always fixed — show them as info
+    const dauerFixKats = [...new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat))];
+
+    fkEl.innerHTML = `
+    <div class="section-title" style="padding:0 0 8px;display:flex;align-items:center;gap:8px">
+      Fixkosten-Kategorien
+      <span style="font-size:11px;font-weight:400;color:var(--text3)">zentrale Variable für alle Reiter</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+      Kategorien die als Fixkosten gelten → werden aus Ø Tagesausgabe und variablem Budget herausgerechnet.
+    </div>
+    ${dauerFixKats.length ? `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Von Daueraufträgen (automatisch):</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      ${dauerFixKats.map(cat=>`
+        <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;background:rgba(61,219,150,.1);border:1px solid var(--green);color:var(--green)">
+          ${catEmoji(cat)} ${esc(cat)}
+        </span>`).join('')}
+    </div>` : ''}
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Manuelle Auswahl:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${allCats.filter(c=>!dauerFixKats.includes(c)).map(cat=>{
+        const active = fkKats.includes(cat);
+        return `<button onclick="toggleFixkostenKat('${esc(cat)}')"
+          style="padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;
+                 background:${active?'rgba(255,77,109,.12)':'var(--bg3)'};
+                 border:1px solid ${active?'var(--red)':'var(--border)'};
+                 color:${active?'var(--red)':'var(--text2)'}">
+          ${catEmoji(cat)} ${esc(cat)} ${active?'✓':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
 }
 
 function setLohnMonths(n){ lohnChartMonths=n; renderLohn(); }
@@ -6047,20 +6247,31 @@ function renderEinstellungen(){
 // ═══════════════════════════════════════════════════════════════
 function renderMonat(){
   const now = new Date();
-  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const todayStr = today();
   const yr = mvYear, mo = mvMonth;
   const isCurrent = yr===now.getFullYear() && mo===now.getMonth();
 
-  const mExp = DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const mInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const totalOut = mExp.reduce((s,e)=>s+e.amt,0);
-  const totalIn = mInc.reduce((s,e)=>s+e.amt,0);
+  // Auto-materialize past months (creates real entries from Daueraufträge)
+  if(!isCurrent) materialisiereDauerauftraege(mo, yr);
+
+  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
+  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
+
+  const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+
+  // Virtual recurring: instances not yet materialized (current month only — past months already materialized above)
+  const allRecurInst = isCurrent ? getRecurringInstances(s, e) : [];
+  const mRecVirtual = allRecurInst.filter(r=>!DATA.expenses.some(ex=>ex.recurringId===r._recurId&&ex.date===r.date));
+
+  const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + mRecVirtual.reduce((a,r)=>a+r.amt,0);
+  const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
   const bal = totalIn - totalOut;
 
-  // Category breakdown
+  // Category breakdown (manual + virtual recurring)
   const catMap={};
-  mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  mExp.forEach(ex=>{catMap[ex.cat]=(catMap[ex.cat]||0)+ex.amt;});
+  mRecVirtual.forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.amt;});
   const parentMap={};
   DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
   const parentTotals={};
@@ -6068,7 +6279,8 @@ function renderMonat(){
   const cats = Object.entries(parentTotals).sort(([,a],[,b])=>b-a).slice(0,8);
   const maxCat = cats[0]?.[1]||1;
 
-  const dateSet = new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
+  // Date set includes virtual recurring dates
+  const dateSet = new Set([...mExp.map(ex=>ex.date),...mInc.map(ex=>ex.date),...mRecVirtual.map(r=>r.date)]);
   const sortedDates = [...dateSet].sort((a,b)=>b.localeCompare(a));
 
   // Today/week stats (current month only)
@@ -6153,7 +6365,11 @@ function renderMonat(){
     <div class="section" style="padding-top:0">
       <div class="section-title">Einträge</div>
       <div class="card" style="padding:0">
-        ${sortedDates.map(ds=>buildDayGroup(ds, DATA.expenses.filter(e=>e.date===ds), DATA.incomes.filter(e=>e.date===ds))).join('')}
+        ${sortedDates.map(ds=>buildDayGroup(ds,
+          DATA.expenses.filter(ex=>ex.date===ds),
+          DATA.incomes.filter(ex=>ex.date===ds),
+          mRecVirtual.filter(r=>r.date===ds)
+        )).join('')}
       </div>
     </div>`
     : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
