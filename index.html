@@ -2140,6 +2140,69 @@ function getCycleRange(){
   return {start,end};
 }
 
+// Expand active Daueraufträge into synthetic expense objects within [startStr, min(endStr, today)]
+// Only occurrences with date <= today count as realized bookings.
+function getRecurringOccurrences(startStr, endStr){
+  const todayS = today();
+  const cutoff = todayS < endStr ? todayS : endStr;
+  if(cutoff < startStr) return [];
+  const results = [];
+  for(const r of DATA.recurring){
+    if(!r.active) continue;
+    if(r.endDate && r.endDate < startStr) continue;
+    const rStart = r.start || startStr;
+    const interval = r.interval || 'monatlich';
+    const fromDt = new Date(startStr+'T12:00:00');
+    const toDt   = new Date(cutoff+'T12:00:00');
+    const dates  = [];
+
+    if(interval==='monatlich'){
+      let year=fromDt.getFullYear(), month=fromDt.getMonth();
+      while(new Date(year,month,1)<=new Date(toDt.getFullYear(),toDt.getMonth(),1)){
+        const lastDay=new Date(year,month+1,0).getDate();
+        const occDay=Math.min(r.day||1,lastDay);
+        const ds=dateStr(new Date(year,month,occDay));
+        if(ds>=startStr&&ds<=cutoff&&ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        month++; if(month>11){month=0;year++;}
+      }
+    } else if(interval==='wöchentlich'||interval==='zweiwöchentlich'){
+      const step=(interval==='wöchentlich'?7:14)*86400000;
+      const anchor=rStart>startStr?rStart:startStr;
+      let cur=new Date(anchor+'T12:00:00');
+      while(true){
+        const ds=dateStr(cur);
+        if(ds>cutoff) break;
+        if(ds>=startStr&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        cur=new Date(cur.getTime()+step);
+      }
+    } else if(interval==='jährlich'){
+      const a=new Date(rStart+'T12:00:00');
+      for(let i=0;i<20;i++){
+        const ds=dateStr(new Date(fromDt.getFullYear()+i,a.getMonth(),a.getDate()));
+        if(ds>cutoff) break;
+        if(ds>=startStr&&ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+      }
+    } else if(interval==='quartalsweise'){
+      const a=new Date(rStart+'T12:00:00');
+      let yr=a.getFullYear(),mo=a.getMonth();
+      // Fast-forward to first occurrence at or after startStr
+      while(new Date(yr,mo,a.getDate())<fromDt){mo+=3;if(mo>11){mo-=12;yr++;}}
+      for(let i=0;i<80;i++){
+        const ds=dateStr(new Date(yr,mo,a.getDate()));
+        if(ds>cutoff) break;
+        if(ds>=startStr&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        mo+=3;if(mo>11){mo-=12;yr++;}
+      }
+    }
+
+    for(const ds of dates){
+      results.push({id:r.id+'_r_'+ds,date:ds,what:r.what,cat:r.cat,amt:r.amt,
+        note:r.note||'',isFixkosten:!r.affectsAvg,isRecurring:true});
+    }
+  }
+  return results;
+}
+
 function getZyklusInfo(){
   const {start,end} = getCycleRange();
   const now = new Date();
@@ -2153,10 +2216,12 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  // Fixed costs: expenses marked isFixkosten within the current period
-  const fixKosten = DATA.expenses
-    .filter(e=>e.isFixkosten && e.date>=startStr && e.date<=endStr)
-    .reduce((s,e)=>s+e.amt,0);
+  // Fixed costs: manual isFixkosten expenses + recurring fixed occurrences within cycle
+  const recurInCycle = getRecurringOccurrences(startStr, endStr);
+  const fixKosten = [
+    ...DATA.expenses.filter(e=>e.isFixkosten&&e.date>=startStr&&e.date<=endStr),
+    ...recurInCycle.filter(e=>e.isFixkosten)
+  ].reduce((s,e)=>s+e.amt,0);
   // Previous cycle carryover
   const prevEnd = new Date(start.getTime()-86400000);
   const prevStart = prevEnd.getDate()>=lt
@@ -2170,16 +2235,20 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  const prevFixKosten = DATA.expenses.filter(e=>e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
-  const prevVarSpent  = DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr).reduce((s,e)=>s+e.amt,0);
+  const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr);
+  const prevFixKosten = [...DATA.expenses.filter(e=>e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr),...prevRecur.filter(e=>e.isFixkosten)].reduce((s,e)=>s+e.amt,0);
+  const prevVarSpent  = [...DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=prevStartStr&&e.date<=prevEndStr),...prevRecur.filter(e=>!e.isFixkosten)].reduce((s,e)=>s+e.amt,0);
   const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
   const mSparziel = CFG.mSparziel||0;
   const cycleDays   = Math.round((end-start)/86400000)+1;
   const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
   const daysLeft    = cycleDays - daysElapsed;
   const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
-  // varSpent: only non-Fixkosten expenses (Fixkosten already deducted in budget)
-  const varSpent    = DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=startStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
+  // varSpent: non-fixkosten manual expenses + non-fixkosten recurring (already capped at today)
+  const varSpent = [
+    ...DATA.expenses.filter(e=>!e.isFixkosten&&e.date>=startStr&&e.date<=todayStr),
+    ...recurInCycle.filter(e=>!e.isFixkosten)
+  ].reduce((s,e)=>s+e.amt,0);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
   return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0,prevCarryover,mSparziel};
@@ -2188,13 +2257,16 @@ function getZyklusInfo(){
 // Returns parent category name of a given category (empty string if top-level)
 function parentOf(catName){ const c=DATA.categories.find(c=>c.name===catName); return c?c.parent:''; }
 
-// Avg daily variable spend for a month (excluding categories of Daueraufträge with affectsAvg=false)
+// Avg daily variable spend for a month (excluding Fixkosten; includes affectsAvg recurring)
 function avgDailyVarSpend(mo, yr, daysElapsed){
-  const fixCats=new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
-  const total=DATA.expenses.filter(e=>{
-    const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===mo&&d.getFullYear()===yr&&!fixCats.has(e.cat)&&!e.excludeAvg&&!e.isFixkosten;
-  }).reduce((s,e)=>s+e.amt,0);
+  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
+  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
+  const recur=getRecurringOccurrences(s,e).filter(r=>!r.isFixkosten); // only affectsAvg=true recurring
+  const allExp=[...DATA.expenses.filter(ex=>{
+    const d=new Date(ex.date+'T12:00:00');
+    return d.getMonth()===mo&&d.getFullYear()===yr&&!ex.isFixkosten&&!ex.excludeAvg;
+  }),...recur];
+  const total=allExp.reduce((a,ex)=>a+ex.amt,0);
   return daysElapsed>0?total/daysElapsed:0;
 }
 // Smart prev-month avg: categories marked isFixkosten in currMo/currYr are also excluded from prev month
@@ -3482,7 +3554,7 @@ const WIDGET_CATALOG = [
   { key:'monatsverlauf',   label:'Monatsverlauf (6 Mo.)',   sub:'Ausgaben-Balken der letzten 6 Monate' },
   { key:'heuteAusgaben',   label:'Heutige Ausgaben',        sub:'Alle Buchungen von heute' },
   { key:'sparquote',       label:'Zyklus-Sparquote',        sub:'Sparquote im laufenden Lohnzyklus' },
-  { key:'lohnPct',         label:'Lohnzyklus %',            sub:'Wie viel % des Budgets bereits ausgegeben (Donut)' },
+  { key:'lohnPct',         label:'Lohnzyklus % (Donut)',     sub:'% Budget ausgegeben als Donut-Chart (ähnlich wie Lohnzyklus)' },
   { key:'monatSummary',    label:'Monats-Zusammenfassung',  sub:'Einnahmen, Ausgaben & Bilanz + Ø Tagesausgabe aktueller Monat' },
   { key:'monatKategorien', label:'Monats-Kategorien',       sub:'Top Ausgabenkategorien des aktuellen Monats' },
   { key:'kontostand',      label:'Kontostand-Verlauf',      sub:'Kontostand-Linienchart der letzten Monate' },
@@ -3491,7 +3563,7 @@ const WIDGET_CATALOG = [
   { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
   { key:'aktienPortfolio', label:'Aktienportfolio',         sub:'Gesamtübersicht Aktien-Positionen & P&L' },
 ];
-const DEFAULT_HOME_WIDGETS = ['greeting','lohnzyklus','tagesavg','topKategorien','heuteAusgaben'];
+const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','topKategorien','tagesavg'];
 let homeEditMode = false;
 let homeKontoMonths = 3;
 
@@ -3696,25 +3768,32 @@ function renderWidgetTagesavg(){
 }
 
 function renderWidgetTopKategorien(){
-  const {startStr,endStr} = getCycleRange();
+  const {start,end} = getCycleRange();
+  const startStr=dateStr(start), endStr=dateStr(end);
   const catMap = {};
+  // Manual expenses
   DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr).forEach(e=>{
-    const c = e.cat||'Sonstiges';
-    catMap[c]=(catMap[c]||0)+e.amt;
+    const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
+  });
+  // Daueraufträge occurrences in cycle
+  getRecurringOccurrences(startStr,endStr).forEach(e=>{
+    const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
   const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   if(sorted.length===0) return `<div><div class="widget-title">Top Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben im Zyklus.</div></div>`;
+  const total = Object.values(catMap).reduce((a,v)=>a+v,0);
   const max = sorted[0][1];
   return `<div>
     <div class="widget-title">Top Kategorien im Lohnzyklus</div>
     ${sorted.map(([cat,amt])=>{
       const pct = Math.round(amt/max*100);
+      const col = catColor(cat);
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <span style="color:var(--text2)">${cat}</span>
-          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)}</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block"></span>${esc(cat)}</span>
+          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)} <span style="color:var(--text3);font-size:10px">${total>0?Math.round(amt/total*100):0}%</span></span>
         </div>
-        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px"></div></div>
+        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.85"></div></div>
       </div>`;
     }).join('')}
   </div>`;
@@ -3730,7 +3809,8 @@ function renderWidgetMonatverlauf(){
   const totals = months.map(m=>{
     const s=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-01`;
     const e=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-${String(new Date(m.yr,m.mo+1,0).getDate()).padStart(2,'0')}`;
-    return DATA.expenses.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amt,0);
+    const recur=getRecurringOccurrences(s,e).reduce((a,x)=>a+x.amt,0);
+    return DATA.expenses.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amt,0)+recur;
   });
   const max = Math.max(...totals,1);
   const barH = 48;
@@ -3753,13 +3833,43 @@ function renderWidgetMonatverlauf(){
 }
 
 function renderWidgetHeuteAusgaben(){
-  // Same layout as renderMonat() day group — uses shared buildDayGroup helper
   const t = today();
   const dExp = DATA.expenses.filter(e=>e.date===t);
   const dInc = DATA.incomes.filter(e=>e.date===t);
-  if(!dExp.length && !dInc.length)
-    return `<div class="card" style="padding:0"><div class="mv-day-group"><div style="padding:10px 14px;font-size:13px;color:var(--text3)">Heute noch keine Einträge.</div></div></div>`;
-  return `<div class="card" style="padding:0">${buildDayGroup(t, dExp, dInc)}</div>`;
+  const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
+  const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
+
+  // Tagesbudget from Zyklus
+  const z = getZyklusInfo();
+  const dailyBudget = z.dailyRate;
+  const overBudget = dailyBudget!==null && todayOut > dailyBudget;
+  const amtColor = dailyBudget===null ? 'var(--text)' : overBudget ? 'var(--red)' : 'var(--green)';
+
+  let html = `<div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">HEUTE</div>
+    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:6px">CHF&nbsp;${fmtAmt(todayOut)}</div>`;
+
+  if(todayIn>0){
+    html += `<div style="font-size:12px;color:var(--green);margin-bottom:4px">+CHF ${fmtAmt(todayIn)} Einnahmen</div>`;
+  }
+
+  if(dailyBudget!==null){
+    const remaining = dailyBudget - todayOut;
+    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
+      <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">CHF ${fmtAmt(dailyBudget)}</span></span>
+      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
+        ${remaining>=0?'noch ':'überzogen '}<span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(Math.abs(remaining))}</span>
+      </span>
+    </div>`;
+  } else { html += `<div style="height:6px"></div>`; }
+
+  if(!dExp.length && !dInc.length){
+    html += `<div style="font-size:13px;color:var(--text3)">Noch keine Buchungen heute.</div>`;
+  } else {
+    html += `<div style="margin:0 -14px;border-top:1px solid var(--border)">${buildDayGroup(t, dExp, dInc)}</div>`;
+  }
+  html += `</div>`;
+  return html;
 }
 
 function renderWidgetSparquote(){
@@ -3819,10 +3929,13 @@ function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
 function renderWidgetMonatSummary(){
   const now = new Date();
   const mo = now.getMonth(), yr = now.getFullYear();
-  const mExp = DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const mInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const totalOut = mExp.reduce((s,e)=>s+e.amt,0);
-  const totalIn  = mInc.reduce((s,e)=>s+e.amt,0);
+  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
+  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
+  const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const recurExp = getRecurringOccurrences(s,e);
+  const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + recurExp.reduce((a,ex)=>a+ex.amt,0);
+  const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
   const bal      = totalIn - totalOut;
   const avgDay   = avgDailyVarSpend(mo, yr, now.getDate());
   const prevC    = avgDailyVarSpendPrevComp(mo, yr);
@@ -3860,7 +3973,7 @@ function renderWidgetMonatKategorien(){
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
   const catMap={};
-  DATA.expenses.filter(x=>x.date>=s&&x.date<=e).forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
+  [...DATA.expenses.filter(x=>x.date>=s&&x.date<=e),...getRecurringOccurrences(s,e)].forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   if(!sorted.length) return `<div><div class="widget-title">Monats-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben diesen Monat.</div></div>`;
   const total=Object.values(catMap).reduce((a,v)=>a+v,0);
@@ -3900,8 +4013,11 @@ function renderWidgetJahresSparquote(){
   const sparziel=CFG.sparziel||0;
   const yMonths=[];
   for(let m=0;m<=now.getMonth();m++){
-    const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
-    const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
+    const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
+    const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
+    const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
+      +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
     yMonths.push({label:months[m],net:inc-out,cur:m===now.getMonth()});
   }
   const yearSaved=yMonths.reduce((s,m)=>s+m.net,0);
@@ -3933,7 +4049,9 @@ function renderWidgetJahresSparquote(){
 function renderWidgetJahresKategorien(){
   const yr = new Date().getFullYear();
   const catMap={};
-  DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr).forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const yrStart=`${yr}-01-01`, yrEnd=`${yr}-12-31`;
+  [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd)]
+    .forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben erfasst.</div></div>`;
   const total=Object.values(catMap).reduce((a,v)=>a+v,0);
@@ -3959,8 +4077,11 @@ function renderWidgetMonatsverlaufJahr(){
   const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const trend=[];
   for(let m=0;m<=now.getMonth();m++){
-    const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
-    const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((s,e)=>s+e.amt,0);
+    const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
+    const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
+    const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
+      +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
+    const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
     trend.push({label:months[m],out,inc,net:inc-out,cur:m===now.getMonth()});
   }
   if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
@@ -4942,6 +5063,7 @@ function buildBalanceChart(months){
   const events=[];
   DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:-e.amt}));
   DATA.incomes.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:e.amt}));
+  getRecurringOccurrences(startStr,todayStr).forEach(e=>events.push({date:e.date,amt:-e.amt}));
   events.sort((a,b)=>a.date.localeCompare(b.date));
   if(!events.length) return `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Keine Daten für diesen Zeitraum</div>`;
   let bal=0;
