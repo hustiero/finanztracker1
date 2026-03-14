@@ -3717,7 +3717,6 @@ const WIDGET_CATALOG = [
   { key:'monatsverlauf',   label:'Monatsverlauf (6 Mo.)',   sub:'Ausgaben-Balken der letzten 6 Monate' },
   { key:'heuteAusgaben',   label:'Heutige Ausgaben',        sub:'Alle Buchungen von heute' },
   { key:'sparquote',       label:'Zyklus-Sparquote',        sub:'Sparquote im laufenden Lohnzyklus' },
-  { key:'lohnPct',         label:'Lohnzyklus % (Donut)',     sub:'% Budget ausgegeben als Donut-Chart (ähnlich wie Lohnzyklus)' },
   { key:'monatSummary',    label:'Monats-Zusammenfassung',  sub:'Einnahmen, Ausgaben & Bilanz + Ø Tagesausgabe aktueller Monat' },
   { key:'monatKategorien', label:'Monats-Kategorien',       sub:'Top Ausgabenkategorien des aktuellen Monats' },
   { key:'kontostand',      label:'Kontostand-Verlauf',      sub:'Kontostand-Linienchart der letzten Monate' },
@@ -3831,7 +3830,6 @@ function renderWidgetContent(key){
     case 'monatsverlauf':    return renderWidgetMonatverlauf();
     case 'heuteAusgaben':    return renderWidgetHeuteAusgaben();
     case 'sparquote':        return renderWidgetSparquote();
-    case 'lohnPct':          return renderWidgetLohnPct();
     case 'monatSummary':     return renderWidgetMonatSummary();
     case 'monatKategorien':  return renderWidgetMonatKategorien();
     case 'kontostand':       return renderWidgetKontostand();
@@ -4083,39 +4081,12 @@ function renderWidgetSparquote(){
   </div>`;
 }
 
-function renderWidgetLohnPct(){
-  const z = getZyklusInfo();
-  if(!z.hasSalary) return `<div><div class="widget-title">Lohnzyklus %</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
-  const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
-  const r = 36;
-  const circ = 2*Math.PI*r;
-  const dash = circ*(1-pct/100);
-  const color = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
-  return `<div style="display:flex;align-items:center;gap:16px">
-    <div>
-      <div class="widget-title">Budget verwendet</div>
-      <svg width="90" height="90" viewBox="0 0 90 90">
-        <circle cx="45" cy="45" r="${r}" fill="none" stroke="var(--bg3)" stroke-width="8"/>
-        <circle cx="45" cy="45" r="${r}" fill="none" stroke="${color}" stroke-width="8"
-          stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"
-          stroke-linecap="round" transform="rotate(-90 45 45)"/>
-        <text x="45" y="50" text-anchor="middle" fill="${color}" font-size="16" font-weight="700" font-family="DM Mono,monospace">${pct}%</text>
-      </svg>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;color:var(--text3)">Ausgegeben</div>
-      <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">CHF ${fmtAmt(z.varSpent)}</div>
-      <div style="font-size:13px;color:var(--text3);margin-top:8px">Budget</div>
-      <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px">CHF ${fmtAmt(z.varBudget)}</div>
-    </div>
-  </div>`;
-}
-
 function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
 
-function renderWidgetMonatSummary(){
+function renderWidgetMonatSummary(mo, yr){
   const now = new Date();
-  const mo = now.getMonth(), yr = now.getFullYear();
+  if(mo==null) mo = now.getMonth();
+  if(yr==null) yr = now.getFullYear();
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
   const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
@@ -4124,9 +4095,6 @@ function renderWidgetMonatSummary(){
   const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + recurExp.reduce((a,ex)=>a+ex.amt,0);
   const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
   const bal      = totalIn - totalOut;
-  const avgDay   = avgDailyVarSpend(mo, yr, now.getDate());
-  const prevC    = avgDailyVarSpendPrevComp(mo, yr);
-  const diffPct  = prevC.avg>0 ? (avgDay-prevC.avg)/prevC.avg*100 : null;
   const mNames   = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   return `<div>
     <div class="widget-title">Monats-Zusammenfassung – ${mNames[mo]} ${yr}</div>
@@ -4144,40 +4112,37 @@ function renderWidgetMonatSummary(){
         <div style="font-family:'DM Mono',monospace;font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${bal>=0?'+':''}${fmtAmt(bal)}</div>
       </div>
     </div>
-    <div style="border-top:1px solid var(--border);padding-top:8px;cursor:pointer" onclick="openAvgConfig()">
-      <div style="font-size:11px;color:var(--text3)">Ø Tagesausgabe (ohne Fixkosten)
-        ${diffPct!==null?`<span style="color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:4px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
-        <span style="margin-left:4px">⚙</span>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;margin-top:2px">CHF ${fmtAmt(avgDay)}</div>
-    </div>
+    <div style="border-top:1px solid var(--border);padding-top:8px">${buildTagesavgCard(mo, yr)}</div>
   </div>`;
 }
 
-function renderWidgetMonatKategorien(){
+function renderWidgetMonatKategorien(mo, yr, limit=5){
   const now = new Date();
-  const mo = now.getMonth(), yr = now.getFullYear();
+  if(mo==null) mo = now.getMonth();
+  if(yr==null) yr = now.getFullYear();
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
   const catMap={};
   [...DATA.expenses.filter(x=>x.date>=s&&x.date<=e),...getRecurringOccurrences(s,e)].forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
-  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  if(!sorted.length) return `<div><div class="widget-title">Monats-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben diesen Monat.</div></div>`;
-  const total=Object.values(catMap).reduce((a,v)=>a+v,0);
+  // Parent-category rollup
+  const parentMap={};
+  DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
+  const parentTotals={};
+  Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
+  const sorted=Object.entries(parentTotals).sort((a,b)=>b[1]-a[1]).slice(0,limit);
+  if(!sorted.length) return `<div class="widget-title" style="margin-bottom:0">Keine Ausgaben diesen Monat.</div>`;
+  const maxVal=sorted[0][1]||1;
   const mNames=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   return `<div>
     <div class="widget-title">Monats-Kategorien – ${mNames[mo]}</div>
-    ${sorted.map(([cat,amt])=>{
-      const pct=total>0?Math.round(amt/total*100):0;
-      const col=catColor(cat);
-      return `<div style="margin-bottom:7px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block"></span>${esc(cat)}</span>
-          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)} <span style="color:var(--text3)">${pct}%</span></span>
+    ${sorted.map(([cat,amt])=>`
+      <div class="bar-wrap">
+        <div class="bar-label-row">
+          <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
+          <span class="bar-val">CHF ${fmtAmt(amt)}</span>
         </div>
-        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.8"></div></div>
-      </div>`;
-    }).join('')}
+        <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxVal*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+      </div>`).join('')}
   </div>`;
 }
 
@@ -4193,33 +4158,42 @@ function renderWidgetKontostand(){
   </div>`;
 }
 
-function renderWidgetJahresSparquote(){
+function renderWidgetJahresSparquote(yr){
   const now = new Date();
-  const yr = now.getFullYear();
+  if(!yr) yr = now.getFullYear();
+  const isCurrentYear = yr === now.getFullYear();
+  const maxMonth = isCurrentYear ? now.getMonth() : 11;
   const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const sparziel=CFG.sparziel||0;
   const yMonths=[];
-  for(let m=0;m<=now.getMonth();m++){
+  for(let m=0;m<=maxMonth;m++){
     const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
     const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
     const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
     const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
       +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
-    yMonths.push({label:months[m],net:inc-out,cur:m===now.getMonth()});
+    yMonths.push({label:months[m],net:inc-out,cur:isCurrentYear&&m===now.getMonth()});
   }
   const cashSaved=yMonths.reduce((s,m)=>s+m.net,0);
-  const depotWert=CFG.aktienInBilanz?getGesamtPortfoliowert():0;
+  const depotWert=isCurrentYear&&CFG.aktienInBilanz?getGesamtPortfoliowert():0;
   const yearSaved=cashSaved+depotWert;
   const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
+  const goalReached=sparziel>0&&sparPct>=100;
   const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
   const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
+  const doneM=yMonths.filter(m=>!m.cur);
+  const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
+  const proj=avgM*12;
   return `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="widget-title" style="margin-bottom:0">Jahres-Sparquote ${yr}</div>
-      <button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>
+      ${isCurrentYear?`<button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor};margin-bottom:${sparziel?'8px':'4px'}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</div>
-    ${CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'10px'}">davon CHF ${fmtAmt(cashSaved)} Cash + CHF ${fmtAmt(depotWert)} Depot</div>`:''}
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:${sparziel?'8px':'4px'}">
+      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</span>
+      ${goalReached?`<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(61,219,150,.15);padding:2px 8px;border-radius:99px">✓ Ziel erreicht</span>`:''}
+    </div>
+    ${isCurrentYear&&CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'6px'}">davon CHF ${fmtAmt(cashSaved)} Cash + CHF ${fmtAmt(depotWert)} Depot</div>`:''}
     ${sparziel>0?`<div style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: CHF ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
       <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
@@ -4233,11 +4207,19 @@ function renderWidgetJahresSparquote(){
         <div style="width:72px;text-align:right;font-size:10px;font-family:'DM Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}${fmtAmt(m.net)}</div>
       </div>`;
     }).join('')}
+    ${doneM.length>0?`<div style="display:flex;gap:20px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Ø / Monat</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}CHF ${fmtAmt(Math.abs(avgM))}</div>
+      </div>
+      <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Hochrechnung ${yr}</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}CHF ${fmtAmt(Math.abs(proj))}</div>
+      </div>
+    </div>`:''}
   </div>`;
 }
 
-function renderWidgetJahresKategorien(){
-  const yr = new Date().getFullYear();
+function renderWidgetJahresKategorien(yr){
+  if(!yr) yr = new Date().getFullYear();
   const catMap={};
   const yrStart=`${yr}-01-01`, yrEnd=`${yr}-12-31`;
   [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd)]
@@ -4261,24 +4243,26 @@ function renderWidgetJahresKategorien(){
   </div>`;
 }
 
-function renderWidgetMonatsverlaufJahr(){
+function renderWidgetMonatsverlaufJahr(yr){
   const now = new Date();
-  const yr = now.getFullYear();
+  if(!yr) yr = now.getFullYear();
+  const isCurrentYear = yr === now.getFullYear();
+  const maxMonth = isCurrentYear ? now.getMonth() : 11;
   const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   const trend=[];
-  for(let m=0;m<=now.getMonth();m++){
+  for(let m=0;m<=maxMonth;m++){
     const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
     const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
     const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
       +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
     const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
-    trend.push({label:months[m],out,inc,net:inc-out,cur:m===now.getMonth()});
+    trend.push({label:months[m],out,inc,net:inc-out,mo:m,cur:isCurrentYear&&m===now.getMonth()});
   }
   if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
   const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
   return `<div>
     <div class="widget-title">Monatsverlauf ${yr}</div>
-    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="openMonthViewAt(${trend.indexOf(m)},${yr})">
+    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="openMonthViewAt(${m.mo},${yr})">
       <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
       <div style="flex:1;display:flex;flex-direction:column;gap:2px">
         <div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${m.out?Math.max(m.out/maxT*100,2).toFixed(1):0}%;background:${m.cur?'var(--accent)':'var(--red)'};border-radius:2px;opacity:${m.cur?1:.7}"></div></div>
@@ -4480,14 +4464,12 @@ function renderDashboard(){
   const now = new Date();
   const isCurrentYear = dashYear === now.getFullYear();
   const todayStr = today();
-  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
   // Year navigation state
   const bookedYears = getBookedYears();
   const dashYearIdx = bookedYears.indexOf(dashYear);
   const hasPrev = dashYearIdx > 0;
   const hasNext = dashYearIdx < bookedYears.length - 1;
-  const maxMonth = isCurrentYear ? now.getMonth() : 11;
 
   // Current-year-only calculations
   let todayOut=0, weekOut=0;
@@ -4505,32 +4487,6 @@ function renderDashboard(){
   const yearTotalInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
   const yearLohnInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear&&e.isLohn;}).reduce((s,e)=>s+e.amt,0);
   const lohnPct = yearTotalInc>0 ? yearLohnInc/yearTotalInc*100 : 0;
-
-  // Monthly trend for dashYear (all months up to maxMonth)
-  const trend=[];
-  for(let m=0;m<=maxMonth;m++){
-    const out=DATA.expenses.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-    const inc=DATA.incomes.filter(e=>{const ed=new Date(e.date+'T12:00:00');return ed.getMonth()===m&&ed.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-    trend.push({label:months[m],out,inc,net:inc-out,mo:m,yr:dashYear,cur:isCurrentYear&&m===now.getMonth()});
-  }
-  const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
-
-  // Jahres-Sparquote for dashYear
-  const sparziel=CFG.sparziel||0;
-  const yMonths=[];
-  for(let m=0;m<=maxMonth;m++){
-    const inc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-    const out=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-    yMonths.push({label:months[m],net:inc-out,cur:isCurrentYear&&m===now.getMonth()});
-  }
-  const yearSaved=yMonths.reduce((s,m)=>s+m.net,0);
-  const doneM=yMonths.filter(m=>!m.cur);
-  const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
-  const proj=avgM*12;
-  const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
-  const goalReached=sparziel>0&&sparPct>=100;
-  const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
-  const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
 
   const container=document.getElementById('dashboard-content');
   container.innerHTML=`
@@ -4605,102 +4561,19 @@ function renderDashboard(){
       </div>
     </div>
 
-    <!-- Jahres-Sparquote -->
+    <!-- Jahres-Sparquote (shared widget) -->
     <div class="section" style="padding-top:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div class="section-title" style="margin-bottom:0">Jahres-Sparquote ${dashYear}</div>
-        ${isCurrentYear?`<button onclick="openSparziel()" style="background:none;color:var(--text3);font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
-      </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${sparziel?'10px':'14px'}">
-          <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:${savedColor}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</span>
-          <span style="font-size:12px;color:var(--text3)">seit 1. Jan</span>
-          ${goalReached?`<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(61,219,150,.15);padding:2px 8px;border-radius:99px">✓ Ziel erreicht</span>`:''}
-        </div>
-        ${sparziel>0?`
-        <div style="margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
-            <span>Ziel: CHF ${fmtAmt(sparziel)}</span>
-            <span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span>
-          </div>
-          <div class="zy-prog-wrap" style="margin:0;height:8px"><div class="zy-prog-fill" style="width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'}"></div></div>
-        </div>`:''}
-        ${yMonths.map(m=>{
-          const isPos=m.net>=0;
-          const bw=Math.min(Math.abs(m.net)/maxNet*100,100).toFixed(1);
-          return `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-            <div style="width:28px;font-size:11px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
-            <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
-              <div style="width:${bw}%;height:100%;background:${isPos?'var(--green)':'var(--red)'};border-radius:2px"></div>
-            </div>
-            <div style="width:80px;text-align:right;font-size:11px;font-family:'DM Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">
-              ${isPos?'+':''}CHF ${fmtAmt(m.net)}
-            </div>
-          </div>`;
-        }).join('')}
-        <div style="display:flex;gap:20px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Ø / Monat</div>
-            <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}CHF ${fmtAmt(Math.abs(avgM))}</div>
-          </div>
-          ${doneM.length>0?`<div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Hochrechnung ${dashYear}</div>
-            <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}CHF ${fmtAmt(Math.abs(proj))}</div></div>`:''}
-        </div>
-      </div>
+      <div class="card" style="padding:14px">${renderWidgetJahresSparquote(dashYear)}</div>
     </div>
 
-    <!-- Top Kategorien -->
+    <!-- Top Kategorien (shared widget) -->
     <div class="section" style="padding-top:0">
-      <div class="section-title">Top Kategorien ${dashYear}</div>
-      ${(()=>{
-        const catTotals={};
-        DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear;}).forEach(e=>{catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt;});
-        const topCats=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
-        const yearTotal=Object.values(catTotals).reduce((s,v)=>s+v,0);
-        if(!topCats.length) return '<div class="card" style="padding:14px;color:var(--text3);font-size:13px;text-align:center">Keine Ausgaben</div>';
-        return `<div class="card" style="padding:0 14px">${topCats.map(([cat,amt])=>{
-          const pct=yearTotal>0?Math.round(amt/yearTotal*100):0;
-          const col=catColor(cat);
-          return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
-                <span style="font-size:14px;font-weight:500">${esc(cat)}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${pct}%</span>
-                <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--red)">CHF ${fmtAmt(amt)}</span>
-              </div>
-            </div>
-            <div class="zy-prog-wrap" style="height:4px"><div class="zy-prog-fill" style="width:${pct}%;background:${col};opacity:.7"></div></div>
-          </div>`;
-        }).join('')}</div>`;
-      })()}
+      <div class="card" style="padding:14px">${renderWidgetJahresKategorien(dashYear)}</div>
     </div>
 
-    <!-- Monatsverlauf -->
+    <!-- Monatsverlauf (shared widget) -->
     <div class="section" style="padding-top:0">
-      <div class="section-title">Monatsverlauf</div>
-      <div class="card">
-        ${trend.map(m=>`
-          <div class="month-row" onclick="openMonthViewAt(${m.mo},${m.yr})" style="cursor:pointer${m.cur?';background:rgba(200,245,60,.05)':''}">
-            <div class="month-name" style="${m.cur?'color:var(--accent)':''}">${m.label}</div>
-            <div style="flex:1;display:flex;flex-direction:column;gap:2px">
-              <div class="month-bar-wrap" style="margin:0">
-                <div class="month-bar" style="width:${m.out?Math.max((m.out/maxT*100),2).toFixed(1):0}%;${m.cur?'background:var(--accent);opacity:1':'background:var(--red);opacity:0.7'}"></div>
-              </div>
-              ${m.inc>0?`<div class="month-bar-wrap" style="margin:0"><div class="month-bar" style="width:${Math.max((m.inc/maxT*100),2).toFixed(1)}%;background:var(--green);opacity:0.7"></div></div>`:''}
-            </div>
-            <div style="min-width:80px;text-align:right">
-              <div class="month-amt" style="color:${m.out?(m.cur?'var(--accent)':'var(--red)'):'var(--text3)'}">
-                ${m.out?'− '+fmtAmt(m.out):'—'}
-              </div>
-              ${m.inc>0?`<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--green)">+ ${fmtAmt(m.inc)}</div>`:''}
-              ${(m.out>0||m.inc>0)?`<div style="font-size:10px;font-family:'DM Mono',monospace;color:${m.net>=0?'var(--green)':'var(--red)'}">= ${m.net>=0?'+':''}${fmtAmt(m.net)}</div>`:''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
+      <div class="card" style="padding:14px">${renderWidgetMonatsverlaufJahr(dashYear)}</div>
     </div>
   `;
 }
@@ -6688,21 +6561,6 @@ function renderMonat(){
   const allRecurInst = isCurrent ? getRecurringInstances(s, e) : [];
   const mRecVirtual = allRecurInst.filter(r=>!DATA.expenses.some(ex=>ex.recurringId===r._recurId&&ex.date===r.date));
 
-  const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + mRecVirtual.reduce((a,r)=>a+r.amt,0);
-  const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
-  const bal = totalIn - totalOut;
-
-  // Category breakdown (manual + virtual recurring)
-  const catMap={};
-  mExp.forEach(ex=>{catMap[ex.cat]=(catMap[ex.cat]||0)+ex.amt;});
-  mRecVirtual.forEach(r=>{catMap[r.cat]=(catMap[r.cat]||0)+r.amt;});
-  const parentMap={};
-  DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
-  const parentTotals={};
-  Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
-  const cats = Object.entries(parentTotals).sort(([,a],[,b])=>b-a).slice(0,8);
-  const maxCat = cats[0]?.[1]||1;
-
   // Date set includes virtual recurring dates
   const dateSet = new Set([...mExp.map(ex=>ex.date),...mInc.map(ex=>ex.date),...mRecVirtual.map(r=>r.date)]);
   const sortedDates = [...dateSet].sort((a,b)=>b.localeCompare(a));
@@ -6729,22 +6587,9 @@ function renderMonat(){
       </div>
     </div>
 
-    <!-- Summary stats -->
+    <!-- Monats-Zusammenfassung (shared widget — includes 3-stat + Ø Tagesausgabe) -->
     <div class="section" style="padding-top:0">
-      <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
-        <div class="stat-card">
-          <div class="stat-label">Einnahmen</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--green);font-weight:500;margin-top:2px">+${fmtAmt(totalIn)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Ausgaben</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--red);font-weight:500;margin-top:2px">−${fmtAmt(totalOut)}</div>
-        </div>
-        <div class="stat-card" style="background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'}">
-          <div class="stat-label">Bilanz</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:${bal>=0?'var(--green)':'var(--red)'};font-weight:500;margin-top:2px">${bal>=0?'+':''}${fmtAmt(bal)}</div>
-        </div>
-      </div>
+      <div class="card" style="padding:14px">${renderWidgetMonatSummary(mo, yr)}</div>
     </div>
 
     ${isCurrent ? `
@@ -6763,26 +6608,10 @@ function renderMonat(){
     </div>
     ` : ''}
 
-    <!-- Ø Tagesausgabe (shared with home widget via buildTagesavgCard) -->
+    <!-- Kategorien (shared widget) -->
     <div class="section" style="padding-top:0">
-      ${buildTagesavgCard(mo, yr)}
+      <div class="card" style="padding:12px 14px">${renderWidgetMonatKategorien(mo, yr, 8)}</div>
     </div>
-
-    ${cats.length ? `
-    <!-- Category breakdown -->
-    <div class="section" style="padding-top:0">
-      <div class="section-title">Kategorien</div>
-      <div class="card" style="padding:12px 14px">
-        ${cats.map(([cat,amt])=>`
-          <div class="bar-wrap">
-            <div class="bar-label-row">
-              <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
-              <span class="bar-val">CHF ${fmtAmt(amt)}</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
-          </div>`).join('')}
-      </div>
-    </div>` : ''}
 
     ${sortedDates.length ? `
     <!-- Day entries -->
