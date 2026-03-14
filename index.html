@@ -212,6 +212,12 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   max-width:340px;line-height:1.5;
 }
 .setup-hint b{color:var(--text2)}
+.btn-outline-setup{
+  width:100%;background:none;border:1px solid var(--border2);color:var(--text2);
+  font-size:13px;font-weight:600;border-radius:var(--r2);padding:10px 14px;
+  text-align:center;
+}
+.btn-outline-setup:active{opacity:.7}
 
 /* ═══════════════════════════════════════════════════
    SYNC STATUS
@@ -906,11 +912,30 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 ════════════════════════════════════ -->
 <div id="setup">
   <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
-  <div class="setup-title">Finanztracker</div>
-  <div class="setup-sub">Verbinde dein Google Sheet</div>
+  <div class="setup-title">F-Tracker</div>
+  <div class="setup-sub">SESI FINANCE</div>
 
+  <!-- Step 1: Template -->
+  <div class="setup-card" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0">1</div>
+      <div>
+        <div class="setup-label" style="margin-bottom:0">Google Sheet vorbereiten</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">4 CSV-Vorlagen herunterladen &amp; in dein Sheet importieren</div>
+      </div>
+    </div>
+    <button class="btn-outline-setup" onclick="downloadBlankTemplate()">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Blank Template herunterladen (4 CSV)
+    </button>
+  </div>
+
+  <!-- Step 2: Connect -->
   <div class="setup-card">
-    <div class="setup-label">Script URL</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0D0D0F;flex-shrink:0">2</div>
+      <div class="setup-label" style="margin-bottom:0">Apps Script URL eingeben</div>
+    </div>
     <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
   </div>
 
@@ -918,8 +943,8 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   <button class="btn-ghost" onclick="doDemo()">Demo-Modus starten</button>
 
   <p class="setup-hint">
-    <b>Noch kein Script?</b><br>
-    Google Sheet öffnen → Erweiterungen → Apps Script → Code.gs einfügen → Bereitstellen als Web-App → URL kopieren
+    <b>Noch kein Apps Script?</b><br>
+    Google Sheet → Erweiterungen → Apps Script → Code.gs einfügen → Als Web-App bereitstellen → URL kopieren
   </p>
 </div>
 
@@ -1971,6 +1996,38 @@ async function doConnect(){
 }
 
 function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchApp(); }
+
+function doLogout(){
+  const isDemoMode = CFG.demo;
+  const msg = isDemoMode
+    ? 'Demo-Modus beenden?'
+    : 'Ausloggen? Die Script-URL wird entfernt. Alle lokalen Buchungsdaten bleiben erhalten.';
+  if(!confirm(msg)) return;
+  CFG.scriptUrl = ''; CFG.demo = false;
+  cfgSave();
+  location.reload();
+}
+
+function downloadBlankTemplate(){
+  const files = [
+    { name:'FTracker_Ausgaben.csv',       content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isFixkosten\n' },
+    { name:'FTracker_Einnahmen.csv',      content:'ID,Datum,Was,Kategorie,Betrag,Notiz,Geloescht,isLohn\n' },
+    { name:'FTracker_Dauerauftraege.csv', content:'ID,Was,Kategorie,Betrag,Intervall,Buchungstag,Notiz,Aktiv,Start,Enddatum,affectsAvg\n' },
+    { name:'FTracker_Kategorien.csv',     content:'ID,Name,Typ,Farbe,Sort,Elternkategorie\n' }
+  ];
+  files.forEach((f,i)=>{
+    setTimeout(()=>{
+      const blob = new Blob(['\ufeff'+f.content],{type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = f.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    }, i*350);
+  });
+  // Also show notification if in app context
+  try{ toast('4 CSV-Vorlagen werden heruntergeladen…','ok'); } catch(e){}
+}
 
 function generateAppIcon(){
   try{
@@ -3824,6 +3881,12 @@ function renderMenuOverlay(){
       <div class="menu-item-row">
         <button class="menu-item-nav" onclick="goTab('einstellungen');closeMenuOverlay()">
           <svg viewBox="0 0 24 24">${SETTINGS_ICON}</svg>Einstellungen
+        </button>
+      </div>
+      <div class="menu-item-row" style="border-top:1px solid var(--border)">
+        <button class="menu-item-nav" style="color:var(--red)" onclick="doLogout();closeMenuOverlay()">
+          <svg viewBox="0 0 24 24" style="stroke:var(--red)"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
         </button>
       </div>
       <div style="padding:8px 20px 4px;text-align:center;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.04em">F-TRACKER · SESI FINANCE</div>`;
