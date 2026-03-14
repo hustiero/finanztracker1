@@ -1431,13 +1431,20 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <!-- TAB: Aktien -->
     <div id="tab-aktien" class="tab-page" style="display:none">
       <div class="section" style="padding-bottom:8px">
-        <div class="type-toggle" style="margin-bottom:0">
+        <div class="type-toggle" style="margin-bottom:8px">
           <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
           <button class="type-btn income" id="aktien-btn-hist" onclick="setAktienView('historisch')">Historisch</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button id="aktien-view-karten" class="filter-chip active" onclick="setAktienTabView('karten')">Karten</button>
+          <button id="aktien-view-tabelle" class="filter-chip" onclick="setAktienTabView('tabelle')">Tabelle</button>
+          <button id="aktien-view-charts" class="filter-chip" onclick="setAktienTabView('charts')">Charts</button>
         </div>
       </div>
       <div id="aktien-summary-bar"></div>
       <div id="aktien-list"></div>
+      <div id="aktien-tabelle" style="display:none;padding:0 16px 16px"></div>
+      <div id="aktien-charts" style="display:none;padding:0 16px 16px"></div>
       <div style="padding:4px 16px 12px">
         <button class="save-btn" onclick="openNewAktieModal()" style="width:100%">+ Aktie hinzufügen</button>
       </div>
@@ -1564,6 +1571,18 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
               <div class="settings-row-sub">Dunkles oder helles Design</div>
             </div>
             <div class="toggle-switch" id="theme-toggle-sw" onclick="toggleThemeSwitch()"></div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Aktien</div>
+        <div class="card" style="padding:0 14px">
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Depot in Gesamtbilanz</div>
+              <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
+            </div>
+            <div class="toggle-switch" id="aktien-bilanz-sw" onclick="CFG.aktienInBilanz=!CFG.aktienInBilanz;cfgSave();this.classList.toggle('on',CFG.aktienInBilanz);renderHome()"></div>
           </div>
         </div>
       </div>
@@ -2050,7 +2069,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[] };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienInBilanz:false, widgetAktienPosId:'' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -3705,7 +3724,12 @@ const WIDGET_CATALOG = [
   { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
   { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
   { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
-  { key:'aktienPortfolio', label:'Aktienportfolio',         sub:'Gesamtübersicht Aktien-Positionen & P&L' },
+  { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
+  { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
+  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in CHF und % (benötigt Live-Kurse)' },
+  { key:'aktienTop',        label:'Top-Performer',            sub:'Aktie mit höchstem prozentualen Gewinn' },
+  { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
+  { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','topKategorien','tagesavg'];
 let homeEditMode = false;
@@ -3815,6 +3839,11 @@ function renderWidgetContent(key){
     case 'jahresKategorien': return renderWidgetJahresKategorien();
     case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
     case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
+    case 'aktienWert':       return renderWidgetAktienWert();
+    case 'aktienPnl':        return renderWidgetAktienPnl();
+    case 'aktienTop':        return renderWidgetAktienTop();
+    case 'aktienVerteilung': return renderWidgetAktienVerteilung();
+    case 'aktienPosition':   return renderWidgetAktienPosition();
     default: return '';
   }
 }
@@ -4178,7 +4207,9 @@ function renderWidgetJahresSparquote(){
       +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
     yMonths.push({label:months[m],net:inc-out,cur:m===now.getMonth()});
   }
-  const yearSaved=yMonths.reduce((s,m)=>s+m.net,0);
+  const cashSaved=yMonths.reduce((s,m)=>s+m.net,0);
+  const depotWert=CFG.aktienInBilanz?getGesamtPortfoliowert():0;
+  const yearSaved=cashSaved+depotWert;
   const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
   const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
   const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
@@ -4187,7 +4218,8 @@ function renderWidgetJahresSparquote(){
       <div class="widget-title" style="margin-bottom:0">Jahres-Sparquote ${yr}</div>
       <button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor};margin-bottom:${sparziel?'8px':'12px'}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor};margin-bottom:${sparziel?'8px':'4px'}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</div>
+    ${CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'10px'}">davon CHF ${fmtAmt(cashSaved)} Cash + CHF ${fmtAmt(depotWert)} Depot</div>`:''}
     ${sparziel>0?`<div style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: CHF ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
       <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
@@ -4295,6 +4327,152 @@ function renderWidgetAktienPortfolio(){
     </div>`:''}
     ${rows.join('')}
     <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Alle Aktien →</button></div>
+  </div>`;
+}
+
+// ── New Aktien Widgets (Point 5) ─────────────────────────────────────────────
+
+function renderWidgetAktienWert(){
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  if(!active.length) return `<div><div class="widget-title">Portfolio-Wert</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  const total = getGesamtPortfoliowert();
+  const totalCost = active.reduce((s,st)=>s+calcPosition(st.id).totalCost,0);
+  const gv = getGesamtGewinnVerlust();
+  const hasLive = gv.hasLive;
+  const valColor = hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text)';
+  return `<div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">PORTFOLIO-WERT</div>
+    <div style="font-family:'DM Mono',monospace;font-size:34px;font-weight:700;line-height:1;color:${valColor};margin-bottom:6px">${fmtPrice(total)}</div>
+    <div style="font-size:12px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap">
+      <span>Einstand: <span style="font-family:'DM Mono',monospace;color:var(--text)">${fmtPrice(totalCost)}</span></span>
+      ${hasLive?`<span style="color:${gv.amt>=0?'var(--green)':'var(--red)'}">P&L: ${gv.amt>=0?'+':''}${fmtPrice(gv.amt)}</span>`:''}
+    </div>
+    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Depot →</button></div>
+  </div>`;
+}
+
+function renderWidgetAktienPnl(){
+  const gv = getGesamtGewinnVerlust();
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  if(!active.length) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  if(!gv.hasLive) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div style="color:var(--text3);font-size:13px">Warte auf Live-Kurse…</div></div>`;
+  const color = gv.amt>=0?'var(--green)':'var(--red)';
+  const sign = gv.amt>=0?'+':'';
+  return `<div>
+    <div class="widget-title">Depot Gewinn/Verlust</div>
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
+      <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:700;color:${color}">${sign}${fmtPrice(gv.amt)}</span>
+      <span style="font-size:16px;color:${color};font-weight:600">${sign}${gv.pct.toFixed(1)}%</span>
+    </div>
+    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
+      <div style="height:100%;width:${Math.min(Math.abs(gv.pct),100).toFixed(1)}%;background:${color};border-radius:3px"></div>
+    </div>
+    <div style="margin-top:6px;font-size:11px;color:var(--text3)">${active.length} aktive Position${active.length!==1?'en':''}</div>
+  </div>`;
+}
+
+function renderWidgetAktienTop(){
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001&&s.ticker);
+  if(!active.length) return `<div><div class="widget-title">Top-Performer</div><div style="color:var(--text3);font-size:13px">Keine Positionen mit Ticker.</div></div>`;
+  let best=null, bestPct=-Infinity;
+  active.forEach(s=>{
+    const gv=getGewinnVerlust(s.id);
+    if(gv.hasLive&&gv.pct>bestPct){bestPct=gv.pct;best=s;}
+  });
+  if(!best) return `<div><div class="widget-title">Top-Performer</div><div style="color:var(--text3);font-size:13px">Warte auf Live-Kurse…</div></div>`;
+  const gv=getGewinnVerlust(best.id); const pos=calcPosition(best.id);
+  const color=gv.pct>=0?'var(--green)':'var(--red)'; const sign=gv.pct>=0?'+':'';
+  return `<div>
+    <div class="widget-title">Top-Performer</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div>
+        <div style="font-size:15px;font-weight:700">${esc(best.title)}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${esc(best.ticker||'')} · ${fmtQty(pos.qty)} Stk.</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:20px;font-weight:700;color:${color}">${sign}${gv.pct.toFixed(1)}%</div>
+        <div style="font-size:11px;color:${color};font-family:'DM Mono',monospace">${sign}${fmtPrice(gv.amt)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderWidgetAktienVerteilung(){
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  if(!active.length) return `<div><div class="widget-title">Portfolio-Verteilung</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  const data = active.map(s=>({
+    label: s.ticker||s.title,
+    value: getPositionsWert(s.id),
+    color: aktieColor(s.id)
+  })).filter(d=>d.value>0);
+  const total = data.reduce((s,d)=>s+d.value,0);
+  if(total===0) return `<div><div class="widget-title">Portfolio-Verteilung</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
+  // SVG pie chart
+  const cx=70,cy=70,r=58;
+  let angle=-Math.PI/2;
+  const slices=data.map(d=>{
+    const frac=d.value/total; const sweep=frac*2*Math.PI;
+    const ea=angle+sweep; const la=frac>0.5?1:0;
+    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea);
+    const path=frac>0.9999?`M${cx-r},${cy} A${r},${r} 0 1 1 ${cx+r},${cy} A${r},${r} 0 1 1 ${cx-r},${cy}`
+      :`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${la} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
+    angle=ea;
+    return {...d,path,pct:(frac*100).toFixed(1)};
+  });
+  return `<div>
+    <div class="widget-title">Portfolio-Verteilung</div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <svg viewBox="0 0 140 140" height="110" style="flex-shrink:0">
+        ${slices.map(s=>`<path d="${s.path}" fill="${s.color}" stroke="var(--bg0)" stroke-width="1.5"/>`).join('')}
+      </svg>
+      <div style="flex:1;min-width:80px">
+        ${slices.map(s=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;font-size:11px">
+          <span style="width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0"></span>
+          <span style="color:var(--text2)">${esc(s.label)}</span>
+          <span style="color:var(--text3);margin-left:auto">${s.pct}%</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderWidgetAktienPosition(){
+  // Shows the stock selected via CFG.widgetAktienPosId, or the largest position by value
+  let s = CFG.widgetAktienPosId ? SDATA.stocks.find(st=>st.id===CFG.widgetAktienPosId) : null;
+  if(!s){
+    // Auto-pick: largest position by cost
+    const best = SDATA.stocks.reduce((best,st)=>{
+      const c=calcPosition(st.id).totalCost;
+      return c>(best?.cost||0)?{s:st,cost:c}:best;
+    }, null);
+    s = best?.s;
+  }
+  if(!s) return `<div><div class="widget-title">Einzelposition</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  const pos=calcPosition(s.id); const gv=getGewinnVerlust(s.id);
+  const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
+  const sign=gv.pct>=0?'+':'';
+  const lp=s.ticker?getAktuellerKurs(s.ticker):null;
+  return `<div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+      <div class="widget-title" style="margin-bottom:0">${esc(s.title)}</div>
+      ${s.ticker?`<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${esc(s.ticker)}</span>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div><div style="font-size:10px;color:var(--text3)">Anzahl</div><div style="font-family:'DM Mono',monospace;font-weight:600">${fmtQty(pos.qty)} Stk.</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">Ø Kaufpreis</div><div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(pos.avgPrice)}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">Kurs live</div><div style="font-family:'DM Mono',monospace;font-weight:600">${lp!=null?fmtPrice(lp):'—'}</div></div>
+      <div><div style="font-size:10px;color:var(--text3)">P&L</div><div style="font-family:'DM Mono',monospace;font-weight:600;color:${color}">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</div></div>
+    </div>
+    ${SDATA.stocks.filter(st=>calcPosition(st.id).qty>0.0001).length>1?`
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+      ${SDATA.stocks.filter(st=>calcPosition(st.id).qty>0.0001).map(st=>`
+        <button onclick="CFG.widgetAktienPosId='${st.id}';cfgSave();renderHome();event.stopPropagation()"
+          style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid ${(CFG.widgetAktienPosId||''===st.id)||s.id===st.id?'var(--accent)':'var(--border)'};background:${s.id===st.id?'rgba(200,245,60,.1)':'var(--bg3)'};color:${s.id===st.id?'var(--accent)':'var(--text3)'}">
+          ${esc(st.ticker||st.title)}
+        </button>`).join('')}
+    </div>`:''
+    }
   </div>`;
 }
 
@@ -5850,6 +6028,57 @@ function sdataLoad(){
 function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
 
 // Calculate position: qty held, weighted avg price, total cost
+// Deterministic color for a stock by id or index
+const AKTIE_PALETTE = ['#6dd5fa','#f7971e','#a18cd1','#fd7f6f','#b8e994','#f9ca24','#6c5ce7','#fd79a8','#00cec9','#e17055'];
+function aktieColor(stockId){
+  const idx = SDATA.stocks.findIndex(s=>s.id===stockId);
+  return AKTIE_PALETTE[(idx>=0?idx:0) % AKTIE_PALETTE.length];
+}
+
+// ── Zentrale Aktien-Berechnungsfunktionen (Funktionskatalog, Point 4) ────────
+
+// Gewichteter Durchschnittspreis für eine Position
+function getDurchschnittsPreis(stockId){ return calcPosition(stockId).avgPrice; }
+
+// Aktueller Live-Kurs aus Cache (null wenn nicht verfügbar)
+function getAktuellerKurs(ticker){ return ticker ? (stockPriceCache[ticker]?.price ?? null) : null; }
+
+// Positionswert: qty × aktueller Kurs, fallback auf Einstand
+function getPositionsWert(stockId){
+  const pos = calcPosition(stockId);
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  const lp = s?.ticker ? getAktuellerKurs(s.ticker) : null;
+  return lp!=null && pos.qty>0.0001 ? pos.qty * lp : pos.totalCost;
+}
+
+// Gesamter Portfolio-Marktwert (Summe aller Positionswerte)
+function getGesamtPortfoliowert(){
+  return SDATA.stocks.reduce((sum,s)=>sum+getPositionsWert(s.id), 0);
+}
+
+// Gewinn/Verlust für eine Position {amt, pct, hasLive}
+function getGewinnVerlust(stockId){
+  const pos = calcPosition(stockId);
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s || pos.qty<0.0001) return {amt:0,pct:0,hasLive:false};
+  const lp = s.ticker ? getAktuellerKurs(s.ticker) : null;
+  if(lp==null) return {amt:0,pct:0,hasLive:false};
+  const amt = (lp - pos.avgPrice) * pos.qty;
+  const pct = pos.avgPrice>0 ? (lp/pos.avgPrice-1)*100 : 0;
+  return {amt,pct,hasLive:true};
+}
+
+// Gesamter Portfolio-GV (Summe aller Positionen mit Live-Kurs)
+function getGesamtGewinnVerlust(){
+  let amt=0, cost=0, hasAny=false;
+  SDATA.stocks.forEach(s=>{
+    const pos=calcPosition(s.id); if(pos.qty<0.0001) return;
+    const lp=s.ticker?getAktuellerKurs(s.ticker):null; if(!lp) return;
+    amt+=(lp-pos.avgPrice)*pos.qty; cost+=pos.totalCost; hasAny=true;
+  });
+  return {amt, pct:cost>0?amt/cost*100:0, hasLive:hasAny};
+}
+
 function calcPosition(stockId){
   const trades = SDATA.trades.filter(t=>t.stockId===stockId).sort((a,b)=>a.date.localeCompare(b.date));
   let qty=0, totalCost=0;
@@ -5904,6 +6133,176 @@ async function fetchStockPrice(ticker){
   } catch(e){ return null; }
 }
 
+// ── Aktien Charts (Point 3) ───────────────────────────────────────────────────
+
+// SVG pie chart of portfolio allocation by current value
+function buildPortfolioPieChart(stocks){
+  const data = stocks.map(s=>({
+    label:s.ticker||s.title, value:getPositionsWert(s.id), color:aktieColor(s.id)
+  })).filter(d=>d.value>0);
+  const total=data.reduce((s,d)=>s+d.value,0);
+  if(total===0||data.length===0) return '';
+  const cx=90,cy=90,r=75;
+  let angle=-Math.PI/2;
+  const slices=data.map(d=>{
+    const frac=d.value/total; const sweep=frac*2*Math.PI; const ea=angle+sweep; const la=frac>0.5?1:0;
+    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea);
+    const path=frac>0.9999?`M${cx-r},${cy} A${r},${r} 0 1 1 ${cx+r},${cy} A${r},${r} 0 1 1 ${cx-r},${cy}`
+      :`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${la} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
+    angle=ea;
+    return {...d,path,pct:(frac*100).toFixed(1)};
+  });
+  return `
+  <div class="widget-title">Portfolio-Verteilung</div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <svg viewBox="0 0 180 180" height="140" style="flex-shrink:0">
+      ${slices.map(s=>`<path d="${s.path}" fill="${s.color}" stroke="var(--bg0)" stroke-width="2"/>`).join('')}
+    </svg>
+    <div>
+      ${slices.map(s=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px">
+          <span style="width:10px;height:10px;border-radius:3px;background:${s.color};flex-shrink:0"></span>
+          <span style="color:var(--text2)">${esc(s.label)}</span>
+          <span style="color:var(--text3);margin-left:auto;font-family:'DM Mono',monospace">${s.pct}%</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// Bar chart: Ø Kaufpreis vs. Aktueller Kurs per stock
+function buildPreisVergleichChart(stocks){
+  const items = stocks.filter(s=>s.pos.qty>0.0001).map(s=>{
+    const lp=s.ticker?getAktuellerKurs(s.ticker):null;
+    return {label:s.ticker||s.title,avg:s.pos.avgPrice,live:lp,color:aktieColor(s.id)};
+  }).filter(d=>d.avg>0);
+  if(!items.length) return '';
+  const maxVal=Math.max(...items.flatMap(d=>[d.avg,d.live||0]))||1;
+  const barH=36,gap=12,padL=0,W=300;
+  return `
+  <div class="widget-title">Ø Kaufpreis vs. Aktueller Kurs</div>
+  <div style="overflow-x:auto">
+    ${items.map(d=>`
+    <div style="margin-bottom:${gap}px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;justify-content:space-between">
+        <span>${esc(d.label)}</span>
+        ${d.live!=null?`<span style="color:${d.live>=d.avg?'var(--green)':'var(--red)'};font-family:'DM Mono',monospace;font-size:10px">${d.live>=d.avg?'↑':'↓'} ${fmtPrice(d.live)}</span>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="font-size:9px;color:var(--text3);width:52px;text-align:right">Ø Kauf</div>
+          <div style="flex:1;height:10px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${(d.avg/maxVal*100).toFixed(1)}%;background:${d.color};border-radius:3px;opacity:.8"></div>
+          </div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);min-width:50px">${fmtPrice(d.avg)}</div>
+        </div>
+        ${d.live!=null?`
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="font-size:9px;color:var(--text3);width:52px;text-align:right">Live</div>
+          <div style="flex:1;height:10px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${(d.live/maxVal*100).toFixed(1)}%;background:${d.live>=d.avg?'var(--green)':'var(--red)'};border-radius:3px"></div>
+          </div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;min-width:50px;color:${d.live>=d.avg?'var(--green)':'var(--red)'}">${fmtPrice(d.live)}</div>
+        </div>`:
+        `<div style="font-size:9px;color:var(--text3);padding-left:58px">Kein Live-Kurs</div>`}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Portfolio-Verlauf: cumulative cost invested over time (from trades)
+function buildPortfolioVerlauf(){
+  if(!SDATA.trades.length) return '';
+  const trades=[...SDATA.trades].sort((a,b)=>a.date.localeCompare(b.date));
+  const firstDate=trades[0].date, lastDate=today();
+  // Accumulate daily positions
+  let cumCost=0;
+  const pts=[{date:firstDate,cost:0}];
+  trades.forEach(t=>{
+    cumCost += t.type==='kauf' ? t.total : -(t.total||0);
+    pts.push({date:t.date,cost:Math.max(0,cumCost)});
+  });
+  if(pts[pts.length-1].date!==lastDate) pts.push({date:lastDate,cost:Math.max(0,cumCost)});
+  const W=300,H=100,padL=44,padR=8,padT=8,padB=20;
+  const cW=W-padL-padR,cH=H-padT-padB;
+  const startD=new Date(firstDate+'T12:00:00');
+  const totDays=Math.max(1,Math.round((new Date(lastDate+'T12:00:00')-startD)/86400000));
+  const mapX=d=>{const dys=Math.round((new Date(d+'T12:00:00')-startD)/86400000);return padL+(dys/totDays)*cW;};
+  const maxCost=Math.max(...pts.map(p=>p.cost),1);
+  const mapY=v=>padT+cH-((v/maxCost)*cH);
+  const poly=pts.map(p=>`${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ');
+  const area=`M${mapX(pts[0].date).toFixed(1)},${mapY(0)} `+pts.map(p=>`L${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ')+` L${mapX(pts[pts.length-1].date).toFixed(1)},${mapY(0)} Z`;
+  // Current portfolio market value line (single point at end)
+  const curVal=getGesamtPortfoliowert();
+  const valLabel=curVal>0&&curVal!==cumCost?`<line x1="${mapX(lastDate).toFixed(1)}" y1="${mapY(0).toFixed(1)}" x2="${mapX(lastDate).toFixed(1)}" y2="${mapY(Math.min(curVal,maxCost)).toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>`:'' ;
+  const yLabels=[[0,'var(--text3)','0'],[maxCost,'var(--accent)',maxCost>=1000?(maxCost/1000).toFixed(0)+'k':Math.round(maxCost).toString()]].map(([v,c,lbl])=>
+    `<text x="2" y="${mapY(v).toFixed(1)}" font-size="8" fill="${c}" dominant-baseline="middle" font-family="DM Mono,monospace">${lbl}</text>`);
+  return `
+  <div class="widget-title">Investiertes Kapital (Verlauf)</div>
+  <svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">
+    <defs><linearGradient id="invGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#invGrad)"/>
+    <polyline points="${poly}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    ${valLabel}${yLabels.join('')}
+  </svg>`;
+}
+
+// Main charts section renderer — called from renderAktienList after price fetch
+function renderAktienCharts(stocks){
+  const el=document.getElementById('aktien-charts');
+  if(!el) return;
+  const active=stocks.filter(s=>s.pos.qty>0.0001);
+  if(!active.length){ el.innerHTML=''; return; }
+  el.innerHTML=`
+    <div class="section" style="padding-top:0">
+      <div class="card" style="padding:14px">${buildPortfolioPieChart(active)}</div>
+    </div>
+    <div class="section" style="padding-top:0">
+      <div class="card" style="padding:14px">${buildPreisVergleichChart(active)}</div>
+    </div>
+    <div class="section" style="padding-top:0">
+      <div class="card" style="padding:14px">${buildPortfolioVerlauf()}</div>
+    </div>`;
+}
+
+// Portfolio table view (HTML table)
+function renderAktienTabelle(stocks){
+  const el=document.getElementById('aktien-tabelle');
+  if(!el) return;
+  const active=stocks.filter(s=>s.pos.qty>0.0001);
+  if(!active.length){ el.innerHTML=''; return; }
+  el.innerHTML=`
+  <div style="padding:0 16px 12px;overflow-x:auto">
+    <table class="trade-tbl" style="min-width:420px">
+      <thead><tr>
+        <th>Ticker</th><th>Anzahl</th><th>Ø Kauf</th><th>Kurs live</th><th>+/- %</th><th>Wert</th>
+      </tr></thead>
+      <tbody>${active.map(s=>{
+        const lp=s.ticker?getAktuellerKurs(s.ticker):null;
+        const gv=getGewinnVerlust(s.id);
+        const wert=getPositionsWert(s.id);
+        const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
+        const sign=gv.pct>=0?'+':'';
+        return `<tr style="cursor:pointer" onclick="openAktieDetail('${s.id}')">
+          <td><div style="font-weight:600">${esc(s.ticker||s.title)}</div>
+              <div style="font-size:10px;color:var(--text3)">${esc(s.title)}</div></td>
+          <td style="font-family:'DM Mono',monospace">${fmtQty(s.pos.qty)}</td>
+          <td style="font-family:'DM Mono',monospace">${fmtPrice(s.pos.avgPrice)}</td>
+          <td style="font-family:'DM Mono',monospace;color:${lp!=null?color:'var(--text3)'}">${lp!=null?fmtPrice(lp):'—'}</td>
+          <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</td>
+          <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(wert)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+let aktienTabView='karten'; // 'karten' | 'tabelle' | 'charts'
+function setAktienTabView(v){ aktienTabView=v; renderAktien(); }
+
 async function renderAktien(){
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
@@ -5912,19 +6311,42 @@ async function renderAktien(){
 
   const listEl = document.getElementById('aktien-list');
   const summaryEl = document.getElementById('aktien-summary-bar');
+  const tabelleEl = document.getElementById('aktien-tabelle');
+  const chartsEl = document.getElementById('aktien-charts');
+
+  // Update view-toggle button styles
+  ['karten','tabelle','charts'].forEach(v=>{
+    const btn=document.getElementById('aktien-view-'+v);
+    if(btn) btn.className='filter-chip'+(aktienTabView===v?' active':'');
+  });
+
   if(!show.length){
     listEl.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div class="empty-text">${aktienView==='aktiv'?'Keine aktiven Positionen':'Keine historischen Positionen'}</div></div>`;
     summaryEl.innerHTML = '';
+    if(tabelleEl) tabelleEl.innerHTML='';
+    if(chartsEl) chartsEl.innerHTML='';
     return;
   }
 
-  renderAktienList(show, listEl, summaryEl);
+  // Show/hide sections based on view
+  if(listEl) listEl.style.display = aktienTabView==='karten' ? '' : 'none';
+  if(tabelleEl) tabelleEl.style.display = aktienTabView==='tabelle' ? '' : 'none';
+  if(chartsEl) chartsEl.style.display = aktienTabView==='charts' ? '' : 'none';
 
+  if(aktienTabView==='karten') renderAktienList(show, listEl, summaryEl);
+  else summaryEl.innerHTML='';
+
+  if(aktienTabView==='tabelle') renderAktienTabelle(show);
+  if(aktienTabView==='charts') renderAktienCharts(show);
+
+  // Fetch live prices in background
   if(aktienView==='aktiv'){
     const toFetch = activeStocks.filter(s=>s.ticker&&!stockPriceCache[s.ticker]);
     if(toFetch.length){
       await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
-      renderAktienList(activeStocks, listEl, summaryEl);
+      if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
+      if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
+      if(aktienTabView==='charts') renderAktienCharts(activeStocks);
     }
   }
 }
@@ -6225,6 +6647,8 @@ function renderEinstellungen(){
   if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
+  const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
+  if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
 
   // Account-Bereich
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
