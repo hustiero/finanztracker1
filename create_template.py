@@ -93,20 +93,28 @@ readme_b(17, "→  Script-URL in das URL-Feld einfügen → 'Verbinden' klicken"
 readme_blank(18)
 readme_h(19, "WICHTIG")
 readme_b(20, "⚠  Spalten-Reihenfolge NICHT verändern — die App erwartet exakt diese Struktur.", 1)
-readme_b(21, "⚠  Tabellenblattnamen (Ausgaben, Einnahmen, Daueraufträge, Kategorien, Einstellungen) nicht umbenennen.", 1)
+readme_b(21, "⚠  Tabellenblattnamen (Ausgaben, Einnahmen, Daueraufträge, Kategorien, Einstellungen, Aktien, Trades) nicht umbenennen.", 1)
 readme_b(22, "⚠  Zeile 1 (Header) nicht löschen oder verändern.", 1)
 readme_blank(23)
 readme_h(24, "Sheet-Struktur Übersicht")
-readme_b(25, "Ausgaben:      ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
-readme_b(26, "Einnahmen:     ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted", 1)
+readme_b(25, "Ausgaben:      ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted | isFixkosten", 1)
+readme_b(26, "Einnahmen:     ID | Datum | Beschreibung | Kategorie | Betrag | Notiz | Deleted | isLohn", 1)
 readme_b(27, "Daueraufträge: ID | Was | Kategorie | Betrag | Intervall | Tag | Kommentar | Aktiv | nextDate | startDate | endDate | lastBooked", 1)
 readme_b(28, "Kategorien:    ID | Name | Typ (ausgabe/einnahme) | Farbe (#HEX) | Sortierung", 1)
 readme_b(29, "Einstellungen: App-Einstellungen (automatisch von der App befüllt — nicht manuell bearbeiten)", 1)
-readme_blank(30)
-readme_h(31, "Kategorien anpassen")
-readme_b(32, "→  Im Sheet 'Kategorien' beliebige Zeilen hinzufügen/ändern.", 1)
-readme_b(33, "→  Typ muss exakt 'ausgabe' oder 'einnahme' sein.", 1)
-readme_b(34, "→  Farbe: Hex-Code mit # z.B. #FF6B35", 1)
+readme_b(30, "Aktien:        ID | Titel | ISIN | Ticker (Yahoo Finance) | Währung | Deleted", 1)
+readme_b(31, "Trades:        ID | AktieID | Typ (kauf/verkauf) | Datum | Anzahl | Preis/Stk | Währung | Courtage | Gesamt | Deleted", 1)
+readme_blank(32)
+readme_h(33, "Kategorien anpassen")
+readme_b(34, "→  Im Sheet 'Kategorien' beliebige Zeilen hinzufügen/ändern.", 1)
+readme_b(35, "→  Typ muss exakt 'ausgabe' oder 'einnahme' sein.", 1)
+readme_b(36, "→  Farbe: Hex-Code mit # z.B. #FF6B35", 1)
+readme_blank(37)
+readme_h(38, "Aktien-Ticker (Yahoo Finance Symbole)")
+readme_b(39, "→  Schweizer Aktien:  ZURN.SW, ABBN.SW, NESN.SW, UBSG.SW  (Suffix .SW)", 1)
+readme_b(40, "→  ETFs auf XETRA:   IQQE.DE, CSSMI.SW  (Suffix .DE oder .SW)", 1)
+readme_b(41, "→  Schwedische Aktien: SAAB-B.ST  (Suffix .ST)", 1)
+readme_b(42, "→  US-Aktien:         AAPL, MSFT  (kein Suffix)", 1)
 
 ws_r.freeze_panes = "A2"
 
@@ -216,7 +224,67 @@ for i, cat in enumerate(categories, start=2):
     except:
         pass
 
-# ─── Sheet 6: Einstellungen ────────────────────────────────────────────────
+# ─── Sheet 6: Aktien ───────────────────────────────────────────────────────
+ws_ak = wb.create_sheet("Aktien")
+ws_ak.sheet_properties.tabColor = "F7C948"
+cols_ak = [
+    ("A","ID"), ("B","Titel"), ("C","ISIN"),
+    ("D","Ticker (Yahoo)"), ("E","Währung"), ("F","Deleted")
+]
+widths_ak = [16, 30, 16, 18, 10, 9]
+set_header(ws_ak, cols_ak, widths_ak)
+ws_ak.freeze_panes = "A2"
+for i, row_data in enumerate([
+    ["st_001", "Zurich Insurance N",          "CH0011075394", "ZURN.SW",  "CHF", ""],
+    ["st_002", "iSh EURSTx50 DE EUR D",        "DE0005933956", "IQQE.DE",  "EUR", ""],
+    ["st_003", "iSh SLI CH CHF D",             "CH0031768937", "CSSLI.SW", "CHF", ""],
+    ["st_004", "UBSETF SMI CHF DIS",            "CH0017142719", "CSSMI.SW", "CHF", ""],
+    ["st_005", "Nestlé N",                      "CH0038863350", "NESN.SW",  "CHF", ""],
+    ["st_006", "UBS Group N",                   "CH0244767585", "UBSG.SW",  "CHF", ""],
+    ["st_007", "UBS Sol. China Tech UCITS USD", "LU2265794276", "UBCT.SW",  "USD", ""],
+    ["st_008", "SAAB ORD",                      "SE0021921269", "SAAB-B.ST","SEK", ""],
+    ["st_009", "ABB Ltd N",                     "",             "ABBN.SW",  "CHF", ""],
+], start=2):
+    for j, val in enumerate(row_data, 1):
+        ws_ak.cell(i, j, val)
+    style_row(ws_ak, i, 6, alt=(i%2==0))
+
+ws_ak.cell(13, 1, "Ticker-Beispiele: .SW = Schweiz, .DE = XETRA, .ST = Stockholm, kein Suffix = USA").font = Font(color="777777", italic=True, size=10)
+
+# ─── Sheet 7: Trades ───────────────────────────────────────────────────────
+ws_tr = wb.create_sheet("Trades")
+ws_tr.sheet_properties.tabColor = "56B6C2"
+cols_tr = [
+    ("A","ID"), ("B","AktieID"), ("C","Typ"),
+    ("D","Datum"), ("E","Anzahl"), ("F","Preis/Stk"),
+    ("G","Währung"), ("H","Courtage"), ("I","Gesamt"), ("J","Deleted")
+]
+widths_tr = [16, 16, 9, 13, 10, 12, 10, 10, 14, 9]
+set_header(ws_tr, cols_tr, widths_tr)
+ws_tr.freeze_panes = "A2"
+for i, row_data in enumerate([
+    ["tr_001", "st_001", "kauf",    "2025-04-02",  4,   622.0,   "CHF", 0, 2488.0,   ""],
+    ["tr_002", "st_001", "verkauf", "2025-10-03",  2,   571.2,   "CHF", 0, 1142.4,   ""],
+    ["tr_003", "st_002", "kauf",    "2025-04-11",  31,  47.915,  "EUR", 0, 1485.37,  ""],
+    ["tr_004", "st_002", "verkauf", "2025-04-09",  18,  54.5,    "EUR", 0, 981.0,    ""],
+    ["tr_005", "st_003", "kauf",    "2025-04-10",  8,   193.4,   "CHF", 0, 1547.2,   ""],
+    ["tr_006", "st_003", "verkauf", "2025-10-03",  2,   214.55,  "CHF", 0, 429.1,    ""],
+    ["tr_007", "st_004", "kauf",    "2025-04-09",  10,  112.2,   "CHF", 0, 1122.0,   ""],
+    ["tr_008", "st_004", "verkauf", "2025-12-16",  10,  1316.95, "CHF", 0, 13169.5,  ""],
+    ["tr_009", "st_005", "kauf",    "2025-04-02",  22,  90.0,    "CHF", 0, 1980.0,   ""],
+    ["tr_010", "st_006", "kauf",    "2025-04-29",  25,  43.0,    "CHF", 0, 1075.0,   ""],
+    ["tr_011", "st_006", "verkauf", "2025-09-04",  15,  32.3,    "CHF", 0, 484.5,    ""],
+    ["tr_012", "st_007", "kauf",    "2025-09-11",  176, 9.2,     "USD", 0, 1619.2,   ""],
+    ["tr_013", "st_008", "kauf",    "2025-10-03",  28,  572.4,   "SEK", 0, 16027.2,  ""],
+    ["tr_014", "st_009", "kauf",    "2026-01-14",  11,  60.20,   "CHF", 0, 662.2,    ""],
+], start=2):
+    for j, val in enumerate(row_data, 1):
+        ws_tr.cell(i, j, val)
+    style_row(ws_tr, i, 10, alt=(i%2==0))
+
+ws_tr.cell(18, 1, "Typ: 'kauf' oder 'verkauf'  |  AktieID muss mit ID im Aktien-Sheet übereinstimmen").font = Font(color="777777", italic=True, size=10)
+
+# ─── Sheet 8: Einstellungen ────────────────────────────────────────────────
 ws_s = wb.create_sheet("Einstellungen")
 ws_s.sheet_properties.tabColor = "888888"
 ws_s.column_dimensions["A"].width = 20
@@ -261,7 +329,7 @@ ws_s.freeze_panes = "A2"
 ws_s.sheet_view.showGridLines = False
 
 # ─── Global styling ────────────────────────────────────────────────────────
-for ws in [ws_r, ws_a, ws_e, ws_d, ws_k]:
+for ws in [ws_r, ws_a, ws_e, ws_d, ws_k, ws_ak, ws_tr]:
     ws.sheet_view.showGridLines = False
 
 out = "/home/user/finanztracker1/finanztracker_template.xlsx"

@@ -1007,6 +1007,14 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
             4. Ausführen als: <b style="color:var(--text2)">Ich</b> · Zugriff: <b style="color:var(--text2)">Jeder</b><br>
             5. Script-URL kopieren
           </div>
+          <button class="btn-outline-setup" onclick="toggleCodeGs(this)" style="margin-top:10px;font-size:11px">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Code.gs anzeigen &amp; kopieren
+          </button>
+          <div id="codeg-block" style="display:none;margin-top:10px;position:relative">
+            <pre id="codeg-pre" style="background:#0d0d15;color:#abb2bf;border-radius:8px;padding:12px;font-size:10px;font-family:'DM Mono',monospace;line-height:1.5;overflow:auto;max-height:220px;border:1px solid var(--border);white-space:pre;margin:0"></pre>
+            <button onclick="copyCodeGs()" style="position:absolute;top:8px;right:8px;background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600">Kopieren</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2303,6 +2311,23 @@ async function loadAll(){
         .filter(r=>r[0])
         .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
     } catch(e){ DATA.recurring=[]; }
+
+    // Aktien + Trades — optionale Sheets (kein Fehler wenn nicht vorhanden)
+    try {
+      const [sr, tr] = await Promise.all([
+        apiGet('Aktien!A2:F5000'),
+        apiGet('Trades!A2:J5000')
+      ]);
+      const shStocks = (sr.values||[])
+        .filter(r=>r[0]&&String(r[5]||'')!=='1')
+        .map(r=>({id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||'CHF'}));
+      const shTrades = (tr.values||[])
+        .filter(r=>r[0]&&String(r[9]||'')!=='1')
+        .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),
+          qty:parseFloat(r[4])||0,price:parseFloat(r[5])||0,currency:r[6]||'',
+          courtage:parseFloat(r[7])||0,total:parseFloat(r[8])||0}));
+      if(shStocks.length || shTrades.length){ SDATA.stocks=shStocks; SDATA.trades=shTrades; sdataSave(); }
+    } catch(e){ /* Aktien/Trades-Sheets nicht vorhanden — lokale Daten bleiben erhalten */ }
 
     await loadProfileFromSheet();
     setSyncStatus('online'); renderAll();
@@ -4812,6 +4837,67 @@ function loadDemo(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: CODE.GS HELPER
+// ═══════════════════════════════════════════════════════════════
+const CODE_GS = `function doGet(e) {
+  const p = e.parameter || {};
+  try { return _handle(p); }
+  catch(err) { return _json({ error: err.toString() }); }
+}
+
+function _handle(p) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (p.action === 'get') {
+    return _json({ values: ss.getRange(p.range).getValues() });
+  }
+  if (p.action === 'append') {
+    const sh = ss.getSheetByName(p.sheet);
+    if (!sh) return _json({ error: 'Sheet nicht gefunden: ' + p.sheet });
+    const rows = JSON.parse(p.values);
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    return _json({ ok: true });
+  }
+  if (p.action === 'update') {
+    ss.getRange(p.range).setValues(JSON.parse(p.values));
+    return _json({ ok: true });
+  }
+  if (p.action === 'meta') {
+    return _json({ sheets: ss.getSheets().map(s => ({ properties: { title: s.getName() } })) });
+  }
+  return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
+}
+
+function _json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function toggleCodeGs(btn) {
+  const block = document.getElementById('codeg-block');
+  const pre = document.getElementById('codeg-pre');
+  if (!pre.textContent) pre.textContent = CODE_GS;
+  const shown = block.style.display !== 'none';
+  block.style.display = shown ? 'none' : 'block';
+  const icon = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
+  btn.innerHTML = icon + (shown ? 'Code.gs anzeigen &amp; kopieren' : 'Code.gs ausblenden');
+}
+
+function copyCodeGs() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(CODE_GS)
+      .then(() => toast('✓ Code.gs kopiert!', 'ok'))
+      .catch(() => toast('Clipboard nicht verfügbar', 'err'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = CODE_GS;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('✓ Code.gs kopiert!', 'ok');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: AKTIEN
 // ═══════════════════════════════════════════════════════════════
 const STOCKS_KEY = 'ft_stocks_v1';
@@ -5060,6 +5146,9 @@ function saveNewAktie(){
   };
   SDATA.stocks.push(s);
   sdataSave();
+  if(!CFG.demo && CFG.scriptUrl){
+    apiAppend('Aktien',[[s.id,s.title,s.isin,s.ticker,s.currency,'']]).catch(e=>toast('Aktie Sheet-Sync: '+e.message,'err'));
+  }
   closeModal('new-aktie-modal');
   toast('✓ Aktie hinzugefügt','ok');
   renderAktien();
@@ -5102,8 +5191,12 @@ function saveTrade(){
   if(!qty||qty<=0){ toast('Anzahl erforderlich','err'); return; }
   if(!price||price<=0){ toast('Preis erforderlich','err'); return; }
   const total = type==='kauf' ? qty*price+courtage : qty*price-courtage;
-  SDATA.trades.push({ id:'tr_'+Date.now(), stockId, type, date, qty, price, currency, courtage, total });
+  const tr = { id:'tr_'+Date.now(), stockId, type, date, qty, price, currency, courtage, total };
+  SDATA.trades.push(tr);
   sdataSave();
+  if(!CFG.demo && CFG.scriptUrl){
+    apiAppend('Trades',[[tr.id,tr.stockId,tr.type,tr.date,tr.qty,tr.price,tr.currency,tr.courtage,tr.total,'']]).catch(e=>toast('Trade Sheet-Sync: '+e.message,'err'));
+  }
   closeModal('trade-modal');
   const pos = calcPosition(stockId);
   if(type==='verkauf' && pos.qty <= 0.0001) toast('Vollständig verkauft → Historisch','ok');
@@ -5113,6 +5206,9 @@ function saveTrade(){
 
 function deleteTrade(tradeId){
   if(!confirm('Trade löschen?')) return;
+  if(!CFG.demo && CFG.scriptUrl){
+    apiFindRow('Trades',tradeId).then(row=>{ if(row) apiUpdate(`Trades!J${row}:J${row}`,[['1']]); }).catch(()=>{});
+  }
   SDATA.trades = SDATA.trades.filter(t=>t.id!==tradeId);
   sdataSave();
   renderAktieDetail(currentAktieId);
@@ -5121,6 +5217,12 @@ function deleteTrade(tradeId){
 
 function deleteAktie(stockId){
   if(!confirm('Aktie und alle Trades löschen?')) return;
+  if(!CFG.demo && CFG.scriptUrl){
+    apiFindRow('Aktien',stockId).then(row=>{ if(row) apiUpdate(`Aktien!F${row}:F${row}`,[['1']]); }).catch(()=>{});
+    SDATA.trades.filter(t=>t.stockId===stockId).forEach(t=>{
+      apiFindRow('Trades',t.id).then(row=>{ if(row) apiUpdate(`Trades!J${row}:J${row}`,[['1']]); }).catch(()=>{});
+    });
+  }
   SDATA.stocks = SDATA.stocks.filter(s=>s.id!==stockId);
   SDATA.trades = SDATA.trades.filter(t=>t.stockId!==stockId);
   sdataSave();
