@@ -223,7 +223,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .sync-dot.demo{background:var(--text3)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .sync-row{display:flex;align-items:center;gap:6px}
-.sync-label{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.sync-label{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ═══════════════════════════════════════════════════
    CARDS & SECTIONS
@@ -741,6 +741,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 }
 .menu-overlay-close-btn svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:2.2}
 .menu-overlay-items{flex:1;overflow-y:auto;padding:4px 0}
+.menu-overlay-footer{border-top:2px solid var(--border);flex-shrink:0}
 .menu-overlay-item{
   width:100%;display:flex;align-items:center;gap:14px;
   padding:14px 20px;background:none;color:var(--text);
@@ -1235,6 +1236,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         </div>
       </div>
       <div class="section" style="padding-top:0">
+        <div class="section-title">Benachrichtigungen</div>
+        <div id="notif-settings-list" class="card" style="padding:0 14px"></div>
+      </div>
+      <div class="section" style="padding-top:0">
         <div class="section-title">Export</div>
         <div class="card" style="padding:14px">
           <button class="save-btn" onclick="exportExcel()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
@@ -1250,7 +1255,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
             <div class="logo-circle" style="width:40px;height:40px;font-size:18px">₣</div>
             <div>
               <div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:.05em">₣ TRACKER</div>
-              <div style="font-size:12px;color:var(--text3)">Persönlicher Finanztracker</div>
+              <div style="font-size:12px;color:var(--text3)">F-Tracker von SESI FINANCE</div>
             </div>
           </div>
           <button class="btn-delete" style="width:100%" onclick="resetApp()">App zurücksetzen</button>
@@ -1296,6 +1301,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </button>
     </div>
     <div id="menu-overlay-items" class="menu-overlay-items"></div>
+    <div id="menu-overlay-footer" class="menu-overlay-footer"></div>
   </div>
 </div>
 
@@ -1706,7 +1712,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[] };
+let CFG = { scriptUrl:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{} };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -1931,7 +1937,21 @@ async function doConnect(){
 
 function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchApp(); }
 
+function generateAppIcon(){
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=180;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#0D0D0F';
+    ctx.beginPath();ctx.moveTo(36,0);ctx.arcTo(180,0,180,180,36);ctx.arcTo(180,180,0,180,36);ctx.arcTo(0,180,0,0,36);ctx.arcTo(0,0,180,0,36);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#C8F53C'; ctx.beginPath();ctx.arc(90,90,54,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#0D0D0F'; ctx.font='bold 70px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\u20A3',90,93);
+    const link=document.createElement('link'); link.rel='apple-touch-icon'; link.sizes='180x180'; link.href=c.toDataURL('image/png');
+    document.head.appendChild(link);
+  }catch(e){}
+}
+
 function launchApp(){
+  generateAppIcon();
   sdataLoad();
   if(!CFG.notifications) CFG.notifications = [];
   document.getElementById('setup').classList.add('hidden');
@@ -2661,6 +2681,7 @@ function renderAll(){
   renderDashboard();
   updatePageSub();
   checkDueRecurrings();
+  checkAllNotifications();
 }
 
 function updatePageSub(){
@@ -3059,6 +3080,35 @@ function renderDashboard(){
       </div>
     </div>
 
+    <!-- Top Kategorien -->
+    <div class="section" style="padding-top:0">
+      <div class="section-title">Top Kategorien ${dashYear}</div>
+      ${(()=>{
+        const catTotals={};
+        DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear;}).forEach(e=>{catTotals[e.cat]=(catTotals[e.cat]||0)+e.amt;});
+        const topCats=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const yearTotal=Object.values(catTotals).reduce((s,v)=>s+v,0);
+        if(!topCats.length) return '<div class="card" style="padding:14px;color:var(--text3);font-size:13px;text-align:center">Keine Ausgaben</div>';
+        return `<div class="card" style="padding:0 14px">${topCats.map(([cat,amt])=>{
+          const pct=yearTotal>0?Math.round(amt/yearTotal*100):0;
+          const col=catColor(cat);
+          return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+                <span style="font-size:14px;font-weight:500">${esc(cat)}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${pct}%</span>
+                <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--red)">CHF ${fmtAmt(amt)}</span>
+              </div>
+            </div>
+            <div class="zy-prog-wrap" style="height:4px"><div class="zy-prog-fill" style="width:${pct}%;background:${col};opacity:.7"></div></div>
+          </div>`;
+        }).join('')}</div>`;
+      })()}
+    </div>
+
     <!-- Monatsverlauf -->
     <div class="section" style="padding-top:0">
       <div class="section-title">Monatsverlauf</div>
@@ -3130,12 +3180,15 @@ function goTab(tab){
   if(tab==='dashboard') renderDashboard();
   if(tab==='lohn') renderLohn();
   if(tab==='aktien') renderAktien();
+  if(tab==='einstellungen') renderNotifSettings();
   if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); renderMonat(); }
   if(tab==='einstellungen') renderEinstellungen();
 }
 
-function openMenuOverlay(){ renderMenuOverlay(); document.getElementById('menu-overlay').classList.add('open'); }
+let menuEditMode = false;
+function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.getElementById('menu-overlay').classList.add('open'); }
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
+function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
 // All tabs available for pinning / showing in Mehr
 const PINNABLE_TABS = [
@@ -3145,8 +3198,8 @@ const PINNABLE_TABS = [
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
   { key:'dauerauftraege', label:'Daueraufträge / Abos', icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
-  { key:'einstellungen',  label:'Einstellungen',         icon:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' },
 ];
+const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>';
 
 // Pin icon SVG path
 const PIN_ICON = '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/>';
@@ -3155,44 +3208,74 @@ const UNPIN_ICON = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2=
 function renderMenuOverlay(){
   const pinned = CFG.pinnedTabs || [];
   const container = document.getElementById('menu-overlay-items');
+  const footer = document.getElementById('menu-overlay-footer');
   if(!container) return;
   let html = '';
 
-  // Section: Tabs pinned to taskbar (with unpin button)
-  if(pinned.length > 0){
-    html += '<span class="menu-section-label">In Taskleiste</span>';
-    pinned.forEach(key=>{
-      const tab = PINNABLE_TABS.find(t=>t.key===key);
-      if(!tab) return;
+  if(menuEditMode){
+    // Edit mode: show pinned with unpin + unpinned with pin icon
+    if(pinned.length > 0){
+      html += '<span class="menu-section-label">In Taskleiste</span>';
+      pinned.forEach(key=>{
+        const tab = PINNABLE_TABS.find(t=>t.key===key);
+        if(!tab) return;
+        html += `<div class="menu-item-row">
+          <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
+            <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
+          </button>
+          <button class="menu-item-action unpin" onclick="unpinTab('${tab.key}')" aria-label="Aus Taskleiste entfernen">
+            <svg viewBox="0 0 24 24">${UNPIN_ICON}</svg>
+          </button>
+        </div>`;
+      });
+    }
+    const unpinnedTabs = PINNABLE_TABS.filter(t=>!pinned.includes(t.key));
+    if(unpinnedTabs.length > 0){
+      html += '<span class="menu-section-label">Weitere Ansichten</span>';
+      const canPin = pinned.length < 2;
+      unpinnedTabs.forEach(tab=>{
+        html += `<div class="menu-item-row">
+          <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
+            <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
+          </button>
+          ${canPin
+            ? `<button class="menu-item-action pin" onclick="pinTab('${tab.key}')" aria-label="An Taskleiste anheften"><svg viewBox="0 0 24 24">${PIN_ICON}</svg></button>`
+            : `<div style="width:50px"></div>`}
+        </div>`;
+      });
+    }
+  } else {
+    // Normal mode: all tabs without pin icons, pinned ones get accent dot
+    html += '<span class="menu-section-label">Ansichten</span>';
+    PINNABLE_TABS.forEach(tab=>{
+      const isPinned = pinned.includes(tab.key);
       html += `<div class="menu-item-row">
         <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
           <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
+          ${isPinned?'<span style="margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-right:2px"></span>':''}
         </button>
-        <button class="menu-item-action unpin" onclick="unpinTab('${tab.key}')" aria-label="Aus Taskleiste entfernen">
-          <svg viewBox="0 0 24 24">${UNPIN_ICON}</svg>
-        </button>
-      </div>`;
-    });
-  }
-
-  // Section: All non-pinned tabs (with pin button if < 2 pins)
-  const unpinnedTabs = PINNABLE_TABS.filter(t=>!pinned.includes(t.key));
-  if(unpinnedTabs.length > 0){
-    html += '<span class="menu-section-label">Weitere Ansichten</span>';
-    const canPin = pinned.length < 2;
-    unpinnedTabs.forEach(tab=>{
-      html += `<div class="menu-item-row">
-        <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
-          <svg viewBox="0 0 24 24">${tab.icon}</svg>${tab.label}
-        </button>
-        ${canPin
-          ? `<button class="menu-item-action pin" onclick="pinTab('${tab.key}')" aria-label="An Taskleiste anheften"><svg viewBox="0 0 24 24">${PIN_ICON}</svg></button>`
-          : `<div style="width:50px"></div>`}
       </div>`;
     });
   }
 
   container.innerHTML = html;
+
+  // Fixed footer: "Taskleiste bearbeiten" + "Einstellungen" (not pinable)
+  if(footer){
+    footer.innerHTML = `
+      <div class="menu-item-row" style="border-top:none">
+        <button class="menu-item-nav" style="color:var(--accent)" onclick="toggleMenuEditMode()">
+          <svg viewBox="0 0 24 24" style="stroke:var(--accent)">${menuEditMode?'<polyline points="20 6 9 17 4 12"/>':PIN_ICON}</svg>
+          ${menuEditMode?'Fertig':'Taskleiste bearbeiten'}
+        </button>
+      </div>
+      <div class="menu-item-row">
+        <button class="menu-item-nav" onclick="goTab('einstellungen');closeMenuOverlay()">
+          <svg viewBox="0 0 24 24">${SETTINGS_ICON}</svg>Einstellungen
+        </button>
+      </div>
+      <div style="padding:8px 20px 4px;text-align:center;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.04em">F-TRACKER · SESI FINANCE</div>`;
+  }
 }
 
 function pinTab(key){
@@ -3246,6 +3329,86 @@ function checkDueRecurrings(){
   });
   cfgSave();
   updateNotifBadge();
+}
+
+const NOTIF_TYPES = [
+  { key:'dailyReport',   label:'Tagesreport',           sub:'Ausgaben-Zusammenfassung des heutigen Tages', def:true },
+  { key:'overspend',     label:'Überbudget-Warnung',     sub:'Wenn Lohnzyklus-Budget überschritten wird', def:true },
+  { key:'monthEnd',      label:'Monatsabschluss',        sub:'Rapport am ersten des Monats', def:true },
+  { key:'cycleStart',    label:'Lohnzyklus gestartet',   sub:'Bei erkanntem Lohneingang im Zyklus', def:true },
+  { key:'budgetWarning', label:'Budget 80% erreicht',    sub:'Frühwarnung im laufenden Lohnzyklus', def:true },
+  { key:'bigExpense',    label:'Grosse Ausgabe',         sub:'Bei Einzelbuchung über CHF 200', def:false },
+  { key:'weeklyReport',  label:'Wochenrückblick',        sub:'Zusammenfassung jeden Sonntag', def:false },
+];
+
+function notifOn(key){ const ns=CFG.notifSettings||{}; const t=NOTIF_TYPES.find(x=>x.key===key); return ns[key]===undefined ? (t?t.def:true) : ns[key]; }
+
+function checkAllNotifications(){
+  if(!CFG.notifications) CFG.notifications = [];
+  const ns = CFG.notifSettings||{};
+  const todayStr = today();
+  const now = new Date();
+  const mN = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+  // 1. Daily report
+  if(notifOn('dailyReport')){
+    const todayExp = DATA.expenses.filter(e=>e.date===todayStr);
+    const t = todayExp.reduce((s,e)=>s+e.amt,0);
+    if(t>0){ const nid=`daily-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'dailyReport',date:todayStr,title:`Tagesreport: CHF ${fmtAmt(t)}`,body:`${todayExp.length} Buchung${todayExp.length!==1?'en':''} heute erfasst`,dismissed:false,confirmed:false}); }
+  }
+  // 2. Overspend
+  if(notifOn('overspend')){
+    const z=getZyklusInfo();
+    if(z.hasSalary&&z.varRemaining<0){ const nid=`overspend-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'overspend',date:todayStr,title:'⚠ Überbudget!',body:`CHF ${fmtAmt(Math.abs(z.varRemaining))} über dem verfügbaren Budget`,dismissed:false,confirmed:false}); }
+  }
+  // 3. Month-end report (on 1st)
+  if(notifOn('monthEnd')&&now.getDate()===1){
+    const pM=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const pmKey=`${pM.getFullYear()}-${String(pM.getMonth()+1).padStart(2,'0')}`;
+    const nid=`monthend-${pmKey}`;
+    if(!CFG.notifications.find(n=>n.id===nid)){
+      const pmOut=DATA.expenses.filter(e=>e.date.startsWith(pmKey)).reduce((s,e)=>s+e.amt,0);
+      const pmInc=DATA.incomes.filter(e=>e.date.startsWith(pmKey)).reduce((s,e)=>s+e.amt,0);
+      CFG.notifications.push({id:nid,type:'monthEnd',date:todayStr,title:`Monatsabschluss ${mN[pM.getMonth()]} ${pM.getFullYear()}`,body:`Ausgaben CHF ${fmtAmt(pmOut)} · Einnahmen CHF ${fmtAmt(pmInc)} · Saldo CHF ${fmtAmt(pmInc-pmOut)}`,dismissed:false,confirmed:false});
+    }
+  }
+  // 4. Cycle start
+  if(notifOn('cycleStart')){
+    const z=getZyklusInfo();
+    if(z.hasSalary){ const nid=`cycle-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'cycleStart',date:z.startStr,title:'Lohnzyklus gestartet',body:`CHF ${fmtAmt(z.lohn)} Lohn · Periode bis ${z.endStr}`,dismissed:false,confirmed:false}); }
+  }
+  // 5. Budget 80%
+  if(notifOn('budgetWarning')){
+    const z=getZyklusInfo();
+    if(z.hasSalary&&z.varBudget>0&&z.varSpent/z.varBudget>=0.8){ const nid=`budget80-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'budgetWarning',date:todayStr,title:`${Math.round(z.varSpent/z.varBudget*100)}% des Budgets verbraucht`,body:`CHF ${fmtAmt(z.varRemaining)} verbleibend · ${z.daysLeft} Tage`,dismissed:false,confirmed:false}); }
+  }
+  // 6. Big expense
+  if(notifOn('bigExpense')){
+    const thr=(CFG.notifSettings?.bigExpenseAmt)||200;
+    DATA.expenses.filter(e=>e.amt>=thr).forEach(e=>{ const nid=`bigexp-${e.id}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'bigExpense',date:e.date,title:`Grosse Ausgabe: CHF ${fmtAmt(e.amt)}`,body:`${e.what} · ${e.cat}`,dismissed:false,confirmed:false}); });
+  }
+  // 7. Weekly report (Sunday)
+  if(notifOn('weeklyReport')&&now.getDay()===0){
+    const mon=new Date(now); mon.setDate(now.getDate()-6); const monStr=dateStr(mon);
+    const nid=`weekly-${monStr}`; if(!CFG.notifications.find(n=>n.id===nid)){ const wOut=DATA.expenses.filter(e=>e.date>=monStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0); CFG.notifications.push({id:nid,type:'weeklyReport',date:todayStr,title:'Wochenrückblick',body:`CHF ${fmtAmt(wOut)} ausgegeben diese Woche`,dismissed:false,confirmed:false}); }
+  }
+  cfgSave(); updateNotifBadge();
+}
+
+function renderNotifSettings(){
+  const list = document.getElementById('notif-settings-list');
+  if(!list) return;
+  list.innerHTML = NOTIF_TYPES.map(t=>`
+    <div class="settings-row" style="padding:12px 0;border-bottom:1px solid var(--border)">
+      <div><div class="settings-row-label">${t.label}</div><div class="settings-row-sub">${t.sub}</div></div>
+      <div class="toggle-switch${notifOn(t.key)?' on':''}" onclick="toggleNotifSetting('${t.key}')"></div>
+    </div>`).join('');
+}
+
+function toggleNotifSetting(key){
+  if(!CFG.notifSettings) CFG.notifSettings={};
+  CFG.notifSettings[key] = !notifOn(key);
+  cfgSave(); renderNotifSettings();
 }
 
 function updateNotifBadge(){
@@ -3733,7 +3896,7 @@ function setSyncStatus(s){
     _syncSettleTimer=setTimeout(()=>{ label.style.display='none'; },2000);
   } else {
     label.style.display='';
-    label.textContent={syncing:'Synchronisiert…',error:'Fehler',demo:'Demo'}[s]||s;
+    label.textContent={syncing:'Sync…',error:'Fehler',demo:'Demo'}[s]||s;
   }
 }
 
