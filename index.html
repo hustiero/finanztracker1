@@ -991,7 +991,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </div>
       <button class="btn-outline-setup" onclick="downloadBlankTemplate()">
         <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Template herunterladen (4 CSV)
+        Template herunterladen (Excel-Datei)
       </button>
     </div>
 
@@ -1081,7 +1081,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
         <div class="form-group">
           <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
-          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Kevin" autocorrect="off">
+          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
         </div>
 
         <!-- Lohn toggle (only for Einnahme) -->
@@ -1327,7 +1327,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="card" style="padding:14px">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label">Dein Name (für Home-Begrüssung)</label>
-            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Luca" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
+            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
           </div>
         </div>
       </div>
@@ -3327,7 +3327,7 @@ function renderWidgetContent(key){
 function renderWidgetGreeting(){
   const now = new Date();
   const h = now.getHours();
-  const greet = h<11 ? 'Guten Morgen' : h<17 ? 'Guten Tag' : 'Guten Abend';
+  const greet = h<11 ? 'Guete Morge' : h<17 ? 'Grüezi' : 'Guete Abig';
   const name = CFG.userName ? `, ${CFG.userName}` : '';
   const wday = now.toLocaleDateString('de-CH',{weekday:'long'});
   const dat  = now.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'});
