@@ -941,39 +941,45 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
      SETUP SCREEN
 ════════════════════════════════════ -->
 <div id="setup">
-  <!-- Progress dots (hidden on page 0) -->
-  <div class="setup-progress" id="setup-progress">
-    <div class="setup-step-dot active" id="ssd-0"></div>
-    <div class="setup-step-line" id="ssl-0"></div>
-    <div class="setup-step-dot" id="ssd-1"></div>
-    <div class="setup-step-line" id="ssl-1"></div>
-    <div class="setup-step-dot" id="ssd-2"></div>
-  </div>
 
-  <!-- Page 0: Welcome -->
+  <!-- Page 0: Combined entry (returning + new users + demo) -->
   <div class="setup-page active" id="sp-0">
     <div class="setup-logo" style="font-family:'DM Mono',monospace;font-size:52px;font-weight:700;color:var(--accent);letter-spacing:-.05em">₣</div>
     <div class="setup-title">F-Tracker</div>
-    <div class="setup-tagline">Dein persönlicher Finanztracker</div>
-    <div class="setup-brand">by SESI Finance</div>
-    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px">
-      <button class="btn-primary" onclick="gotoSetupStep(1)">
-        <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;display:inline;vertical-align:middle;margin-right:6px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        Jetzt einrichten
-      </button>
-      <div style="text-align:center;color:var(--text3);font-size:12px;padding:2px 0">— oder —</div>
-      <button class="btn-ghost" onclick="doDemo()">Demo ansehen</button>
+    <div class="setup-sub" style="margin-bottom:24px">by SESI Finance</div>
+
+    <!-- Quick connect (returning users / already have URL) -->
+    <div class="setup-card">
+      <div class="setup-label">Script URL</div>
+      <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>
+    <button id="connect-btn" class="btn-primary" style="margin-top:12px" onclick="doConnect()">Verbinden →</button>
+
+    <!-- Divider -->
+    <div style="width:100%;max-width:380px;display:flex;align-items:center;gap:10px;margin:18px 0 12px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:11px;color:var(--text3);letter-spacing:.04em">NEU HIER?</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- New user: step-by-step setup guide -->
+    <button class="btn-outline-setup" style="width:100%;max-width:380px" onclick="gotoSetupStep(1)">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Sheet einrichten (Schritt-für-Schritt)
+    </button>
+
+    <div style="height:10px"></div>
+    <button class="btn-ghost" onclick="doDemo()">Demo ansehen</button>
   </div>
 
-  <!-- Page 1: Sheet + Script Setup -->
+  <!-- Page 1: Setup guide (template + script) -->
   <div class="setup-page" id="sp-1">
     <button class="setup-back-btn" onclick="gotoSetupStep(0)">
       <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       Zurück
     </button>
-    <div class="setup-page-title">Google Sheet einrichten</div>
-    <div class="setup-page-sub">Einmalige Einrichtung — dauert ca. 5–10 Min.</div>
+    <div class="setup-page-title">Sheet einrichten</div>
+    <div class="setup-page-sub">Einmalige Einrichtung — ca. 5–10 Min.</div>
 
     <div class="setup-card" style="margin-bottom:10px">
       <div class="setup-step-row" style="margin-bottom:10px">
@@ -989,7 +995,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       </button>
     </div>
 
-    <div class="setup-card">
+    <div class="setup-card" style="margin-bottom:14px">
       <div class="setup-step-row">
         <div class="setup-step-num">2</div>
         <div>
@@ -999,35 +1005,16 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
             2. Code.gs einfügen &amp; speichern<br>
             3. <b style="color:var(--text2)">Bereitstellen → Neue Bereitstellung → Web-App</b><br>
             4. Ausführen als: <b style="color:var(--text2)">Ich</b> · Zugriff: <b style="color:var(--text2)">Jeder</b><br>
-            5. URL kopieren → nächster Schritt
+            5. Script-URL kopieren
           </div>
         </div>
       </div>
     </div>
 
-    <button class="btn-primary" style="margin-top:14px" onclick="gotoSetupStep(2)">Weiter →</button>
-  </div>
-
-  <!-- Page 2: Connect -->
-  <div class="setup-page" id="sp-2">
-    <button class="setup-back-btn" onclick="gotoSetupStep(1)">
-      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-      Zurück
+    <button class="btn-primary" onclick="gotoSetupStep(0)">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;display:inline;vertical-align:middle;margin-right:6px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zur Verbindung
     </button>
-    <div class="setup-page-title">App verbinden</div>
-    <div class="setup-page-sub">Füge die Apps Script URL aus Schritt 2 ein.</div>
-
-    <div class="setup-card">
-      <div class="setup-label">Apps Script URL</div>
-      <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
-    </div>
-
-    <button id="connect-btn" class="btn-primary" style="margin-top:12px" onclick="doConnect()">Verbinden →</button>
-
-    <p class="setup-hint" style="margin-top:18px">
-      <b>Verbindung schlägt fehl?</b><br>
-      Web-App neu bereitstellen (nicht Testbereitstellung). Zugriff auf «Jeder» setzen und Berechtigungen bestätigen.
-    </p>
   </div>
 </div>
 
@@ -3392,16 +3379,57 @@ function renderWidgetLohnzyklus(){
   </div>`;
 }
 
-function renderWidgetTagesavg(){
+// ─── Shared render helpers (used by both widgets and tab views) ───
+
+// Tagesausgabe stat-card — identical to what renderMonat() shows
+function buildTagesavgCard(mo, yr){
   const now = new Date();
-  const mo = now.getMonth(), yr = now.getFullYear();
-  const daysEl = now.getDate();
-  const avg = avgDailyVarSpend(mo, yr, daysEl);
-  return `<div>
-    <div class="widget-title">Ø Tagesausgaben – ${now.toLocaleDateString('de-CH',{month:'long',year:'numeric'})}</div>
-    <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:-1px">CHF ${fmtAmt(avg)}</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:4px">Durchschnitt über ${daysEl} Tage</div>
+  const isCurrent = mo===now.getMonth() && yr===now.getFullYear();
+  const daysElapsed = isCurrent ? now.getDate() : new Date(yr, mo+1, 0).getDate();
+  const avg = avgDailyVarSpend(mo, yr, daysElapsed);
+  const prevC = avgDailyVarSpendPrevComp(mo, yr);
+  const diffPct = prevC.avg>0 ? (avg-prevC.avg)/prevC.avg*100 : null;
+  const mNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  return `<div class="stats-grid" style="margin-bottom:0">
+    <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
+      <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)
+        ${diffPct!==null?`<span style="font-size:11px;color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:6px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
+      </div>
+      <div class="stat-value" style="font-size:18px">CHF ${fmtAmt(avg)}</div>
+    </div>
   </div>`;
+}
+
+// Day entry group — identical to renderMonat()'s day sections
+function buildDayGroup(ds, dExp, dInc){
+  const wdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const d = new Date(ds+'T12:00:00');
+  const isToday = ds===today();
+  const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0);
+  const entries = [...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
+  return `<div class="mv-day-group">
+    <div class="mv-day-hdr">
+      <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
+      <span class="mv-day-totals" style="color:var(--text2)">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
+    </div>
+    ${entries.map(e=>{
+      const par = parentOf(e.cat);
+      const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
+      return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
+        <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
+        <span class="mv-entry-what">${esc(e.what)}</span>
+        <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
+          ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
+        </span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderWidgetTagesavg(){
+  // Exact same card as in renderMonat() — uses the shared helper
+  return buildTagesavgCard(new Date().getMonth(), new Date().getFullYear());
 }
 
 function renderWidgetTopKategorien(){
@@ -3462,20 +3490,13 @@ function renderWidgetMonatverlauf(){
 }
 
 function renderWidgetHeuteAusgaben(){
+  // Same layout as renderMonat() day group — uses shared buildDayGroup helper
   const t = today();
-  const entries = DATA.expenses.filter(e=>e.date===t).sort((a,b)=>b.amt-a.amt);
-  if(entries.length===0) return `<div><div class="widget-title">Heutige Ausgaben</div><div style="color:var(--text3);font-size:13px">Heute noch keine Ausgaben.</div></div>`;
-  const total = entries.reduce((s,e)=>s+e.amt,0);
-  return `<div>
-    <div class="widget-title">Heutige Ausgaben – <span style="font-family:'DM Mono',monospace;color:var(--text)">CHF ${fmtAmt(total)}</span></div>
-    ${entries.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid var(--border)">
-      <div>
-        <div style="font-size:13px">${e.what}</div>
-        <div style="font-size:11px;color:var(--text3)">${e.cat}</div>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600">CHF ${fmtAmt(e.amt)}</div>
-    </div>`).join('')}
-  </div>`;
+  const dExp = DATA.expenses.filter(e=>e.date===t);
+  const dInc = DATA.incomes.filter(e=>e.date===t);
+  if(!dExp.length && !dInc.length)
+    return `<div class="card" style="padding:0"><div class="mv-day-group"><div style="padding:10px 14px;font-size:13px;color:var(--text3)">Heute noch keine Einträge.</div></div></div>`;
+  return `<div class="card" style="padding:0">${buildDayGroup(t, dExp, dInc)}</div>`;
 }
 
 function renderWidgetSparquote(){
@@ -5181,7 +5202,6 @@ function renderEinstellungen(){
 function renderMonat(){
   const now = new Date();
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const wdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   const todayStr = today();
   const yr = mvYear, mo = mvMonth;
   const isCurrent = yr===now.getFullYear() && mo===now.getMonth();
@@ -5213,14 +5233,6 @@ function renderMonat(){
     todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
     weekOut = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
   }
-  // Ø Tagesausgabe for all months
-  const daysInViewMonth = isCurrent ? now.getDate() : new Date(yr, mo+1, 0).getDate();
-  const avgDayThis = avgDailyVarSpend(mo, yr, daysInViewMonth);
-  // Vormonat comparison
-  const _prevComp = avgDailyVarSpendPrevComp(mo, yr);
-  const avgDayPrev = _prevComp.avg;
-  const _prevMoNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const avgDayDiff = avgDayPrev>0 ? (avgDayThis-avgDayPrev)/avgDayPrev*100 : null;
 
   const container = document.getElementById('monat-content');
   if(!container) return;
@@ -5269,17 +5281,9 @@ function renderMonat(){
     </div>
     ` : ''}
 
-    <!-- Ø Tagesausgabe (all months) -->
+    <!-- Ø Tagesausgabe (shared with home widget via buildTagesavgCard) -->
     <div class="section" style="padding-top:0">
-      <div class="stats-grid" style="margin-bottom:0">
-        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
-          <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)
-            ${avgDayDiff!==null?`<span style="font-size:11px;color:${avgDayDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDayDiff<=0?'↓':'↑'}${Math.abs(avgDayDiff).toFixed(0)}% vs. ${_prevMoNames[_prevComp.prevMo]}</span>`:''}
-            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
-          </div>
-          <div class="stat-value" style="font-size:18px">CHF ${fmtAmt(avgDayThis)}</div>
-        </div>
-      </div>
+      ${buildTagesavgCard(mo, yr)}
     </div>
 
     ${cats.length ? `
@@ -5303,31 +5307,7 @@ function renderMonat(){
     <div class="section" style="padding-top:0">
       <div class="section-title">Einträge</div>
       <div class="card" style="padding:0">
-        ${sortedDates.map(ds=>{
-          const d = new Date(ds+'T12:00:00');
-          const dExp = DATA.expenses.filter(e=>e.date===ds);
-          const dInc = DATA.incomes.filter(e=>e.date===ds);
-          const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0);
-          const isToday = ds===todayStr;
-          const entries = [...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
-          return `<div class="mv-day-group">
-            <div class="mv-day-hdr">
-              <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
-              <span class="mv-day-totals" style="color:var(--text2)">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
-            </div>
-            ${entries.map(e=>{
-              const par = parentOf(e.cat);
-              const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
-              return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
-                <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
-                <span class="mv-entry-what">${esc(e.what)}</span>
-                <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
-                  ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
-                </span>
-              </div>`;
-            }).join('')}
-          </div>`;
-        }).join('')}
+        ${sortedDates.map(ds=>buildDayGroup(ds, DATA.expenses.filter(e=>e.date===ds), DATA.incomes.filter(e=>e.date===ds))).join('')}
       </div>
     </div>`
     : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
