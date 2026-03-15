@@ -1567,6 +1567,22 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="card" style="padding:0 14px">
           <div class="settings-row">
             <div>
+              <div class="settings-row-label">Standardwährung</div>
+              <div class="settings-row-sub">Alle Beträge in dieser Währung anzeigen</div>
+            </div>
+            <select id="s-currency" class="form-select" style="width:auto;min-width:72px;padding:6px 8px;font-size:14px" onchange="CFG.currency=this.value;cfgSave();autoSyncProfile();renderAll()">
+              <option value="CHF">CHF</option>
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="GBP">GBP</option>
+              <option value="JPY">JPY</option>
+              <option value="SEK">SEK</option>
+              <option value="NOK">NOK</option>
+              <option value="DKK">DKK</option>
+            </select>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border)">
+            <div>
               <div class="settings-row-label">Dunkel-Modus</div>
               <div class="settings-row-sub">Dunkles oder helles Design</div>
             </div>
@@ -2069,7 +2085,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienInBilanz:false, widgetAktienPosId:'' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2081,6 +2097,9 @@ function cfgLoad(){
   }
   document.documentElement.dataset.theme = CFG.theme||'';
 }
+
+// Returns user's configured display currency (default CHF)
+function curr(){ return CFG.currency||'CHF'; }
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: SHEETS API (via Google Apps Script, GET-only)
@@ -2559,27 +2578,35 @@ function gotoSetupStep(n){
 // ── Profile Sync (Google Sheet "Einstellungen") ───────────
 function _profileExportable(){
   return {
-    ft_profile_v1: true,
-    userName:      CFG.userName||'',
-    theme:         CFG.theme||'',
-    lohnTag:       CFG.lohnTag||25,
-    sparziel:      CFG.sparziel||0,
-    mSparziel:     CFG.mSparziel||0,
-    pinnedTabs:    CFG.pinnedTabs||[],
-    homeWidgets:   CFG.homeWidgets||null,
-    notifSettings: CFG.notifSettings||{}
+    ft_profile_v1:     true,
+    userName:          CFG.userName||'',
+    theme:             CFG.theme||'',
+    lohnTag:           CFG.lohnTag||25,
+    sparziel:          CFG.sparziel||0,
+    mSparziel:         CFG.mSparziel||0,
+    pinnedTabs:        CFG.pinnedTabs||[],
+    homeWidgets:       CFG.homeWidgets||null,
+    notifSettings:     CFG.notifSettings||{},
+    fixkostenKats:     CFG.fixkostenKats||[],
+    aktienInBilanz:    !!CFG.aktienInBilanz,
+    widgetAktienPosId: CFG.widgetAktienPosId||'',
+    currency:          curr()
   };
 }
 function _profileApply(prof){
   if(!prof || !prof.ft_profile_v1) return;
-  if(prof.userName      !== undefined) CFG.userName      = prof.userName;
-  if(prof.theme         !== undefined){ CFG.theme = prof.theme; document.documentElement.dataset.theme = prof.theme||''; }
-  if(prof.lohnTag       !== undefined) CFG.lohnTag       = prof.lohnTag;
-  if(prof.sparziel      !== undefined) CFG.sparziel      = prof.sparziel;
-  if(prof.mSparziel     !== undefined) CFG.mSparziel     = prof.mSparziel;
-  if(prof.pinnedTabs    !== undefined) CFG.pinnedTabs    = prof.pinnedTabs;
-  if(prof.homeWidgets   !== undefined) CFG.homeWidgets   = prof.homeWidgets;
-  if(prof.notifSettings !== undefined) CFG.notifSettings = prof.notifSettings;
+  if(prof.userName          !== undefined) CFG.userName          = prof.userName;
+  if(prof.theme             !== undefined){ CFG.theme = prof.theme; document.documentElement.dataset.theme = prof.theme||''; }
+  if(prof.lohnTag           !== undefined) CFG.lohnTag           = prof.lohnTag;
+  if(prof.sparziel          !== undefined) CFG.sparziel          = prof.sparziel;
+  if(prof.mSparziel         !== undefined) CFG.mSparziel         = prof.mSparziel;
+  if(prof.pinnedTabs        !== undefined) CFG.pinnedTabs        = prof.pinnedTabs;
+  if(prof.homeWidgets       !== undefined) CFG.homeWidgets       = prof.homeWidgets;
+  if(prof.notifSettings     !== undefined) CFG.notifSettings     = prof.notifSettings;
+  if(prof.fixkostenKats     !== undefined) CFG.fixkostenKats     = prof.fixkostenKats;
+  if(prof.aktienInBilanz    !== undefined) CFG.aktienInBilanz    = !!prof.aktienInBilanz;
+  if(prof.widgetAktienPosId !== undefined) CFG.widgetAktienPosId = prof.widgetAktienPosId;
+  if(prof.currency          !== undefined) CFG.currency          = prof.currency;
   cfgSave();
 }
 
@@ -2789,6 +2816,15 @@ async function loadAll(){
 
     dataCacheSave();
     setSyncStatus('online'); renderAll();
+
+    // Secondary async: Kurse-Sheet + Portfolio-Verlauf (non-blocking)
+    if(SDATA.stocks.length){
+      syncKurseSheet().then(()=>{
+        if(currentTab==='aktien') renderAktien();
+        appendPortfolioSnapshot();
+      });
+      loadPortfolioVerlauf();
+    }
   } catch(e){
     setSyncStatus('error');
     toast('Ladefehler: '+e.message,'err');
@@ -3362,7 +3398,7 @@ function renderMonthView(){
           <div class="bar-wrap">
             <div class="bar-label-row">
               <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
-              <span class="bar-val">CHF ${fmtAmt(amt)}</span>
+              <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
             </div>
             <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
           </div>`).join('')}
@@ -3606,7 +3642,7 @@ function renderVerlauf(){
       <div class="date-group">
         <div class="date-label" style="display:flex;justify-content:space-between;align-items:center">
           <span>${fmtDate(date)}</span>
-          <span style="font-size:12px;font-weight:500;color:${dayColor}">${daySign} CHF ${fmtAmt(Math.abs(dayTotal))}</span>
+          <span style="font-size:12px;font-weight:500;color:${dayColor}">${daySign} ${curr()} ${fmtAmt(Math.abs(dayTotal))}</span>
         </div>
         <div class="card" style="margin:0 16px">
           ${items.map(e=>{
@@ -3700,10 +3736,10 @@ function renderRecurring(){
         <div class="card-row-title">${esc(r.what)}${endBadge}</div>
         <div class="card-row-sub">${r.interval} · ${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${r.affectsAvg?' · <span style="color:var(--accent);font-size:10px">Ø</span>':''}${r.note?' · '+esc(r.note):''}</div>
       </div>
-      <div class="card-row-amount expense">CHF ${fmtAmt(r.amt)}</div>
+      <div class="card-row-amount expense">${curr()} ${fmtAmt(r.amt)}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
-  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total Fixkosten / Monat</span><span style="font-family:'DM Mono',monospace;font-weight:600">CHF ${fmtAmt(totalFix)}</span></div>`;
+  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total Fixkosten / Monat</span><span style="font-family:'DM Mono',monospace;font-weight:600">${curr()} ${fmtAmt(totalFix)}</span></div>`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -3871,17 +3907,17 @@ function renderWidgetLohnzyklus(){
   return `<div>
     <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">CHF ${fmtAmt(Math.abs(z.varRemaining))}</span>
+      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
       <span style="font-size:12px;color:var(--text3)">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
     </div>
     <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
       <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
-      <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.varSpent)}</span></span>
-      <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.varBudget)}</span></span>
+      <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
+      <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varBudget)}</span></span>
     </div>
-    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: <span style="color:var(--accent);font-family:'DM Mono',monospace">CHF ${fmtAmt(z.dailyRate)}/Tag</span> (${z.daysLeft} Tage verbleibend)</div>`:''}
+    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: <span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.dailyRate)}/Tag</span> (${z.daysLeft} Tage verbleibend)</div>`:''}
   </div>`;
 }
 
@@ -3902,7 +3938,7 @@ function buildTagesavgCard(mo, yr){
         ${diffPct!==null?`<span style="font-size:11px;color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:6px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
         <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
       </div>
-      <div class="stat-value" style="font-size:18px">CHF ${fmtAmt(avg)}</div>
+      <div class="stat-value" style="font-size:18px">${curr()} ${fmtAmt(avg)}</div>
     </div>
   </div>`;
 }
@@ -3976,7 +4012,7 @@ function renderWidgetTopKategorien(){
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block"></span>${esc(cat)}</span>
-          <span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(amt)} <span style="color:var(--text3);font-size:10px">${total>0?Math.round(amt/total*100):0}%</span></span>
+          <span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(amt)} <span style="color:var(--text3);font-size:10px">${total>0?Math.round(amt/total*100):0}%</span></span>
         </div>
         <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.85"></div></div>
       </div>`;
@@ -4011,8 +4047,8 @@ function renderWidgetMonatverlauf(){
       }).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
-      <span>Max: CHF ${fmtAmt(max)}</span>
-      <span>Akt.: CHF ${fmtAmt(totals[5])}</span>
+      <span>Max: ${curr()} ${fmtAmt(max)}</span>
+      <span>Akt.: ${curr()} ${fmtAmt(totals[5])}</span>
     </div>
   </div>`;
 }
@@ -4032,18 +4068,18 @@ function renderWidgetHeuteAusgaben(){
 
   let html = `<div>
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">HEUTE</div>
-    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:6px">CHF&nbsp;${fmtAmt(todayOut)}</div>`;
+    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:6px">${curr()}&nbsp;${fmtAmt(todayOut)}</div>`;
 
   if(todayIn>0){
-    html += `<div style="font-size:12px;color:var(--green);margin-bottom:4px">+CHF ${fmtAmt(todayIn)} Einnahmen</div>`;
+    html += `<div style="font-size:12px;color:var(--green);margin-bottom:4px">+${curr()} ${fmtAmt(todayIn)} Einnahmen</div>`;
   }
 
   if(dailyBudget!==null){
     const remaining = dailyBudget - todayOut;
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
-      <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">CHF ${fmtAmt(dailyBudget)}</span></span>
+      <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
       <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
-        ${remaining>=0?'noch ':'überzogen '}<span style="font-family:'DM Mono',monospace">CHF ${fmtAmt(Math.abs(remaining))}</span>
+        ${remaining>=0?'noch ':'überzogen '}<span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(Math.abs(remaining))}</span>
       </span>
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
@@ -4075,8 +4111,8 @@ function renderWidgetSparquote(){
       <div style="height:100%;width:${Math.min(100,Math.max(0,pct))}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
     </div>
     <div style="margin-top:6px;font-size:12px;color:var(--text3)">
-      Gespart: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(saved)}</span>
-      ${ziel>0?` / Ziel: <span style="color:var(--text);font-family:'DM Mono',monospace">CHF ${fmtAmt(ziel)}</span>`:''}
+      Gespart: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(saved)}</span>
+      ${ziel>0?` / Ziel: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(ziel)}</span>`:''}
     </div>
   </div>`;
 }
@@ -4139,7 +4175,7 @@ function renderWidgetMonatKategorien(mo, yr, limit=5){
       <div class="bar-wrap">
         <div class="bar-label-row">
           <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
-          <span class="bar-val">CHF ${fmtAmt(amt)}</span>
+          <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxVal*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
       </div>`).join('')}
@@ -4190,12 +4226,12 @@ function renderWidgetJahresSparquote(yr){
       ${isCurrentYear?`<button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:${sparziel?'8px':'4px'}">
-      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor}">${yearSaved>=0?'+':''}CHF ${fmtAmt(yearSaved)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor}">${yearSaved>=0?'+':''}${curr()} ${fmtAmt(yearSaved)}</span>
       ${goalReached?`<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(61,219,150,.15);padding:2px 8px;border-radius:99px">✓ Ziel erreicht</span>`:''}
     </div>
-    ${isCurrentYear&&CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'6px'}">davon CHF ${fmtAmt(cashSaved)} Cash + CHF ${fmtAmt(depotWert)} Depot</div>`:''}
+    ${isCurrentYear&&CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'6px'}">davon ${curr()} ${fmtAmt(cashSaved)} Cash + ${curr()} ${fmtAmt(depotWert)} Depot</div>`:''}
     ${sparziel>0?`<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: CHF ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: ${curr()} ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
       <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
     </div>`:''}
     ${yMonths.map(m=>{
@@ -4209,10 +4245,10 @@ function renderWidgetJahresSparquote(yr){
     }).join('')}
     ${doneM.length>0?`<div style="display:flex;gap:20px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Ø / Monat</div>
-        <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}CHF ${fmtAmt(Math.abs(avgM))}</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}${curr()} ${fmtAmt(Math.abs(avgM))}</div>
       </div>
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Hochrechnung ${yr}</div>
-        <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}CHF ${fmtAmt(Math.abs(proj))}</div>
+        <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}${curr()} ${fmtAmt(Math.abs(proj))}</div>
       </div>
     </div>`:''}
   </div>`;
@@ -4235,7 +4271,7 @@ function renderWidgetJahresKategorien(yr){
       return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${col}"></div><span style="font-size:13px">${esc(cat)}</span></div>
-          <div style="font-size:12px;font-family:'DM Mono',monospace"><span style="color:var(--text3)">${pct}%</span> CHF ${fmtAmt(amt)}</div>
+          <div style="font-size:12px;font-family:'DM Mono',monospace"><span style="color:var(--text3)">${pct}%</span> ${curr()} ${fmtAmt(amt)}</div>
         </div>
         <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.7"></div></div>
       </div>`;
@@ -4539,7 +4575,7 @@ function renderDashboard(){
             <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
           </div>
           <div class="stat-value" style="font-size:18px;color:${avgDayYear>0?'var(--text)':'var(--text3)'}">
-            ${avgDayYear>0?'CHF '+fmtAmt(avgDayYear):'—'}
+            ${avgDayYear>0?curr()+' '+fmtAmt(avgDayYear):'—'}
           </div>
         </div>
       </div>
@@ -4552,7 +4588,7 @@ function renderDashboard(){
         ${yearTotalInc>0 ? `
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
           <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:var(--text)">${lohnPct.toFixed(1)}%</span>
-          <span style="font-size:12px;color:var(--text3)">CHF ${fmtAmt(yearLohnInc)} von CHF ${fmtAmt(yearTotalInc)}</span>
+          <span style="font-size:12px;color:var(--text3)">${curr()} ${fmtAmt(yearLohnInc)} von ${curr()} ${fmtAmt(yearTotalInc)}</span>
         </div>
         <div class="zy-prog-wrap" style="margin:0;height:8px">
           <div class="zy-prog-fill" style="width:${Math.min(lohnPct,100).toFixed(1)}%;background:var(--accent)"></div>
@@ -4783,7 +4819,7 @@ function checkDueRecurrings(){
           recurId: r.id,
           date: todayStr,
           title: r.what,
-          body: `CHF ${fmtAmt(r.amt)} · ${r.interval}`,
+          body: `${curr()} ${fmtAmt(r.amt)} · ${r.interval}`,
           dismissed: false,
           confirmed: false
         });
@@ -4817,12 +4853,12 @@ function checkAllNotifications(){
   if(notifOn('dailyReport')){
     const todayExp = DATA.expenses.filter(e=>e.date===todayStr);
     const t = todayExp.reduce((s,e)=>s+e.amt,0);
-    if(t>0){ const nid=`daily-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'dailyReport',date:todayStr,title:`Tagesreport: CHF ${fmtAmt(t)}`,body:`${todayExp.length} Buchung${todayExp.length!==1?'en':''} heute erfasst`,dismissed:false,confirmed:false}); }
+    if(t>0){ const nid=`daily-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'dailyReport',date:todayStr,title:`Tagesreport: ${curr()} ${fmtAmt(t)}`,body:`${todayExp.length} Buchung${todayExp.length!==1?'en':''} heute erfasst`,dismissed:false,confirmed:false}); }
   }
   // 2. Overspend
   if(notifOn('overspend')){
     const z=getZyklusInfo();
-    if(z.hasSalary&&z.varRemaining<0){ const nid=`overspend-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'overspend',date:todayStr,title:'⚠ Überbudget!',body:`CHF ${fmtAmt(Math.abs(z.varRemaining))} über dem verfügbaren Budget`,dismissed:false,confirmed:false}); }
+    if(z.hasSalary&&z.varRemaining<0){ const nid=`overspend-${todayStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'overspend',date:todayStr,title:'⚠ Überbudget!',body:`${curr()} ${fmtAmt(Math.abs(z.varRemaining))} über dem verfügbaren Budget`,dismissed:false,confirmed:false}); }
   }
   // 3. Month-end report (on 1st)
   if(notifOn('monthEnd')&&now.getDate()===1){
@@ -4832,28 +4868,28 @@ function checkAllNotifications(){
     if(!CFG.notifications.find(n=>n.id===nid)){
       const pmOut=DATA.expenses.filter(e=>e.date.startsWith(pmKey)).reduce((s,e)=>s+e.amt,0);
       const pmInc=DATA.incomes.filter(e=>e.date.startsWith(pmKey)).reduce((s,e)=>s+e.amt,0);
-      CFG.notifications.push({id:nid,type:'monthEnd',date:todayStr,title:`Monatsabschluss ${mN[pM.getMonth()]} ${pM.getFullYear()}`,body:`Ausgaben CHF ${fmtAmt(pmOut)} · Einnahmen CHF ${fmtAmt(pmInc)} · Saldo CHF ${fmtAmt(pmInc-pmOut)}`,dismissed:false,confirmed:false});
+      CFG.notifications.push({id:nid,type:'monthEnd',date:todayStr,title:`Monatsabschluss ${mN[pM.getMonth()]} ${pM.getFullYear()}`,body:`Ausgaben ${curr()} ${fmtAmt(pmOut)} · Einnahmen ${curr()} ${fmtAmt(pmInc)} · Saldo ${curr()} ${fmtAmt(pmInc-pmOut)}`,dismissed:false,confirmed:false});
     }
   }
   // 4. Cycle start
   if(notifOn('cycleStart')){
     const z=getZyklusInfo();
-    if(z.hasSalary){ const nid=`cycle-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'cycleStart',date:z.startStr,title:'Lohnzyklus gestartet',body:`CHF ${fmtAmt(z.lohn)} Lohn · Periode bis ${z.endStr}`,dismissed:false,confirmed:false}); }
+    if(z.hasSalary){ const nid=`cycle-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'cycleStart',date:z.startStr,title:'Lohnzyklus gestartet',body:`${curr()} ${fmtAmt(z.lohn)} Lohn · Periode bis ${z.endStr}`,dismissed:false,confirmed:false}); }
   }
   // 5. Budget 80%
   if(notifOn('budgetWarning')){
     const z=getZyklusInfo();
-    if(z.hasSalary&&z.varBudget>0&&z.varSpent/z.varBudget>=0.8){ const nid=`budget80-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'budgetWarning',date:todayStr,title:`${Math.round(z.varSpent/z.varBudget*100)}% des Budgets verbraucht`,body:`CHF ${fmtAmt(z.varRemaining)} verbleibend · ${z.daysLeft} Tage`,dismissed:false,confirmed:false}); }
+    if(z.hasSalary&&z.varBudget>0&&z.varSpent/z.varBudget>=0.8){ const nid=`budget80-${z.startStr}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'budgetWarning',date:todayStr,title:`${Math.round(z.varSpent/z.varBudget*100)}% des Budgets verbraucht`,body:`${curr()} ${fmtAmt(z.varRemaining)} verbleibend · ${z.daysLeft} Tage`,dismissed:false,confirmed:false}); }
   }
   // 6. Big expense
   if(notifOn('bigExpense')){
     const thr=(CFG.notifSettings?.bigExpenseAmt)||200;
-    DATA.expenses.filter(e=>e.amt>=thr).forEach(e=>{ const nid=`bigexp-${e.id}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'bigExpense',date:e.date,title:`Grosse Ausgabe: CHF ${fmtAmt(e.amt)}`,body:`${e.what} · ${e.cat}`,dismissed:false,confirmed:false}); });
+    DATA.expenses.filter(e=>e.amt>=thr).forEach(e=>{ const nid=`bigexp-${e.id}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'bigExpense',date:e.date,title:`Grosse Ausgabe: ${curr()} ${fmtAmt(e.amt)}`,body:`${e.what} · ${e.cat}`,dismissed:false,confirmed:false}); });
   }
   // 7. Weekly report (Sunday)
   if(notifOn('weeklyReport')&&now.getDay()===0){
     const mon=new Date(now); mon.setDate(now.getDate()-6); const monStr=dateStr(mon);
-    const nid=`weekly-${monStr}`; if(!CFG.notifications.find(n=>n.id===nid)){ const wOut=DATA.expenses.filter(e=>e.date>=monStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0); CFG.notifications.push({id:nid,type:'weeklyReport',date:todayStr,title:'Wochenrückblick',body:`CHF ${fmtAmt(wOut)} ausgegeben diese Woche`,dismissed:false,confirmed:false}); }
+    const nid=`weekly-${monStr}`; if(!CFG.notifications.find(n=>n.id===nid)){ const wOut=DATA.expenses.filter(e=>e.date>=monStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0); CFG.notifications.push({id:nid,type:'weeklyReport',date:todayStr,title:'Wochenrückblick',body:`${curr()} ${fmtAmt(wOut)} ausgegeben diese Woche`,dismissed:false,confirmed:false}); }
   }
   cfgSave(); updateNotifBadge();
 }
@@ -5028,20 +5064,20 @@ function renderLohn(){
         </div>
         <div class="zy-body">
           ${z.hasSalary ? `
-          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ CHF ${fmtAmt(z.lohn)}</span></div>
-          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− CHF ${fmtAmt(z.fixKosten)}</span></div>`:''}
-          ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}CHF ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
-          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− CHF ${fmtAmt(z.mSparziel)}</span></div>`:''}
+          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ ${curr()} ${fmtAmt(z.lohn)}</span></div>
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− ${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
+          ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}${curr()} ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
+          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− ${curr()} ${fmtAmt(z.mSparziel)}</span></div>`:''}
           <div class="zy-divider"></div>
-          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}CHF ${fmtAmt(Math.abs(z.varBudget))}</span></div>
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val" style="color:var(--red)">− CHF ${fmtAmt(z.varSpent)}</span></div>
-          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">CHF ${fmtAmt(z.varRemaining)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span></div>
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val" style="color:var(--red)">− ${curr()} ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(z.varRemaining)}</span></div>
           <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
           <div class="zy-prog-labels"><span>${budgetPct.toFixed(0)}% des Budgets verbraucht</span><span>${z.daysLeft} Tage verbleibend</span></div>
           ${z.dailyRate!==null?`
           <div class="zy-rate-wrap">
             <div style="display:flex;align-items:baseline;gap:8px">
-              <span class="zy-rate" style="color:${rateColor}">CHF ${fmtAmt(Math.abs(z.dailyRate))}</span>
+              <span class="zy-rate" style="color:${rateColor}">${curr()} ${fmtAmt(Math.abs(z.dailyRate))}</span>
               <span style="font-size:13px;color:var(--text2)">/ Tag ${z.dailyRate>=0?'verfügbar':'überzogen'}</span>
             </div>
           </div>`:''}
@@ -5144,7 +5180,7 @@ function renderLohn(){
       <div class="date-group">
         <div class="date-label" style="display:flex;justify-content:space-between;align-items:center">
           <span>${mNames[parseInt(mo)-1]} ${yr}</span>
-          <span style="font-size:12px;font-weight:500;color:var(--green)">+ CHF ${fmtAmt(total)}</span>
+          <span style="font-size:12px;font-weight:500;color:var(--green)">+ ${curr()} ${fmtAmt(total)}</span>
         </div>
         <div class="card" style="margin:0 16px">
           ${items.map(e=>`
@@ -5252,7 +5288,7 @@ function openAvgConfig(){
     <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
       <div>
         <div style="font-size:14px;font-weight:500">${esc(r.what)}</div>
-        <div style="font-size:12px;color:var(--text3)">${r.interval} · CHF ${fmtAmt(r.amt)}</div>
+        <div style="font-size:12px;color:var(--text3)">${r.interval} · ${curr()} ${fmtAmt(r.amt)}</div>
       </div>
       <input type="checkbox" data-rid="${r.id}" ${r.affectsAvg?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
     </label>`).join('');
@@ -5654,6 +5690,18 @@ function _handle(p) {
   if (p.action === 'meta') {
     return _json({ sheets: ss.getSheets().map(s => ({ properties: { title: s.getName() } })) });
   }
+  if (p.action === 'ensureSheet') {
+    let sh = ss.getSheetByName(p.sheet);
+    if (!sh) {
+      sh = ss.insertSheet(p.sheet);
+      if (p.headers) { const h = JSON.parse(p.headers); sh.getRange(1,1,1,h.length).setValues([h]); }
+    }
+    return _json({ ok: true });
+  }
+  if (p.action === 'setFormulas') {
+    ss.getRange(p.range).setFormulas(JSON.parse(p.formulas));
+    return _json({ ok: true });
+  }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
 }
 
@@ -5709,12 +5757,14 @@ function _handle(p) {
   if (!session) return { error: 'Sitzung abgelaufen. Bitte neu anmelden.' };
   const user = _getUser(ss, session.username);
   if (!user) return { error: 'Benutzer nicht gefunden.' };
-  if (p.action === 'logout')     return _logout(ss, p.token);
-  if (p.action === 'get')        return _proxyGet(user.sheetId, p);
-  if (p.action === 'append')     return _proxyAppend(user.sheetId, p);
-  if (p.action === 'update')     return _proxyUpdate(user.sheetId, p);
-  if (p.action === 'meta')       return _proxyMeta(user.sheetId);
-  if (p.action === 'change_pw')  return _changePw(ss, session.username, p);
+  if (p.action === 'logout')       return _logout(ss, p.token);
+  if (p.action === 'get')          return _proxyGet(user.sheetId, p);
+  if (p.action === 'append')       return _proxyAppend(user.sheetId, p);
+  if (p.action === 'update')       return _proxyUpdate(user.sheetId, p);
+  if (p.action === 'meta')         return _proxyMeta(user.sheetId);
+  if (p.action === 'ensureSheet')  return _proxyEnsureSheet(user.sheetId, p);
+  if (p.action === 'setFormulas')  return _proxySetFormulas(user.sheetId, p);
+  if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);
@@ -5820,6 +5870,19 @@ function _proxyUpdate(sheetId, p) {
 function _proxyMeta(sheetId) {
   return { sheets: SpreadsheetApp.openById(sheetId).getSheets().map(s => ({ properties: { title: s.getName() } })) };
 }
+function _proxyEnsureSheet(sheetId, p) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  let sh = ss.getSheetByName(p.sheet);
+  if (!sh) {
+    sh = ss.insertSheet(p.sheet);
+    if (p.headers) { const h = JSON.parse(p.headers); sh.getRange(1,1,1,h.length).setValues([h]); }
+  }
+  return { ok: true };
+}
+function _proxySetFormulas(sheetId, p) {
+  SpreadsheetApp.openById(sheetId).getRange(p.range).setFormulas(JSON.parse(p.formulas));
+  return { ok: true };
+}
 
 function _adminList(ss) {
   const rows = ss.getSheetByName('Users').getDataRange().getValues();
@@ -5856,6 +5919,8 @@ function _initUserSheet(ss) {
    ['Einstellungen',['Schlüssel','Wert']],
    ['Aktien',['ID','Titel','ISIN','Ticker','Währung','Deleted']],
    ['Trades',['ID','AktieID','Typ','Datum','Anzahl','Preis','Währung','Courtage','Gesamt','Deleted']],
+   ['Kurse',['Ticker','Kurs','Währung']],
+   ['Portfolio-Verlauf',['Datum','Gesamt']],
   ].forEach(([name,headers])=>_hdr(ss.insertSheet(name),headers));
   const cats=[['k001','Zmittag','ausgabe','#FF6B35',1],['k002','Snack','ausgabe','#F7931E',2],
     ['k003','Ferien','ausgabe','#00D4AA',3],['k004','Poschte','ausgabe','#4ECDC4',4],
@@ -5890,15 +5955,93 @@ function copyAdminCodeGs() {
 // ═══════════════════════════════════════════════════════════════
 const STOCKS_KEY = 'ft_stocks_v1';
 let SDATA = { stocks:[], trades:[] };
+let PDATA = { verlauf:[] }; // [{date, total}] — loaded from Portfolio-Verlauf sheet
 let aktienView = 'aktiv';
 let currentAktieId = null;
 let stockPriceCache = {}; // ticker → { price, currency, ts }
+let fxRateCache = {}; // "USDCHF" → rate (to convert from USD to CHF)
 
 function sdataLoad(){
   try{ const s=localStorage.getItem(STOCKS_KEY); if(s) SDATA=JSON.parse(s); }
   catch(e){ SDATA={stocks:[],trades:[]}; }
 }
 function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
+
+// ── GOOGLEFINANCE: Kurse-Sheet Sync ──────────────────────────────────────────
+// Writes tickers to Kurse sheet, sets GOOGLEFINANCE formulas, reads back prices + FX rates.
+// Falls back to Yahoo Finance if sheet unavailable.
+async function syncKurseSheet(){
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>s.ticker.toUpperCase());
+  const userCurr = curr().toUpperCase();
+  // Build FX pairs needed: e.g. USD→CHF = "CURRENCY:USDCHF"
+  const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
+  const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
+  const allTickers = [...new Set([...tickers, ...fxTickers])];
+  if(!allTickers.length) return;
+  try{
+    // Ensure Kurse sheet exists
+    await apiCall({action:'ensureSheet', sheet:'Kurse', headers:JSON.stringify(['Ticker','Kurs','Währung'])});
+    // Write ticker column
+    const tickerRows = allTickers.map(t=>[t]);
+    await apiUpdate(`Kurse!A2:A${1+allTickers.length}`, tickerRows);
+    // Set GOOGLEFINANCE formulas in B + C (idempotent)
+    const formulas = allTickers.map((_,i)=>[
+      `=IFERROR(GOOGLEFINANCE(A${i+2},"price"),"")`,
+      `=IFERROR(GOOGLEFINANCE(A${i+2},"currency"),"")`
+    ]);
+    await apiCall({action:'setFormulas', range:`Kurse!B2:C${1+allTickers.length}`, formulas:JSON.stringify(formulas)});
+    // Read back computed values
+    const res = await apiGet(`Kurse!A2:C${1+allTickers.length}`);
+    (res.values||[]).forEach(r=>{
+      const ticker = String(r[0]||'').toUpperCase();
+      const price = parseFloat(r[1]);
+      const currency = String(r[2]||'').toUpperCase();
+      if(!ticker || isNaN(price) || price<=0) return;
+      if(ticker.startsWith('CURRENCY:')){
+        // Store FX rate: "CURRENCY:USDCHF" → fxRateCache["USDCHF"] = rate
+        fxRateCache[ticker.replace('CURRENCY:','')] = price;
+      } else {
+        stockPriceCache[ticker] = {price, currency: currency||ticker, ts:Date.now()};
+      }
+    });
+  }catch(e){ /* silent — Kurse sheet may not be set up yet (old GAS) */ }
+}
+
+// ── Portfolio-Verlauf ─────────────────────────────────────────────────────────
+async function loadPortfolioVerlauf(){
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)){ PDATA.verlauf=[]; return; }
+  try{
+    const res = await apiGet('Portfolio-Verlauf!A2:B500');
+    PDATA.verlauf = (res.values||[])
+      .filter(r=>r[0]&&parseFloat(r[1])>0)
+      .map(r=>({date:String(r[0]).slice(0,10), total:parseFloat(r[1])||0}))
+      .sort((a,b)=>a.date.localeCompare(b.date));
+  }catch(e){ PDATA.verlauf=[]; }
+}
+
+async function appendPortfolioSnapshot(){
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  const total = getGesamtPortfoliowert();
+  if(total<=0) return;
+  const todayStr = today();
+  try{
+    await apiCall({action:'ensureSheet', sheet:'Portfolio-Verlauf', headers:JSON.stringify(['Datum','Gesamt'])});
+    // Don't duplicate today's entry
+    const last = PDATA.verlauf[PDATA.verlauf.length-1];
+    if(last && last.date===todayStr){
+      // Update today's value in place
+      const res2 = await apiGet('Portfolio-Verlauf!A:A');
+      const rows2 = res2.values||[];
+      const rowIdx = rows2.findIndex(r=>String(r[0]).slice(0,10)===todayStr);
+      if(rowIdx>0) await apiUpdate(`Portfolio-Verlauf!B${rowIdx+1}:B${rowIdx+1}`,[[total]]);
+      PDATA.verlauf[PDATA.verlauf.length-1].total = total;
+    } else {
+      await apiAppend('Portfolio-Verlauf',[[todayStr, total]]);
+      PDATA.verlauf.push({date:todayStr, total});
+    }
+  }catch(e){ /* silent */ }
+}
 
 // Calculate position: qty held, weighted avg price, total cost
 // Deterministic color for a stock by id or index
@@ -5916,12 +6059,35 @@ function getDurchschnittsPreis(stockId){ return calcPosition(stockId).avgPrice; 
 // Aktueller Live-Kurs aus Cache (null wenn nicht verfügbar)
 function getAktuellerKurs(ticker){ return ticker ? (stockPriceCache[ticker]?.price ?? null) : null; }
 
-// Positionswert: qty × aktueller Kurs, fallback auf Einstand
+// FX conversion helpers
+// Returns exchange rate for fromCurrency → curr() (user's currency), or 1 if same/unknown
+function getFxRate(fromCurrency){
+  if(!fromCurrency) return 1;
+  const fc = fromCurrency.toUpperCase(), uc = curr().toUpperCase();
+  if(fc === uc) return 1;
+  const key = fc + uc;
+  return fxRateCache[key] || 1; // fallback 1 = no conversion (rate unknown)
+}
+// Returns true if FX rate is available for given stock currency
+function hasFxRate(fromCurrency){
+  if(!fromCurrency) return true;
+  const fc = fromCurrency.toUpperCase(), uc = curr().toUpperCase();
+  if(fc === uc) return true;
+  return !!(fxRateCache[fc + uc]);
+}
+// Convert an amount from fromCurrency to user's currency
+function toUserCurrency(amount, fromCurrency){ return amount * getFxRate(fromCurrency); }
+
+// Positionswert: qty × aktueller Kurs (in user currency), fallback auf Einstand
 function getPositionsWert(stockId){
   const pos = calcPosition(stockId);
   const s = SDATA.stocks.find(s=>s.id===stockId);
   const lp = s?.ticker ? getAktuellerKurs(s.ticker) : null;
-  return lp!=null && pos.qty>0.0001 ? pos.qty * lp : pos.totalCost;
+  if(lp!=null && pos.qty>0.0001){
+    const inUserCurr = toUserCurrency(lp, stockPriceCache[s.ticker]?.currency || s.currency);
+    return pos.qty * inUserCurr;
+  }
+  return toUserCurrency(pos.totalCost, s?.currency);
 }
 
 // Gesamter Portfolio-Marktwert (Summe aller Positionswerte)
@@ -5929,25 +6095,31 @@ function getGesamtPortfoliowert(){
   return SDATA.stocks.reduce((sum,s)=>sum+getPositionsWert(s.id), 0);
 }
 
-// Gewinn/Verlust für eine Position {amt, pct, hasLive}
+// Gewinn/Verlust für eine Position {amt, pct, hasLive} — in user currency
 function getGewinnVerlust(stockId){
   const pos = calcPosition(stockId);
   const s = SDATA.stocks.find(s=>s.id===stockId);
   if(!s || pos.qty<0.0001) return {amt:0,pct:0,hasLive:false};
   const lp = s.ticker ? getAktuellerKurs(s.ticker) : null;
   if(lp==null) return {amt:0,pct:0,hasLive:false};
-  const amt = (lp - pos.avgPrice) * pos.qty;
-  const pct = pos.avgPrice>0 ? (lp/pos.avgPrice-1)*100 : 0;
-  return {amt,pct,hasLive:true};
+  const stockCurr = stockPriceCache[s.ticker]?.currency || s.currency;
+  const fxRate = getFxRate(stockCurr);
+  const lpConverted = lp * fxRate;
+  const avgConverted = pos.avgPrice * fxRate;
+  const amt = (lpConverted - avgConverted) * pos.qty;
+  const pct = pos.avgPrice>0 ? (lp/pos.avgPrice-1)*100 : 0; // % stays in original currency
+  return {amt, pct, hasLive:true};
 }
 
-// Gesamter Portfolio-GV (Summe aller Positionen mit Live-Kurs)
+// Gesamter Portfolio-GV (Summe aller Positionen mit Live-Kurs) — in user currency
 function getGesamtGewinnVerlust(){
   let amt=0, cost=0, hasAny=false;
   SDATA.stocks.forEach(s=>{
     const pos=calcPosition(s.id); if(pos.qty<0.0001) return;
     const lp=s.ticker?getAktuellerKurs(s.ticker):null; if(!lp) return;
-    amt+=(lp-pos.avgPrice)*pos.qty; cost+=pos.totalCost; hasAny=true;
+    const stockCurr = stockPriceCache[s.ticker]?.currency || s.currency;
+    const fxRate = getFxRate(stockCurr);
+    amt+=(lp-pos.avgPrice)*pos.qty*fxRate; cost+=pos.totalCost*fxRate; hasAny=true;
   });
   return {amt, pct:cost>0?amt/cost*100:0, hasLive:hasAny};
 }
@@ -6043,22 +6215,25 @@ function buildPortfolioPieChart(stocks){
   </div>`;
 }
 
-// Bar chart: Ø Kaufpreis vs. Aktueller Kurs per stock
+// Bar chart: Ø Kaufpreis vs. Aktueller Kurs per stock (in user currency)
 function buildPreisVergleichChart(stocks){
   const items = stocks.filter(s=>s.pos.qty>0.0001).map(s=>{
-    const lp=s.ticker?getAktuellerKurs(s.ticker):null;
-    return {label:s.ticker||s.title,avg:s.pos.avgPrice,live:lp,color:aktieColor(s.id)};
+    const live=s.ticker?stockPriceCache[s.ticker]:null;
+    const lp=live?.price;
+    const stockCurr=(live?.currency||s.currency||'').toUpperCase();
+    const fxRate=getFxRate(stockCurr);
+    return {label:s.ticker||s.title,avg:s.pos.avgPrice*fxRate,live:lp!=null?lp*fxRate:null,color:aktieColor(s.id),origCurr:stockCurr!==curr().toUpperCase()?stockCurr:''};
   }).filter(d=>d.avg>0);
   if(!items.length) return '';
   const maxVal=Math.max(...items.flatMap(d=>[d.avg,d.live||0]))||1;
   const barH=36,gap=12,padL=0,W=300;
   return `
-  <div class="widget-title">Ø Kaufpreis vs. Aktueller Kurs</div>
+  <div class="widget-title">Ø Kaufpreis vs. Kurs (${curr()})</div>
   <div style="overflow-x:auto">
     ${items.map(d=>`
     <div style="margin-bottom:${gap}px">
       <div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;justify-content:space-between">
-        <span>${esc(d.label)}</span>
+        <span>${esc(d.label)}${d.origCurr?` <span style="font-size:9px;color:var(--text3)">${d.origCurr}</span>`:''}</span>
         ${d.live!=null?`<span style="color:${d.live>=d.avg?'var(--green)':'var(--red)'};font-family:'DM Mono',monospace;font-size:10px">${d.live>=d.avg?'↑':'↓'} ${fmtPrice(d.live)}</span>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
@@ -6083,21 +6258,70 @@ function buildPreisVergleichChart(stocks){
   </div>`;
 }
 
-// Portfolio-Verlauf: cumulative cost invested over time (from trades)
+// Portfolio-Verlauf: real market value over time (from Portfolio-Verlauf sheet).
+// Fallback: cumulative cost invested from trades.
 function buildPortfolioVerlauf(){
+  const W=300,H=110,padL=48,padR=8,padT=8,padB=22;
+  const cW=W-padL-padR,cH=H-padT-padB;
+
+  // ─ Real history from sheet (preferred) ─
+  if(PDATA.verlauf.length>=2){
+    const pts=[...PDATA.verlauf];
+    // Add current live value as final point if today's entry is there
+    const todayStr=today();
+    const curVal=getGesamtPortfoliowert();
+    if(pts[pts.length-1].date===todayStr && curVal>0) pts[pts.length-1].total=curVal;
+    else if(curVal>0) pts.push({date:todayStr,total:curVal});
+
+    const firstDate=pts[0].date, lastDate=pts[pts.length-1].date;
+    const startD=new Date(firstDate+'T12:00:00');
+    const totDays=Math.max(1,Math.round((new Date(lastDate+'T12:00:00')-startD)/86400000));
+    const mapX=d=>{const dy=Math.round((new Date(d+'T12:00:00')-startD)/86400000);return padL+(dy/totDays)*cW;};
+    const minV=Math.min(...pts.map(p=>p.total),0);
+    const maxV=Math.max(...pts.map(p=>p.total),1);
+    const range=maxV-minV||1;
+    const mapY=v=>padT+cH-((v-minV)/range)*cH;
+    const poly=pts.map(p=>`${mapX(p.date).toFixed(1)},${mapY(p.total).toFixed(1)}`).join(' ');
+    const area=`M${mapX(pts[0].date).toFixed(1)},${mapY(minV)} `+pts.map(p=>`L${mapX(p.date).toFixed(1)},${mapY(p.total).toFixed(1)}`).join(' ')+` L${mapX(pts[pts.length-1].date).toFixed(1)},${mapY(minV)} Z`;
+    const fmtLbl=v=>Math.abs(v)>=1000?(v/1000).toFixed(1)+'k':Math.round(v).toString();
+    const yLabels=[[minV,'var(--text3)',fmtLbl(minV)],[maxV,'var(--green)',fmtLbl(maxV)]].map(([v,c,lbl])=>
+      `<text x="2" y="${mapY(v).toFixed(1)}" font-size="8" fill="${c}" dominant-baseline="middle" font-family="DM Mono,monospace">${lbl}</text>`);
+    // x-axis labels
+    const xLabels=[];
+    [0, Math.floor(pts.length/2), pts.length-1].forEach(i=>{
+      const p=pts[i]; if(!p) return;
+      const d=new Date(p.date+'T12:00:00');
+      xLabels.push(`<text x="${mapX(p.date).toFixed(1)}" y="${H-4}" font-size="8" fill="var(--text3)" text-anchor="middle" font-family="DM Mono,monospace">${d.getDate()}.${d.getMonth()+1}.</text>`);
+    });
+    const latestVal=pts[pts.length-1].total;
+    const firstVal=pts[0].total;
+    const totalReturn=firstVal>0?(latestVal-firstVal)/firstVal*100:0;
+    const retColor=totalReturn>=0?'var(--green)':'var(--red)';
+    return `
+    <div class="widget-title">Portfolio-Verlauf (Marktwert)</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace">${curr()} ${fmtAmt(latestVal)}</span>
+      <span style="font-size:12px;color:${retColor};font-family:'DM Mono',monospace">${totalReturn>=0?'+':''}${totalReturn.toFixed(1)}% ges.</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">
+      <defs><linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--green)" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="var(--green)" stop-opacity="0.02"/>
+      </linearGradient></defs>
+      <path d="${area}" fill="url(#pvGrad)"/>
+      <polyline points="${poly}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round"/>
+      ${yLabels.join('')}${xLabels.join('')}
+    </svg>`;
+  }
+
+  // ─ Fallback: estimated from trade costs ─
   if(!SDATA.trades.length) return '';
   const trades=[...SDATA.trades].sort((a,b)=>a.date.localeCompare(b.date));
   const firstDate=trades[0].date, lastDate=today();
-  // Accumulate daily positions
   let cumCost=0;
   const pts=[{date:firstDate,cost:0}];
-  trades.forEach(t=>{
-    cumCost += t.type==='kauf' ? t.total : -(t.total||0);
-    pts.push({date:t.date,cost:Math.max(0,cumCost)});
-  });
+  trades.forEach(t=>{ cumCost += t.type==='kauf' ? t.total : -(t.total||0); pts.push({date:t.date,cost:Math.max(0,cumCost)}); });
   if(pts[pts.length-1].date!==lastDate) pts.push({date:lastDate,cost:Math.max(0,cumCost)});
-  const W=300,H=100,padL=44,padR=8,padT=8,padB=20;
-  const cW=W-padL-padR,cH=H-padT-padB;
   const startD=new Date(firstDate+'T12:00:00');
   const totDays=Math.max(1,Math.round((new Date(lastDate+'T12:00:00')-startD)/86400000));
   const mapX=d=>{const dys=Math.round((new Date(d+'T12:00:00')-startD)/86400000);return padL+(dys/totDays)*cW;};
@@ -6105,13 +6329,13 @@ function buildPortfolioVerlauf(){
   const mapY=v=>padT+cH-((v/maxCost)*cH);
   const poly=pts.map(p=>`${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ');
   const area=`M${mapX(pts[0].date).toFixed(1)},${mapY(0)} `+pts.map(p=>`L${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ')+` L${mapX(pts[pts.length-1].date).toFixed(1)},${mapY(0)} Z`;
-  // Current portfolio market value line (single point at end)
   const curVal=getGesamtPortfoliowert();
-  const valLabel=curVal>0&&curVal!==cumCost?`<line x1="${mapX(lastDate).toFixed(1)}" y1="${mapY(0).toFixed(1)}" x2="${mapX(lastDate).toFixed(1)}" y2="${mapY(Math.min(curVal,maxCost)).toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>`:'' ;
+  const valLine=curVal>0&&curVal!==cumCost?`<line x1="${mapX(lastDate).toFixed(1)}" y1="${mapY(0).toFixed(1)}" x2="${mapX(lastDate).toFixed(1)}" y2="${mapY(Math.min(curVal,maxCost)).toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>`:'' ;
   const yLabels=[[0,'var(--text3)','0'],[maxCost,'var(--accent)',maxCost>=1000?(maxCost/1000).toFixed(0)+'k':Math.round(maxCost).toString()]].map(([v,c,lbl])=>
     `<text x="2" y="${mapY(v).toFixed(1)}" font-size="8" fill="${c}" dominant-baseline="middle" font-family="DM Mono,monospace">${lbl}</text>`);
   return `
   <div class="widget-title">Investiertes Kapital (Verlauf)</div>
+  <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Basiert auf Einstandswerten · Mit jedem Sheet-Sync wird der Marktwert gespeichert</div>
   <svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">
     <defs><linearGradient id="invGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
@@ -6119,7 +6343,7 @@ function buildPortfolioVerlauf(){
     </linearGradient></defs>
     <path d="${area}" fill="url(#invGrad)"/>
     <polyline points="${poly}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
-    ${valLabel}${yLabels.join('')}
+    ${valLine}${yLabels.join('')}
   </svg>`;
 }
 
@@ -6151,22 +6375,29 @@ function renderAktienTabelle(stocks){
   <div style="padding:0 16px 12px;overflow-x:auto">
     <table class="trade-tbl" style="min-width:420px">
       <thead><tr>
-        <th>Ticker</th><th>Anzahl</th><th>Ø Kauf</th><th>Kurs live</th><th>+/- %</th><th>Wert</th>
+        <th>Ticker</th><th>Anzahl</th><th>Ø Kauf</th><th>Kurs live</th><th>+/- %</th><th>Wert (${curr()})</th>
       </tr></thead>
       <tbody>${active.map(s=>{
-        const lp=s.ticker?getAktuellerKurs(s.ticker):null;
+        const live=s.ticker?stockPriceCache[s.ticker]:null;
+        const lp=live?.price;
+        const stockCurr=(live?.currency||s.currency||'').toUpperCase();
+        const userCurrUC=curr().toUpperCase();
+        const needsFx=stockCurr&&stockCurr!==userCurrUC;
+        const fxRate=needsFx?getFxRate(stockCurr):1;
+        const lpConverted=lp!=null?lp*fxRate:null;
         const gv=getGewinnVerlust(s.id);
         const wert=getPositionsWert(s.id);
         const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
         const sign=gv.pct>=0?'+':'';
+        const liveTxt=lpConverted!=null?(needsFx?`${fmtPrice(lpConverted)} (${fmtPrice(lp)} ${stockCurr})`:fmtPrice(lpConverted)):'—';
         return `<tr style="cursor:pointer" onclick="openAktieDetail('${s.id}')">
           <td><div style="font-weight:600">${esc(s.ticker||s.title)}</div>
-              <div style="font-size:10px;color:var(--text3)">${esc(s.title)}</div></td>
+              <div style="font-size:10px;color:var(--text3)">${esc(s.title)}${stockCurr&&stockCurr!==userCurrUC?' · '+stockCurr:''}</div></td>
           <td style="font-family:'DM Mono',monospace">${fmtQty(s.pos.qty)}</td>
           <td style="font-family:'DM Mono',monospace">${fmtPrice(s.pos.avgPrice)}</td>
-          <td style="font-family:'DM Mono',monospace;color:${lp!=null?color:'var(--text3)'}">${lp!=null?fmtPrice(lp):'—'}</td>
+          <td style="font-family:'DM Mono',monospace;color:${lpConverted!=null?color:'var(--text3)'};font-size:11px">${liveTxt}</td>
           <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</td>
-          <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(wert)}</td>
+          <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtAmt(wert)}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>
@@ -6225,19 +6456,30 @@ async function renderAktien(){
 }
 
 function renderAktienList(stocks, listEl, summaryEl){
-  let totalPnl=0, hasPnl=false;
+  let totalPnl=0, hasPnl=false, totalWert=0;
 
   listEl.innerHTML = stocks.map(s=>{
     const live = s.ticker ? stockPriceCache[s.ticker] : null;
     const livePrice = live?.price;
+    const stockCurr = (live?.currency || s.currency || '').toUpperCase();
+    const userCurrUC = curr().toUpperCase();
+    const needsFx = stockCurr && stockCurr !== userCurrUC;
+    const fxRate = needsFx ? getFxRate(stockCurr) : 1;
+    const livePriceConverted = livePrice!=null ? livePrice*fxRate : null;
     let pnlAmt=null, pnlPct=null;
-    if(livePrice && s.pos.qty > 0.0001){
-      pnlAmt = (livePrice - s.pos.avgPrice) * s.pos.qty;
+    if(livePriceConverted!=null && s.pos.qty > 0.0001){
+      pnlAmt = (livePriceConverted - s.pos.avgPrice*fxRate) * s.pos.qty;
       pnlPct = s.pos.avgPrice > 0 ? (livePrice/s.pos.avgPrice-1)*100 : 0;
       totalPnl += pnlAmt; hasPnl = true;
     }
+    const wert = getPositionsWert(s.id);
+    totalWert += wert;
     const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
     const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+    // Show "USD 182.50 | CHF 163.20" when currency differs
+    const liveLabel = livePrice!=null ? (needsFx
+      ? `${fmtPrice(livePrice)} ${stockCurr} · ${curr()} ${fmtPrice(livePrice*fxRate)}`
+      : `${fmtPrice(livePrice)} ${stockCurr}`) : null;
     return `
     <div class="aktie-card" onclick="openAktieDetail('${s.id}')">
       <div class="aktie-card-top">
@@ -6250,26 +6492,28 @@ function renderAktienList(stocks, listEl, summaryEl){
       <div class="aktie-card-bottom">
         <div class="aktie-stat"><div class="aktie-stat-lbl">Ø Kaufpreis</div>
           <div class="aktie-stat-val">${fmtPrice(s.pos.avgPrice)} ${s.currency||''}</div></div>
-        ${livePrice!=null?`
+        ${liveLabel!=null?`
         <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
-          <div class="aktie-stat-val">${fmtPrice(livePrice)} ${live.currency||s.currency||''}</div></div>
+          <div class="aktie-stat-val" style="font-size:11px">${esc(liveLabel)}</div></div>
         <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
-          <div class="aktie-stat-val ${pc}">${ps}${fmtPrice(pnlAmt)} (${ps}${pnlPct?.toFixed(1)}%)</div></div>
+          <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt||0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>
         `:s.ticker?`<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
           <div class="aktie-stat-val aktie-pnl-na">Laden…</div></div>`:''}
-        <div class="aktie-stat"><div class="aktie-stat-lbl">Einstand</div>
-          <div class="aktie-stat-val">${fmtPrice(s.pos.totalCost)} ${s.currency||''}</div></div>
+        <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
+          <div class="aktie-stat-val">${curr()} ${fmtAmt(wert)}</div></div>
       </div>
     </div>`;
   }).join('');
 
-  if(hasPnl && aktienView==='aktiv'){
+  if(aktienView==='aktiv'){
     const pc2 = totalPnl>=0?'aktie-pnl-pos':'aktie-pnl-neg';
     const ps2 = totalPnl>=0?'+':'';
     summaryEl.innerHTML = `
     <div class="aktie-summary-card">
-      <div class="aktie-stat"><div class="aktie-stat-lbl">Gesamt P&amp;L (live)</div>
-        <div class="aktie-stat-val ${pc2}" style="font-size:16px">${ps2}${fmtPrice(totalPnl)}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Depotwert (${curr()})</div>
+        <div class="aktie-stat-val" style="font-size:16px;font-weight:700">${curr()} ${fmtAmt(totalWert)}</div></div>
+      ${hasPnl?`<div class="aktie-stat"><div class="aktie-stat-lbl">Gesamt P&amp;L</div>
+        <div class="aktie-stat-val ${pc2}">${ps2}${curr()} ${fmtAmt(Math.abs(totalPnl))}</div></div>`:''}
       <div class="aktie-stat"><div class="aktie-stat-lbl">Positionen</div>
         <div class="aktie-stat-val">${stocks.length}</div></div>
     </div>`;
@@ -6298,10 +6542,19 @@ function renderAktieDetail(stockId){
   const pos = calcPosition(stockId);
   const live = s.ticker ? stockPriceCache[s.ticker] : null;
   const lp = live?.price;
+  const stockCurr = (live?.currency || s.currency || '').toUpperCase();
+  const userCurrUC = curr().toUpperCase();
+  const needsFx = stockCurr && stockCurr !== userCurrUC;
+  const fxRate = needsFx ? getFxRate(stockCurr) : 1;
+  const lpConverted = lp!=null ? lp*fxRate : null;
   let pnlAmt=null, pnlPct=null;
-  if(lp && pos.qty>0.0001){ pnlAmt=(lp-pos.avgPrice)*pos.qty; pnlPct=pos.avgPrice>0?(lp/pos.avgPrice-1)*100:0; }
+  if(lpConverted!=null && pos.qty>0.0001){
+    pnlAmt=(lpConverted-pos.avgPrice*fxRate)*pos.qty;
+    pnlPct=pos.avgPrice>0?(lp/pos.avgPrice-1)*100:0;
+  }
   const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
   const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+  const wert = getPositionsWert(stockId);
 
   document.getElementById('aktie-detail-content').innerHTML = `
   <div class="section">
@@ -6314,11 +6567,13 @@ function renderAktieDetail(stockId){
         <div class="aktie-stat-val">${fmtPrice(pos.avgPrice)} ${s.currency||''}</div></div>
       <div class="aktie-stat"><div class="aktie-stat-lbl">Einstand</div>
         <div class="aktie-stat-val">${fmtPrice(pos.totalCost)} ${s.currency||''}</div></div>
-      ${lp!=null?`
+      <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
+        <div class="aktie-stat-val" style="font-weight:700">${curr()} ${fmtAmt(wert)}</div></div>
+      ${lpConverted!=null?`
       <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
-        <div class="aktie-stat-val">${fmtPrice(lp)} ${live.currency||s.currency||''}</div></div>
-      <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
-        <div class="aktie-stat-val ${pc}">${ps}${fmtPrice(pnlAmt)} (${ps}${pnlPct?.toFixed(1)}%)</div></div>`
+        <div class="aktie-stat-val">${needsFx?`${fmtPrice(lp)} ${stockCurr} · ${curr()} ${fmtPrice(lpConverted)}`:fmtPrice(lpConverted)+' '+curr()}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L (${curr()})</div>
+        <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt||0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>`
       : s.ticker ? `<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
         <div class="aktie-stat-val aktie-pnl-na" style="cursor:pointer" onclick="refreshStockPrice('${s.id}')">Laden…</div></div>` : ''}
     </div>
@@ -6522,6 +6777,8 @@ function renderEinstellungen(){
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
   const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
   if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
+  const currSel = document.getElementById('s-currency');
+  if(currSel) currSel.value = curr();
 
   // Account-Bereich
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
