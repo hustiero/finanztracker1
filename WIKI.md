@@ -943,4 +943,385 @@ renderMonat()
 
 ---
 
+## 16. Dateneingabe & Bearbeitung
+
+### Neuer Eintrag speichern
+
+```javascript
+setType(t)
+// → wechselt zwischen 'ausgabe' und 'einnahme'
+// → blendet relevante Felder ein/aus (Dauerauftrag-Toggle für Ausgabe, Lohn-Toggle für Einnahme)
+
+saveEntryOrRecurring()
+// → Router: bei recurringMode + Ausgabe → saveRecurring()
+// → sonst → saveEntry()
+
+saveEntry()
+// → erstellt Eintrag in DATA.expenses/incomes
+// → setzt isLohn-Flag wenn lohnMode aktiv
+// → apiAppend('Ausgaben'|'Einnahmen', [...]) — async
+// → renderAll()
+```
+
+### Dauerauftrag anlegen/bearbeiten
+
+```javascript
+saveRecurring(prefix)
+// → liest Formularfelder mit Prefix (FAB-Form oder Dauerauftrag-Tab)
+// → erstellt {id, what, cat, amt, interval, day, note, active, start, endDate, affectsAvg}
+// → apiAppend('Daueraufträge', [...])
+
+openRecModal(id)
+// → füllt Bearbeitungs-Modal mit bestehendem Dauerauftrag
+
+updateRecurring()
+// → aktualisiert DATA.recurring-Eintrag + Sheet
+
+deleteRecurring()
+// → Soft-Delete: setzt active = false im Sheet
+```
+
+### Kategorien verwalten
+
+```javascript
+addCategory()
+// → auto-vergibt Farbe aus PRESET_COLORS-Palette
+// → apiAppend('Kategorien', [...])
+
+openCatModal(id)
+// → füllt Modal (inkl. Farb-Grid, Eltern-Dropdown)
+
+selectColor(el, color)
+// → aktualisiert Farbauswahl im Modal
+
+updateCategory()
+// → aktualisiert Kategorie in DATA.categories
+// → updated ALLE Einträge (expenses/incomes/recurring) die alten Namen tragen
+// → Sheet-Sync
+
+deleteCategory()
+// → verhindert Löschen wenn Kategorie in Verwendung
+```
+
+### Eintrag löschen
+
+```javascript
+deleteEntry()
+// → Soft-Delete: setzt Spalte G auf '1' im Sheet
+// → entfernt aus lokalem DATA-Array
+// → Rollback bei Netzwerkfehler
+```
+
+---
+
+## 17. Verlauf-Tab
+
+### `renderVerlauf()`
+
+Transaktionsliste mit Filter- und Suchfunktion.
+
+**Aufbau:**
+1. **Filter-Chips:** Alle / Ausgaben / Einnahmen / + alle Kategorien
+2. **Kategorie-Balkendiagramm** (30 Tage, optional)
+3. **Kombinierte Liste:** Manuelle Einträge + virtuelle Daueraufträge (12 Monate Rückblick)
+4. **Datumsgruppen:** chronologisch absteigend via `buildDayGroup()`
+5. **Virtuelle Daueraufträge:** mit ↻-Icon, gedämpfte Deckkraft
+6. **Suche:** nur sichtbar im Alle-Filter
+
+**State-Variablen:**
+
+| Variable | Beschreibung |
+|----------|-------------|
+| `verlaufFilter` | Aktiver Filter (`'alle'` / `'ausgaben'` / `'einnahmen'` / Kategoriename) |
+| `verlaufSearch` | Suchtext |
+| `verlaufChartMonths` | Zeitraum für Kategorie-Chart |
+
+```javascript
+setVerlaufFilter(f)   // → verlaufFilter = f → renderVerlauf()
+```
+
+---
+
+## 18. Kategorien-Tab
+
+### `renderCategories()`
+
+Kategorien-Verwaltung UI.
+
+- Getrennt nach Typ (Ausgabe / Einnahme)
+- Elternkategorien zuerst, Kindkategorien eingerückt
+- Zeigt Verwendungsanzahl pro Kategorie
+- Klick öffnet Bearbeitungs-Modal (`openCatModal(id)`)
+
+---
+
+## 19. Benachrichtigungs-System
+
+### Benachrichtigungs-Typen (`NOTIF_TYPES`)
+
+| Key | Beschreibung | Standard |
+|-----|-------------|---------|
+| `dailyReport` | Tägliche Ausgaben-Zusammenfassung | Ein |
+| `overspend` | Budget überschritten | Ein |
+| `monthEnd` | Monatsbericht am 1. des Folgemonats | Ein |
+| `cycleStart` | Lohnzyklus gestartet | Ein |
+| `budgetWarning` | 80% des Budgets aufgebraucht | Ein |
+| `bigExpense` | Ausgabe über CHF 200 Schwellenwert | Aus |
+| `weeklyReport` | Sonntags-Rückblick | Aus |
+
+### Benachrichtigungs-Objekt
+
+```javascript
+{
+  id: string,           // Eindeutiger Key
+  type: string,         // Typ aus NOTIF_TYPES
+  date: string,         // YYYY-MM-DD
+  title: string,
+  body: string,
+  dismissed: boolean,
+  confirmed: boolean,
+  recurId?: string,     // Für Dauerauftrag-Benachrichtigungen
+}
+```
+
+### Funktionen
+
+```javascript
+checkDueRecurrings()
+// → Erstellt Benachrichtigung wenn Dauerauftrag fällig (r.day === heutiger Tag)
+
+checkAllNotifications()
+// → Führt alle Prüfungen aus: daily, overspend, monthEnd,
+//   cycleStart, budgetWarning, bigExpense, weeklyReport
+
+notifOn(key)
+// → Prüft ob Benachrichtigungs-Typ aktiv (respektiert Defaults)
+
+updateNotifBadge()
+// → Aktualisiert Zähler-Badge in der Navbar
+
+renderNotifications()
+// → Zeigt Benachrichtigungs-Liste im Overlay
+
+renderNotifSettings()
+// → Einstellungs-UI mit Ein/Aus-Schaltern pro Typ
+
+toggleNotifSetting(key)
+// → Typ aktivieren/deaktivieren → CFG.notifSettings speichern
+```
+
+---
+
+## 20. Tab-Pinning / Mehr-Menü
+
+### Pinbare Tabs (`PINNABLE_TABS`)
+
+Alle Tabs können in die untere Navigationsleiste gepinnt werden (max. 2 Slots neben Home).
+
+```javascript
+// Verfügbare Tabs:
+['eingabe', 'verlauf', 'lohn', 'monat', 'dashboard', 'aktien', 'kategorien', 'dauerauftraege', 'einstellungen', 'admin']
+```
+
+### Funktionen
+
+```javascript
+openMenuOverlay()        // → öffnet Mehr-Menü
+closeMenuOverlay()       // → schliesst Mehr-Menü
+toggleMenuEditMode()     // → wechselt zwischen Normal-Ansicht und Pin-Verwaltung
+
+renderMenuOverlay()
+// → Rendert Menü dynamisch
+// → Normal-Modus: Tabs als Listeneinträge + "Anpassen"-Button
+// → Edit-Modus: Tabs mit Pin-/Unpin-Buttons
+
+pinTab(key)
+// → Fügt Tab zu CFG.pinnedTabs hinzu (max. 2)
+// → cfgSave() + Nav neu rendern
+
+unpinTab(key)
+// → Entfernt aus CFG.pinnedTabs
+// → cfgSave() + Nav neu rendern
+```
+
+### Navbar-Struktur
+
+```
+[Home]  [Slot 1]  [Slot 2]  [Mehr ...]
+         ↑                    ↑
+    CFG.pinnedTabs[0]     öffnet Overlay
+```
+
+---
+
+## 21. Aktien-Verwaltung (CRUD)
+
+### Neue Aktie hinzufügen
+
+```javascript
+openNewAktieModal()
+// → leert Formular (Titel, ISIN, Ticker, Währung)
+
+saveNewAktie()
+// → erstellt Stock-Objekt mit genId('st_')
+// → SDATA.stocks.push() + sdataSave()
+// → Sync zu 'Aktien'-Sheet wenn verbunden (apiAppend)
+// → renderAktien()
+```
+
+### Trade erfassen
+
+```javascript
+openTradeModal(type)
+// → type: 'kauf' oder 'verk'
+// → füllt Typ-Feld vor, öffnet Modal
+
+saveTrade()
+// → erstellt Trade mit genId('tr_')
+// → berechnet total (qty × price ± courtage)
+// → SDATA.trades.push() + sdataSave()
+// → Sync zu 'Trades'-Sheet
+// → calcPosition() aktualisiert automatisch
+
+deleteTrade(id)
+// → entfernt aus SDATA.trades + sdataSave() + Sheet-Sync
+```
+
+### Aktie-Detail-Ansicht
+
+```javascript
+openAktieDetail(stockId)
+// → setzt currentAktieId
+// → renderAktieDetail(stockId)
+// → öffnet #aktie-detail-Modal
+
+renderAktieDetail(stockId)
+// → zeigt: ISIN, Anzahl, Ø-Preis, Einstandswert, Live-Kurs, P&L
+// → Trade-Verlaufs-Tabelle (chronologisch)
+// → fetchStockPrice() im Hintergrund
+
+refreshStockPrice(stockId)
+// → löscht Cache-Eintrag für Ticker
+// → fetchStockPrice() + re-render
+```
+
+---
+
+## 22. Excel-Export
+
+```javascript
+exportExcel()
+// → verwendet SheetJS XLSX-Library (via CDN)
+// → Erstellt 3 Arbeitsblätter:
+//     'Ausgaben'      – alle Ausgaben, neueste zuerst
+//     'Einnahmen'     – alle Einnahmen, neueste zuerst
+//     'Daueraufträge' – alle Daueraufträge
+// → Auto-Spaltenbreite
+// → Download als 'Finanzen_YYYY-MM-DD.xlsx'
+```
+
+---
+
+## 23. Business Rules
+
+### Lohnzyklus-Logik
+
+- Konfigurierbarer Starttag (`CFG.lohnTag`, Standard: 25)
+- Läuft von Lohnttag bis (Lohntag − 1) des Folgemonats
+- Lohneingang erkannt durch: `isLohn = true` ODER ersten 3 Tagen des Zyklus (Rückwärts-Kompatibilität)
+- Verfolgt: Fixkosten, variables Budget, Übertrag, Tagesrate
+
+### Fixkosten-Prüfung (Priorität)
+
+```
+1. entry.isFixkosten === true
+2. CFG.fixkostenKats.includes(entry.cat)
+3. Dauerauftrag mit affectsAvg === false
+→ isFixkostenEntry(e) prüft alle drei
+```
+
+### Dauerauftrag-Materialisierung
+
+- Virtuelle Einträge werden **on-demand** expandiert (`getRecurringOccurrences`)
+- **Manuell:** Benutzer klickt DA-Badge → `openMaterializeModal()` → bestätigen
+- **Auto:** Vergangener Monat wird geöffnet → `materialisiereDauerauftraege(mo, yr)`
+- **Duplikat-Schutz:** `DATA.expenses.some(e => e.recurringId === id && e.date === date)`
+- Materialisierte Einträge erhalten `recurringId`-Feld in Spalte G des Sheets
+
+### Aktien-Positionsberechnung
+
+- FIFO-ähnlich mit gewichtetem Durchschnittspreis
+- Käufe: `qty += trade.qty; totalCost += qty * price + courtage`
+- Verkäufe: reduzieren qty, totalCost anteilig
+- Bruchteile werden unterstützt
+- Negative qty wird auf 0 geklemmt
+- P&L nur angezeigt wenn Live-Kurs verfügbar
+
+### Duplikat-Verhinderung beim Laden
+
+- Ausgaben/Einnahmen: Einträge mit Spalte G = `'1'` werden als gelöscht übersprungen
+- Daueraufträge: Einträge mit `active = '0'` werden als inaktiv geladen (aber nicht angezeigt)
+- Kategorien: Einträge ohne Name werden übersprungen
+
+---
+
+## 24. Entwickler-Hinweise
+
+### Performance
+
+| Massnahme | Detail |
+|-----------|--------|
+| **5-Minuten-Daten-Cache** | `dataCacheLoad()` vermeidet redundante API-Calls |
+| **3s-debounced Profil-Sync** | `autoSyncProfile()` sammelt Änderungen |
+| **Live-Kurs-Hintergrund-Fetch** | Stock-Preise werden nach initialem Rendering geladen |
+| **Virtuelle Daueraufträge** | Werden on-demand berechnet, nicht persistiert |
+
+### Fehlerbehandlung
+
+| Fehler | Verhalten |
+|--------|-----------|
+| Netzwerkfehler | `setSyncStatus('error')`, gecachte Daten verwenden |
+| Session abgelaufen | `CFG.sessionToken` löschen, Session-Expired-Toast |
+| Sheet-Struktur fehlt | `checkSheets()` prüft beim Verbinden, zeigt Anleitung |
+| Rollback | `deleteEntry()` stellt lokalen Eintrag wieder her bei API-Fehler |
+
+### Demo-Modus
+
+- `CFG.demo = true` → überspringt alle Sheet-API-Aufrufe
+- `loadDemo()` lädt Testdaten
+- Toast-Meldungen ergänzt mit `"(Demo)"`
+- Ideal für Präsentationen und Onboarding
+
+### Sicherheit
+
+- `esc(s)` — HTML-Escape für alle Benutzereingaben in Templates (XSS-Schutz)
+- Passwörter werden **client-seitig** mit SHA-256 gehasht vor dem Senden
+- Session-Token nur in Account-Modus, nie im Script-URL-Modus
+- Keine sensiblen Daten in URLs
+
+### HTML-IDs Referenz (wichtigste)
+
+| ID | Beschreibung |
+|----|-------------|
+| `#tab-home` | Home-Widget-Container |
+| `#tab-lohn` | Lohn-Tab-Container |
+| `#monat-content` | Monat-Tab-Inhalt |
+| `#dashboard-content` | Jahresübersicht-Inhalt |
+| `#tab-aktien` | Aktien-Tab-Container |
+| `#edit-modal` | Eintrag bearbeiten/erstellen |
+| `#rec-modal` | Dauerauftrag bearbeiten |
+| `#cat-modal` | Kategorie bearbeiten |
+| `#month-view` | Monats-Kalender-Modal |
+| `#notif-overlay` | Benachrichtigungs-Panel |
+| `#aktie-detail` | Aktien-Detail-Panel |
+| `#aktien-list` | Aktien-Karten-Container |
+| `#aktien-tabelle` | Aktien-Tabellen-Container |
+| `#aktien-charts` | Aktien-Charts-Container |
+| `#menu-overlay` | Mehr-Menü-Overlay |
+| `#nav` | Untere Navigationsleiste |
+| `#sync-status` | Sync-Indikator oben rechts |
+| `#notif-badge` | Benachrichtigungs-Zähler |
+
+---
+
 *Generiert aus `/home/user/finanztracker1/index.html` — Branch `claude/tab-pinning-menu-Gf4m2`*
