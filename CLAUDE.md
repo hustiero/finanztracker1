@@ -95,31 +95,29 @@ Persisted to `localStorage` key `ft_cfg`. Key fields:
 
 ---
 
-## Daueraufträge (Recurring) in Verlauf / Ausgaben
+## Daueraufträge (Recurring) — Auto-Materialization
 
-Recurring entries (`DATA.recurring`) are **virtual** — they are never stored in
-`DATA.expenses`. Instead `getRecurringInstances(startStr, endStr)` generates
-synthetic entries on-the-fly for every interval that falls in the date range.
-They carry `_type:'recurring'`.
+Recurring definitions live in `DATA.recurring`. On every app load / `renderAll()`,
+`autoMaterializeRecurrings()` converts all due occurrences (date ≤ today) into
+real `DATA.expenses` entries (with `recurringId` set). These are synced to the
+Google Sheet `Ausgaben` tab in one batch.
 
-**Every place that aggregates Ausgaben must include recurring:**
+**Key rules:**
+- Past/today occurrences are **real bookings** in `DATA.expenses` — they count
+  everywhere (Verlauf, Dashboard, Lohnzyklus, etc.) like any manual expense.
+- Future occurrences (date > today) remain **virtual** — generated on-the-fly
+  by `getRecurringOccurrences(start, end, capToToday=false, skipMaterialized=true)`.
+- `getRecurringOccurrences(..., skipMaterialized=true)` checks `DATA.expenses`
+  for entries with matching `recurringId + date` and skips them to avoid
+  double-counting.
+- The central helper `getAusgaben(von, bis)` returns `DATA.expenses` entries
+  plus any remaining virtual recurring occurrences (for future projections).
+- Notifications for Daueraufträge are **informational** (`dauerauftrag_info`),
+  not confirmation-based. No manual approval needed.
 
-| Function | What it does | Fix applied |
-|----------|-------------|-------------|
-| `getKategorienMitEintraegen('ausgaben')` | L2 category tiles | ✅ merges `getRecurringInstances` before aggregation |
-| `renderVerlaufL3()` | Category drilldown entries + stats | ✅ merges recurring for expense categories |
-| `buildMonthlyBarData(kat, 'ausgaben')` | 12-month bar chart in L3 | ✅ merges recurring for ausgaben |
-| `renderVerlaufL1()` | "Alle" chronological list | already correct (untouched) |
-
-> **Rule:** whenever you query `DATA.expenses` for ausgaben aggregation, also
-> call `getRecurringInstances(rangeStart, rangeEnd)` and merge the result.
-> Do NOT add recurring to `DATA.expenses` directly.
-
-The date range for the recurring fetch should match the verlauf filter:
+**Materialized entry fields:**
 ```javascript
-const {von, bis} = verlaufGetRange();
-const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
-const rangeEnd   = bis || today();
+{id, date, what, cat, amt, note, recurringId: <Dauerauftrag-ID>, isFixkosten: bool}
 ```
 
 ---
