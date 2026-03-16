@@ -27,6 +27,7 @@
 18. [Verlauf: Zeitraum-Filter](#18-verlauf-zeitraum-filter)
 19. [Kategorie-Verwaltung: Oberkategorien](#19-kategorie-verwaltung-oberkategorien)
 20. [Eingabe-Screen: 3-Tab-Switch & Aktien-Trade](#20-eingabe-screen-3-tab-switch--aktien-trade)
+21. [Hintergrundbild & Glassmorphism](#21-hintergrundbild--glassmorphism)
 
 ---
 
@@ -1914,6 +1915,117 @@ async function saveAktienTradeFromEingabe() // Speichert Trade in SDATA.trades +
 ```
 
 **Sheet-Sync:** `apiAppend('Trades', [[id, stockId, typ, qty, price, date, note]])`
+
+---
+
+---
+
+## 21. Hintergrundbild & Glassmorphism
+
+### 21.1 Überblick
+
+Der Effekt besteht aus zwei Schichten:
+1. **Hintergrundbild** — CSS-Gradient-Preset oder hochgeladenes Bild auf `body`
+2. **Glassmorphism** — `backdrop-filter: blur()` auf Cards, Nav und Top-Bar
+
+### 21.2 CFG-Schlüssel
+
+| Key | Typ | Default | Beschreibung |
+|-----|-----|---------|-------------|
+| `bgPreset` | string | `''` | Key aus `BG_PRESETS` oder leer |
+| `glassEnabled` | boolean | `false` | Glassmorphism ein/aus |
+| `glassBlur` | number | `12` | Blur-Stärke in px (4–20) |
+| `glassAlpha` | number | `12` | Transparenz in % (5–40) |
+
+Das Hintergrundbild (hochgeladene Datei, Base64) wird **separat** in `localStorage('ft_bg_image')` gespeichert und **nicht** ins Google Sheet synchronisiert (zu gross). Nur `bgPreset` wird synchronisiert.
+
+### 21.3 CSS-Variablen
+
+```css
+:root {
+  --glass-rgb:          15,15,18;   /* Dark mode: dunkler Tint */
+  --glass-blur:         12px;       /* Blur-Stärke (via JS gesetzt) */
+  --glass-alpha:        0.120;      /* Card-Transparenz (via JS) */
+  --glass-nav-alpha:    0.220;      /* Nav (alpha × 1.8, via JS) */
+  --glass-bar-alpha:    0.160;      /* Top-Bar (alpha × 1.4, via JS) */
+  --glass-border-alpha: 0.150;      /* Border (alpha × 1.2, via JS) */
+}
+[data-theme="light"] {
+  --glass-rgb: 255,255,255;         /* Light mode: weisslicher Tint */
+}
+```
+
+### 21.4 CSS-Klassen
+
+| Klasse | Gesetzt auf | Bedeutung |
+|--------|-------------|-----------|
+| `body.has-bg-image` | `body` | Hintergrundbild aktiv (Preset oder Upload) |
+| `body.glass-on` | `body` | Glassmorphism aktiv (nur wenn `GLASS_SUPPORTED`) |
+
+**Betroffene Elemente bei `body.glass-on`:**
+- `.card`, `.widget-card` — Kacheln mit Glass-Effekt
+- `#nav` — Bottom-Navigationsleiste
+- `.top-bar` — Header-Leiste
+- `.type-toggle` — Tab-Switch-Elemente
+
+### 21.5 Preset-Hintergründe
+
+Definiert in `const BG_PRESETS`:
+
+| Key | Label | Charakter |
+|-----|-------|-----------|
+| `aurora` | Aurora | Blau-Grün-Lila Radial-Gradienten |
+| `midnight` | Midnight | Tiefes Dunkelblau |
+| `forest` | Wald | Dunkelgrün |
+| `sunset` | Sunset | Warm Orange-Violett |
+| `ocean` | Ozean | Tiefseeblau |
+| `slate` | Slate | Neutral Dunkelblau-Grau |
+
+Jeder Preset hat: `{ label, color, gradient }` — `gradient` ist ein CSS-Gradient-String.
+
+### 21.6 Funktionen
+
+```javascript
+function applyAppBackground()
+```
+- Setzt `body.style.backgroundImage` aus `_getBgImageData()` oder `BG_PRESETS[CFG.bgPreset].gradient`
+- Toggelt `body.has-bg-image` und `body.glass-on`
+- Ruft `_updateGlassCssVars()` auf
+- Wird aufgerufen: bei DOMContentLoaded, nach Preset-Wechsel, nach Upload, nach `_profileApply()`
+
+```javascript
+function _updateGlassCssVars()
+```
+- Setzt alle `--glass-*` CSS-Variablen auf `document.documentElement` aus `CFG.glassBlur` / `CFG.glassAlpha`
+
+```javascript
+function setBgPreset(key)        // Preset wählen, Custom-Bild löschen, applyAppBackground()
+function clearBgImage()          // Alles zurücksetzen auf Standard-Gradient
+function triggerBgUpload()       // Öffnet #bg-file-input (hidden file picker)
+function loadBgFile(input)       // Liest FileReader → Base64 → localStorage → applyAppBackground()
+function toggleGlass()           // Toggelt CFG.glassEnabled; prüft GLASS_SUPPORTED
+function updateGlassBlur(val)    // Setzt CFG.glassBlur, aktualisiert CSS-Var + Label live
+function updateGlassAlpha(val)   // Setzt CFG.glassAlpha, aktualisiert CSS-Var + Label live
+function renderErscheinungsbild() // Rendert Preset-Grid + Toggle + Slider in Settings
+```
+
+### 21.7 Performance-Fallback
+
+```javascript
+const GLASS_SUPPORTED = CSS.supports('backdrop-filter','blur(1px)')
+                     || CSS.supports('-webkit-backdrop-filter','blur(1px)');
+```
+- `toggleGlass()` zeigt Fehler-Toast wenn `!GLASS_SUPPORTED`
+- `@media (prefers-reduced-motion: reduce)` deaktiviert `backdrop-filter` automatisch und erhöht Opacity auf 0.70
+
+### 21.8 Settings-HTML
+
+Der Abschnitt „Erscheinungsbild" in `tab-einstellungen` enthält:
+- `#bg-preset-grid` — 3-Spalten-Grid, via `renderErscheinungsbild()` befüllt
+- `#bg-file-input` — versteckter `<input type="file" accept="image/*">`
+- `#glass-enabled-sw` — Toggle für Glassmorphism
+- `#glass-sliders` — Blur + Transparenz-Slider (nur sichtbar wenn `glassEnabled`)
+- `#glass-blur-slider` / `#glass-alpha-slider` — Range-Inputs (4–20 / 5–40)
 
 ---
 
