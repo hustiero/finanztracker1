@@ -2028,41 +2028,7 @@ body.glass-on .widget-card{
 </div>
 
 <!-- Dauerauftrag Confirm Modal -->
-<div class="modal-overlay" id="rec-confirm-modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title">Dauerauftrag ausführen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('rec-confirm-modal')">Schliessen</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="rcm-notif-id">
-      <p style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">Überprüfe und bestätige die Ausführung dieses Dauerauftrags als Ausgabe.</p>
-      <div class="form-group">
-        <label class="form-label">Beschreibung</label>
-        <input id="rcm-what" class="form-input" type="text" autocorrect="off">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Betrag CHF</label>
-          <input id="rcm-amt" class="form-input" type="number" inputmode="decimal" step="0.01">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Datum</label>
-          <input id="rcm-date" class="form-input" type="date">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Kategorie</label>
-        <select id="rcm-cat" class="form-select"></select>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('rec-confirm-modal')">Abbrechen</button>
-      <button class="btn-save" onclick="confirmRecurringExecution()">Als Ausgabe freigeben</button>
-    </div>
-  </div>
-</div>
+<!-- rec-confirm-modal removed — Daueraufträge are auto-materialized -->
 
 <!-- ═══════════════════════════════════
      MODALS
@@ -2674,10 +2640,10 @@ function isFixkostenEntry(e){
 function getAusgaben(von, bis, kategorien=null, inclDauerauftraege=true){
   let items = DATA.expenses.filter(e=>e.date>=von&&e.date<=bis);
   if(inclDauerauftraege){
-    const recur = getRecurringOccurrences(von, bis);
-    // Don't double-count: skip recurring occurrences that are already materialized
-    const materializedKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
-    items = [...items, ...recur.filter(r=>!materializedKeys.has(r._recurId+'_'+r.date))];
+    // Past/today occurrences are auto-materialized into DATA.expenses.
+    // Only add future virtual occurrences (skipMaterialized avoids double-counting).
+    const recur = getRecurringOccurrences(von, bis, true, true);
+    items = [...items, ...recur];
   }
   if(kategorien) items = items.filter(e=>kategorien.includes(e.cat));
   return items;
@@ -2700,51 +2666,39 @@ function getFixkosten(von, bis){
   return getAusgaben(von,bis).filter(e=>isFixkostenEntry(e));
 }
 
-// Materialize a single recurring occurrence as a real DATA.expenses entry.
-// amt/what/cat/note can be overridden (for user-edited confirmation).
-async function materialisiereDauerauftrag(recurId, date, amt, what, cat, note){
-  const r = DATA.recurring.find(r=>r.id===recurId);
-  if(!r) return false;
-  // Duplicate guard
-  if(DATA.expenses.some(e=>e.recurringId===recurId&&e.date===date)){
-    toast('Bereits gebucht','err'); return false;
+// Auto-materialize ALL due recurring occurrences (up to today) as real DATA.expenses entries.
+// Called on every data load / renderAll. Syncs new entries to the Sheet in one batch.
+async function autoMaterializeRecurrings(){
+  if(!DATA.recurring.length) return;
+  const todayStr = today();
+  // Use a wide range: earliest possible start to today
+  const earliest = DATA.recurring.reduce((min,r)=>r.start&&r.start<min?r.start:min, todayStr.slice(0,4)+'-01-01');
+  const occurrences = getRecurringOccurrences(earliest, todayStr, true, true);
+  if(!occurrences.length) return;
+
+  const newEntries = [];
+  for(const occ of occurrences){
+    const r = DATA.recurring.find(r=>r.id===occ._recurId);
+    if(!r) continue;
+    const id = genId('A');
+    const isFixk = !r.affectsAvg;
+    const entry = {id, date:occ.date, what:occ.what, cat:occ.cat, amt:occ.amt,
+      note:occ.note||'', recurringId:occ._recurId, isFixkosten:isFixk};
+    DATA.expenses.push(entry);
+    newEntries.push(entry);
   }
-  const id = genId('A');
-  const isFixk = !r.affectsAvg;
-  const entry = {id, date, what:what||r.what, cat:cat||r.cat, amt:amt||r.amt,
-    note:note||r.note||'', recurringId:recurId, isFixkosten:isFixk};
-  DATA.expenses.push(entry);
+  if(!newEntries.length) return;
+
+  // Sync all new materialized entries to Sheet
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Ausgaben',[[id,date,entry.what,entry.cat,entry.amt,entry.note,recurId,isFixk?'1':'0']]);
+      const rows = newEntries.map(e=>[e.id,e.date,e.what,e.cat,e.amt,e.note,e.recurringId,e.isFixkosten?'1':'0']);
+      await apiAppend('Ausgaben', rows);
       setSyncStatus('online');
-    } catch(err){ setSyncStatus('error'); toast('Sync-Fehler: '+err.message,'err'); }
+    } catch(err){ setSyncStatus('error'); console.warn('Auto-materialize sync error:', err); }
   }
-  toast('✓ Dauerauftrag gebucht','ok');
-  renderAll();
-  return true;
-}
-
-// Materialize ALL overdue occurrences for a past month (called automatically when viewing past months)
-function materialisiereDauerauftraege(mo, yr){
-  const now = new Date();
-  // Only for past months — never current month
-  if(yr===now.getFullYear()&&mo===now.getMonth()) return;
-  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
-  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const instances = getRecurringOccurrences(s,e);
-  let changed = false;
-  for(const occ of instances){
-    if(DATA.expenses.some(ex=>ex.recurringId===occ._recurId&&ex.date===occ.date)) continue;
-    const r = DATA.recurring.find(r=>r.id===occ._recurId);
-    const id = genId('A');
-    const isFixk = r ? !r.affectsAvg : true;
-    DATA.expenses.push({id,date:occ.date,what:occ.what,cat:occ.cat,amt:occ.amt,
-      note:occ.note||'',recurringId:occ._recurId,isFixkosten:isFixk,isMaterialized:true});
-    changed = true;
-  }
-  return changed;
+  dataCacheSave();
 }
 
 // Toggle a category in CFG.fixkostenKats
@@ -3457,11 +3411,28 @@ async function updateEntry(){
 
   if(!amt||!date||!what){ toast('Felder ausfüllen','err'); return; }
 
-  // New entry from recurring (Dauerauftrag buchen)
+  // New entry from recurring (manual materialization of a future Dauerauftrag)
   const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
   if(!id && recurringId){
+    const r = DATA.recurring.find(r=>r.id===recurringId);
+    if(!r){ toast('Dauerauftrag nicht gefunden','err'); closeModal('edit-modal'); return; }
+    if(DATA.expenses.some(e=>e.recurringId===recurringId&&e.date===date)){
+      toast('Bereits gebucht','err'); closeModal('edit-modal'); return;
+    }
+    const newId = genId('A');
+    const isFixk = !r.affectsAvg;
+    const entry = {id:newId, date, what, cat, amt, note:note||'', recurringId, isFixkosten:isFixk};
+    DATA.expenses.push(entry);
+    if(!CFG.demo){
+      setSyncStatus('syncing');
+      try{
+        await apiAppend('Ausgaben',[[newId,date,what,cat,amt,note||'',recurringId,isFixk?'1':'0']]);
+        setSyncStatus('online');
+      } catch(err){ setSyncStatus('error'); toast('Sync-Fehler: '+err.message,'err'); }
+    }
     closeModal('edit-modal');
-    await materialisiereDauerauftrag(recurringId, date, amt, what, cat, note);
+    toast('✓ Dauerauftrag gebucht','ok');
+    renderAll();
     return;
   }
 
@@ -3957,6 +3928,7 @@ function renderAll(){
   renderDashboard();
   renderHome();
   updatePageSub();
+  autoMaterializeRecurrings();
   checkDueRecurrings();
   checkAllNotifications();
 }
@@ -6035,20 +6007,20 @@ function checkDueRecurrings(){
   const todayDay = now.getDate();
 
   DATA.recurring.filter(r=>r.active).forEach(r=>{
-    // Check if today is the execution day
+    // Informational notification on execution day (booking happens automatically)
     if(r.day === todayDay){
       const notifId = `rec-${r.id}-${todayStr}`;
       const exists = CFG.notifications.find(n=>n.id===notifId);
       if(!exists){
         CFG.notifications.push({
           id: notifId,
-          type: 'dauerauftrag',
+          type: 'dauerauftrag_info',
           recurId: r.id,
           date: todayStr,
-          title: r.what,
-          body: `${curr()} ${fmtAmt(r.amt)} · ${r.interval}`,
+          title: `${r.what} gebucht`,
+          body: `${curr()} ${fmtAmt(r.amt)} · ${r.interval} — automatisch verbucht`,
           dismissed: false,
-          confirmed: false
+          confirmed: true
         });
       }
     }
@@ -6140,7 +6112,7 @@ function toggleNotifSetting(key){
 function updateNotifBadge(){
   const badge = document.getElementById('notif-badge');
   if(!badge) return;
-  const pending = (CFG.notifications||[]).filter(n=>!n.dismissed&&!n.confirmed).length;
+  const pending = (CFG.notifications||[]).filter(n=>!n.dismissed&&(!n.confirmed||n.type==='dauerauftrag_info')).length;
   if(pending > 0){
     badge.textContent = pending > 9 ? '9+' : pending;
     badge.style.display = 'flex';
@@ -6169,7 +6141,7 @@ function closeNotifOverlay(){
 function renderNotifications(){
   const body = document.getElementById('notif-body');
   if(!body) return;
-  const notifs = (CFG.notifications||[]).filter(n=>!n.confirmed).sort((a,b)=>b.date.localeCompare(a.date));
+  const notifs = (CFG.notifications||[]).filter(n=>!n.confirmed||n.type==='dauerauftrag_info').filter(n=>!n.dismissed).sort((a,b)=>b.date.localeCompare(a.date));
 
   if(!notifs.length){
     body.innerHTML = `<div style="text-align:center;padding:32px 24px;color:var(--text3)">
@@ -6203,51 +6175,17 @@ function dismissNotif(id){
 function openNotifDetail(id){
   const n = (CFG.notifications||[]).find(n=>n.id===id);
   if(!n) return;
-  if(n.type==='dauerauftrag'){
-    const rec = DATA.recurring.find(r=>r.id===n.recurId);
-    if(!rec){ toast('Dauerauftrag nicht gefunden','err'); return; }
-    document.getElementById('rcm-notif-id').value = n.id;
-    document.getElementById('rcm-what').value = rec.what;
-    document.getElementById('rcm-amt').value = rec.amt;
-    document.getElementById('rcm-date').value = n.date;
-    fillDropdown('rcm-cat','ausgabe',rec.cat);
-    closeNotifOverlay();
-    openModal('rec-confirm-modal');
+  if(n.type==='dauerauftrag_info'){
+    // Informational only — booking already happened automatically
+    dismissNotif(id);
+    toast(`${n.title} — ${n.body}`,'ok');
+  } else if(n.type==='dauerauftrag'){
+    // Legacy: old-style confirmation notifications — just dismiss since auto-materialization handles it
+    dismissNotif(id);
   }
 }
 
-async function confirmRecurringExecution(){
-  const notifId = document.getElementById('rcm-notif-id').value;
-  const what = document.getElementById('rcm-what').value.trim();
-  const amt = parseFloat(document.getElementById('rcm-amt').value)||0;
-  const date = document.getElementById('rcm-date').value;
-  const cat = document.getElementById('rcm-cat').value;
-  if(!what||!amt||!date){ toast('Felder ausfüllen','err'); return; }
-
-  const id = genId('A');
-  const n = (CFG.notifications||[]).find(n=>n.id===notifId);
-  const recurEntry = n ? DATA.recurring.find(r=>r.id===n.recurId) : null;
-  const recurId = n ? (n.recurId||'') : '';
-  const isFixk = recurEntry ? !recurEntry.affectsAvg : false;
-  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)',recurringId:recurId,isFixkosten:isFixk};
-  DATA.expenses.push(entry);
-
-  if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)',recurId,isFixk?'1':'0']]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
-  }
-
-  // Mark notification as confirmed
-  if(n){ n.confirmed=true; cfgSave(); }
-
-  closeModal('rec-confirm-modal');
-  updateNotifBadge();
-  renderAll();
-  toast('✓ Ausgabe erfasst','ok');
-}
+// confirmRecurringExecution removed — Daueraufträge are now auto-materialized on their execution date
 
 function toggleTheme(){
   const isLight = document.documentElement.dataset.theme==='light';
@@ -8361,8 +8299,7 @@ function renderMonat(){
   const yr = mvYear, mo = mvMonth;
   const isCurrent = yr===now.getFullYear() && mo===now.getMonth();
 
-  // Auto-materialize past months (creates real entries from Daueraufträge)
-  if(!isCurrent) materialisiereDauerauftraege(mo, yr);
+  // Auto-materialization now happens globally via autoMaterializeRecurrings()
 
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
@@ -8370,10 +8307,9 @@ function renderMonat(){
   const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
   const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
 
-  // Virtual recurring: instances not yet materialized (current month only — past months already materialized above)
-  // capToToday=false so upcoming entries in the current month appear as virtual entries
-  const allRecurInst = isCurrent ? getRecurringOccurrences(s, e, false) : [];
-  const mRecVirtual = allRecurInst.filter(r=>!DATA.expenses.some(ex=>ex.recurringId===r._recurId&&ex.date===r.date));
+  // Virtual recurring: future occurrences not yet materialized (current month only)
+  // capToToday=false shows upcoming entries; skipMaterialized=true avoids double-counting
+  const mRecVirtual = isCurrent ? getRecurringOccurrences(s, e, false, true) : [];
 
   // Date set includes virtual recurring dates
   const dateSet = new Set([...mExp.map(ex=>ex.date),...mInc.map(ex=>ex.date),...mRecVirtual.map(r=>r.date)]);
