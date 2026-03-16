@@ -39,6 +39,13 @@
   --card-shadow: 0 1px 3px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.2);
   --glow-accent: rgba(200,245,60,.06);
   --glow-blue: rgba(96,165,250,.05);
+  /* Glassmorphism */
+  --glass-rgb: 15,15,18;
+  --glass-blur: 12px;
+  --glass-alpha: 0.120;
+  --glass-nav-alpha: 0.220;
+  --glass-bar-alpha: 0.160;
+  --glass-border-alpha: 0.150;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html{height:100%;overscroll-behavior:none;background:var(--bg1)}
@@ -735,6 +742,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   --card-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.07);
   --glow-accent: rgba(27,95,232,.04);
   --glow-blue: rgba(96,165,250,.04);
+  --glass-rgb: 255,255,255;
+  --glass-alpha: 0.160;
+  --glass-nav-alpha: 0.280;
+  --glass-bar-alpha: 0.200;
+  --glass-border-alpha: 0.200;
 }
 [data-theme="light"] .chart-period-btn.active{color:#fff}
 [data-theme="light"] .nav-btn.active{color:var(--accent)}
@@ -748,6 +760,48 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 [data-theme="light"] .mv-bar{background:var(--bg0)}
 [data-theme="light"] #setup{background:var(--bg0)}
 [data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
+
+/* ═══════════════════════════════════════════════════
+   GLASSMORPHISM + HINTERGRUNDBILD
+═══════════════════════════════════════════════════ */
+/* Background image: body gets background-image via JS */
+body.has-bg-image{background-size:cover;background-position:center;background-attachment:fixed}
+body.has-bg-image::before{background:rgba(0,0,0,0.38) !important}
+[data-theme="light"] body.has-bg-image::before{background:rgba(255,255,255,0.08) !important}
+/* Glass surface mixin — applied when .glass-on + supported */
+body.glass-on .card,
+body.glass-on .widget-card{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+  box-shadow:0 4px 30px rgba(0,0,0,0.15);
+}
+body.glass-on #nav{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .top-bar{
+  background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .type-toggle{
+  background:rgba(var(--glass-rgb),calc(var(--glass-alpha))) !important;
+  backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Reduced motion: no blur, keep tint for legibility */
+@media (prefers-reduced-motion:reduce){
+  body.glass-on .card,body.glass-on .widget-card,body.glass-on #nav,body.glass-on .top-bar{
+    backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+    background:rgba(var(--glass-rgb),0.70) !important;
+  }
+}
 
 /* ═══════════════════════════════════════════════════
    MENU OVERLAY (right-side frosted glass)
@@ -1713,6 +1767,46 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           </div>
         </div>
       </div>
+      <!-- ── Erscheinungsbild ──────────────────────────────────────── -->
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Erscheinungsbild</div>
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Hintergrund</div>
+          <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+            <button onclick="triggerBgUpload()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Eigenes Bild
+            </button>
+            <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
+          </div>
+          <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
+          <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+          <div class="settings-row" style="padding:0 0 10px">
+            <div>
+              <div class="settings-row-label">Glassmorphism</div>
+              <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
+            </div>
+            <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
+          </div>
+          <div id="glass-sliders" style="display:none;margin-top:4px">
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
+                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
+              </div>
+              <input id="glass-blur-slider" type="range" min="4" max="20" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text2)">Transparenz</span>
+                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
+              </div>
+              <input id="glass-alpha-slider" type="range" min="5" max="40" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="section" style="padding-top:0">
         <div class="section-title">Aktien</div>
         <div class="card" style="padding:0 14px">
@@ -2294,7 +2388,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12 };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2700,6 +2794,7 @@ function catEmoji(name){
 // ═══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', ()=>{
   cfgLoad();
+  applyAppBackground(); // Apply background + glass immediately after CFG load
 
   // Read adminUrl from sharing link: ?adminUrl=https://...
   const urlParams = new URLSearchParams(window.location.search);
@@ -2800,7 +2895,11 @@ function _profileExportable(){
     aktienEnabled:     !!CFG.aktienEnabled,
     aktienInBilanz:    !!CFG.aktienInBilanz,
     widgetAktienPosId: CFG.widgetAktienPosId||'',
-    currency:          curr()
+    currency:          curr(),
+    bgPreset:          CFG.bgPreset||'',
+    glassEnabled:      !!CFG.glassEnabled,
+    glassBlur:         CFG.glassBlur||12,
+    glassAlpha:        CFG.glassAlpha||12,
   };
 }
 function _profileApply(prof){
@@ -2818,7 +2917,12 @@ function _profileApply(prof){
   if(prof.aktienInBilanz    !== undefined) CFG.aktienInBilanz    = !!prof.aktienInBilanz;
   if(prof.widgetAktienPosId !== undefined) CFG.widgetAktienPosId = prof.widgetAktienPosId;
   if(prof.currency          !== undefined) CFG.currency          = prof.currency;
+  if(prof.bgPreset          !== undefined) CFG.bgPreset          = prof.bgPreset;
+  if(prof.glassEnabled      !== undefined) CFG.glassEnabled      = !!prof.glassEnabled;
+  if(prof.glassBlur         !== undefined) CFG.glassBlur         = +prof.glassBlur||12;
+  if(prof.glassAlpha        !== undefined) CFG.glassAlpha        = +prof.glassAlpha||12;
   cfgSave();
+  applyAppBackground();
 }
 
 async function syncProfileToSheet(){
@@ -7852,7 +7956,165 @@ function toggleThemeSwitch(){
   if(sw) sw.classList.toggle('on', newTheme!=='light');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MODULE: HINTERGRUNDBILD + GLASSMORPHISM
+// CFG keys: bgPreset, glassEnabled, glassBlur, glassAlpha
+// BG image data stored separately in localStorage ('ft_bg_image')
+// ═══════════════════════════════════════════════════════════════
+
+// Preset background gradients (displayed as CSS gradient on body)
+const BG_PRESETS = {
+  aurora:   { label:'Aurora',   color:'#0d1a2e', gradient:'radial-gradient(ellipse 80% 60% at 20% 15%, #1a0a3e 0%, transparent 55%), radial-gradient(ellipse 60% 70% at 80% 80%, #0d2b2a 0%, transparent 55%), radial-gradient(ellipse 100% 100% at 50% 50%, #0a0a18 0%, #080810 100%)' },
+  midnight: { label:'Midnight', color:'#080820', gradient:'radial-gradient(ellipse 70% 50% at 50% 0%, #1a1a4e 0%, transparent 65%), linear-gradient(180deg, #080820 0%, #0a0a2a 100%)' },
+  forest:   { label:'Wald',     color:'#0a1a0e', gradient:'radial-gradient(ellipse 80% 60% at 30% 40%, #0d2a14 0%, transparent 65%), linear-gradient(160deg, #050e07 0%, #0f1f0e 100%)' },
+  sunset:   { label:'Sunset',   color:'#2a1008', gradient:'radial-gradient(ellipse 70% 50% at 50% 0%, #3d1505 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 80% 80%, #2a0a20 0%, transparent 55%), linear-gradient(160deg, #1a0808 0%, #2a100a 100%)' },
+  ocean:    { label:'Ozean',    color:'#020d1e', gradient:'radial-gradient(ellipse 70% 50% at 20% 30%, #022a4e 0%, transparent 60%), radial-gradient(ellipse 60% 60% at 80% 70%, #01102a 0%, transparent 60%), linear-gradient(180deg, #010810 0%, #010d1e 100%)' },
+  slate:    { label:'Slate',    color:'#0f1220', gradient:'radial-gradient(ellipse 60% 50% at 30% 20%, #1e2030 0%, transparent 55%), linear-gradient(160deg, #0d0f18 0%, #181a28 100%)' },
+};
+
+// Check if backdrop-filter is supported
+const GLASS_SUPPORTED = CSS.supports('backdrop-filter','blur(1px)') || CSS.supports('-webkit-backdrop-filter','blur(1px)');
+
+function _getBgImageData(){ return localStorage.getItem('ft_bg_image')||''; }
+function _saveBgImageData(d){ if(d) localStorage.setItem('ft_bg_image',d); else localStorage.removeItem('ft_bg_image'); }
+
+// Apply background image + glass to DOM
+function applyAppBackground(){
+  const body = document.body;
+  const imgData = _getBgImageData();
+  const hasBg = !!(imgData || CFG.bgPreset);
+  if(imgData){
+    body.style.backgroundImage = `url(${imgData})`;
+  } else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]){
+    body.style.backgroundImage = BG_PRESETS[CFG.bgPreset].gradient;
+  } else {
+    body.style.backgroundImage = '';
+  }
+  body.classList.toggle('has-bg-image', hasBg);
+  const glassOn = CFG.glassEnabled && GLASS_SUPPORTED;
+  body.classList.toggle('glass-on', glassOn);
+  _updateGlassCssVars();
+}
+
+// Set CSS variables from CFG
+function _updateGlassCssVars(){
+  const root = document.documentElement;
+  const blur = CFG.glassBlur||12;
+  const alpha = (CFG.glassAlpha||12)/100;
+  root.style.setProperty('--glass-blur', blur+'px');
+  root.style.setProperty('--glass-alpha', alpha.toFixed(3));
+  root.style.setProperty('--glass-nav-alpha', Math.min(alpha*1.8, 0.85).toFixed(3));
+  root.style.setProperty('--glass-bar-alpha', Math.min(alpha*1.4, 0.85).toFixed(3));
+  root.style.setProperty('--glass-border-alpha', Math.min(alpha*1.2, 0.28).toFixed(3));
+}
+
+// Select a preset (or '' to clear)
+function setBgPreset(key){
+  CFG.bgPreset = key;
+  _saveBgImageData(''); // clear custom image when choosing preset
+  cfgSave(); autoSyncProfile();
+  applyAppBackground();
+  renderErscheinungsbild();
+}
+
+// Clear all backgrounds
+function clearBgImage(){
+  CFG.bgPreset = '';
+  _saveBgImageData('');
+  cfgSave(); autoSyncProfile();
+  applyAppBackground();
+  renderErscheinungsbild();
+}
+
+// Trigger file picker
+function triggerBgUpload(){
+  document.getElementById('bg-file-input')?.click();
+}
+
+// Load selected image file as base64
+function loadBgFile(input){
+  const file = input.files?.[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    _saveBgImageData(data);
+    CFG.bgPreset = '';
+    cfgSave(); autoSyncProfile();
+    applyAppBackground();
+    renderErscheinungsbild();
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Toggle glass effect
+function toggleGlass(){
+  if(!GLASS_SUPPORTED){ toast('Gerät unterstützt backdrop-filter nicht','err'); return; }
+  CFG.glassEnabled = !CFG.glassEnabled;
+  cfgSave(); autoSyncProfile();
+  applyAppBackground();
+  renderErscheinungsbild();
+}
+
+// Update blur from slider
+function updateGlassBlur(val){
+  CFG.glassBlur = +val;
+  cfgSave();
+  _updateGlassCssVars();
+  const lbl = document.getElementById('glass-blur-val');
+  if(lbl) lbl.textContent = val+'px';
+}
+
+// Update alpha from slider
+function updateGlassAlpha(val){
+  CFG.glassAlpha = +val;
+  cfgSave();
+  _updateGlassCssVars();
+  const lbl = document.getElementById('glass-alpha-val');
+  if(lbl) lbl.textContent = val+'%';
+}
+
+// Render the Erscheinungsbild section in settings
+function renderErscheinungsbild(){
+  const grid = document.getElementById('bg-preset-grid'); if(!grid) return;
+  const currentPreset = CFG.bgPreset||'';
+  const hasCustom = !!_getBgImageData();
+
+  grid.innerHTML = Object.entries(BG_PRESETS).map(([key, p])=>{
+    const isActive = !hasCustom && currentPreset===key;
+    return `<div onclick="setBgPreset('${key}')" style="
+      height:52px;border-radius:var(--r2);cursor:pointer;
+      background:${p.gradient};
+      border:2px solid ${isActive?'var(--accent)':'transparent'};
+      transition:border .15s;position:relative;overflow:hidden">
+      <div style="position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:10px;font-weight:600;color:rgba(255,255,255,0.75);text-shadow:0 1px 3px rgba(0,0,0,.8)">${p.label}</div>
+    </div>`;
+  }).join('');
+
+  const sw = document.getElementById('glass-enabled-sw');
+  if(sw) sw.classList.toggle('on', !!CFG.glassEnabled);
+
+  const slidersEl = document.getElementById('glass-sliders');
+  if(slidersEl) slidersEl.style.display = CFG.glassEnabled ? '' : 'none';
+
+  const blurSlider = document.getElementById('glass-blur-slider');
+  if(blurSlider) blurSlider.value = CFG.glassBlur||12;
+  const blurVal = document.getElementById('glass-blur-val');
+  if(blurVal) blurVal.textContent = (CFG.glassBlur||12)+'px';
+
+  const alphaSlider = document.getElementById('glass-alpha-slider');
+  if(alphaSlider) alphaSlider.value = CFG.glassAlpha||12;
+  const alphaVal = document.getElementById('glass-alpha-val');
+  if(alphaVal) alphaVal.textContent = (CFG.glassAlpha||12)+'%';
+
+  // Hint if glass not supported
+  if(!GLASS_SUPPORTED){
+    if(sw) sw.style.opacity='0.4';
+  }
+}
+
 function renderEinstellungen(){
+  renderErscheinungsbild();
   const urlEl = document.getElementById('s-url2');
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
   const nameEl = document.getElementById('s-username');
