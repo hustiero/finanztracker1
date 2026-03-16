@@ -1104,6 +1104,121 @@ body.glass-on .widget-card{
 .admin-badge.user{background:var(--bg3);color:var(--text3)}
 /* account strip in top bar */
 .auth-user-chip{font-size:11px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-right:4px;white-space:nowrap;overflow:hidden;max-width:80px;text-overflow:ellipsis}
+
+/* ═══════════════════════════════════════════════════
+   PWA STANDALONE (iPhone homescreen)
+   Belt-and-suspenders: reinforce fixed bottom nav
+   even if other rules accidentally override it.
+═══════════════════════════════════════════════════ */
+@media (display-mode: standalone) {
+  #nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: auto;
+    height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border);
+  }
+  .nav-btn {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px 0 0;
+    gap: 3px;
+    font-size: 10px;
+    letter-spacing: .3px;
+  }
+  #content {
+    padding-bottom: calc(var(--nav-h) + var(--safe-bot) + 16px);
+  }
+  .fab {
+    left: 50%;
+    bottom: calc(var(--safe-bot) + var(--nav-h) - 28px);
+    transform: translateX(-50%);
+  }
+  .fab:active { transform: translateX(-50%) scale(.92); }
+}
+
+/* ═══════════════════════════════════════════════════
+   DESKTOP BROWSER (≥768px)
+   Sidebar navigation layout using CSS Grid.
+   Only applies in browser tab, not PWA standalone.
+═══════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  :root { --nav-w: 200px; }
+
+  #app {
+    display: grid;
+    grid-template-columns: var(--nav-w) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "nav topbar"
+      "nav content";
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .top-bar {
+    grid-area: topbar;
+    /* Override the safe-area top padding — desktop has no notch */
+    padding-top: 16px;
+  }
+
+  /* Sidebar nav */
+  #nav {
+    grid-area: nav;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: var(--nav-w);
+    flex-direction: column;
+    align-items: stretch;
+    /* Reset mobile fixed-position values */
+    bottom: auto;
+    right: auto;
+    left: auto;
+    padding-bottom: 0;
+    border-top: none;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+  }
+
+  /* Nav buttons become horizontal rows in sidebar */
+  .nav-btn {
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    font-size: 13px;
+    letter-spacing: normal;
+  }
+  .nav-btn svg { width: 20px; height: 20px; }
+
+  /* Push "Mehr" button to bottom of sidebar */
+  .nav-fab-space { flex: 1; }
+
+  /* Main content area */
+  #content {
+    grid-area: content;
+    /* No tab bar overlapping — just a small bottom margin */
+    padding-bottom: 24px;
+  }
+
+  /* FAB centered in the content column */
+  .fab {
+    left: calc(var(--nav-w) + (100vw - var(--nav-w)) / 2);
+    bottom: 24px;
+    transform: translateX(-50%);
+  }
+  .fab:active { transform: translateX(-50%) scale(.92); }
+}
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
