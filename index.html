@@ -2569,10 +2569,12 @@ function getCycleRange(){
 //   id, date, what, cat, amt, note,
 //   isFixkosten (!r.affectsAvg), isRecurring:true,
 //   _type:'recurring', _recurId:r.id
-function getRecurringOccurrences(startStr, endStr, capToToday=true){
+function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterialized=false){
   const todayS = today();
   const cutoff = capToToday ? (todayS < endStr ? todayS : endStr) : endStr;
   if(cutoff < startStr) return [];
+  // Pre-compute set of already-materialized keys to avoid double-counting
+  const matKeys = skipMaterialized ? new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date)) : null;
   const results = [];
   for(const r of DATA.recurring){
     if(!r.active) continue;
@@ -2632,6 +2634,7 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true){
     }
 
     for(const ds of dates){
+      if(matKeys && matKeys.has(r.id+'_'+ds)) continue;
       results.push({
         id: r.id+'_r_'+ds, date: ds, what: r.what, cat: r.cat, amt: r.amt,
         note: r.note||'', isFixkosten: !r.affectsAvg,
@@ -2771,9 +2774,9 @@ function getZyklusInfo(){
   // Fixed costs: use the FULL cycle range (capToToday=false) so a Dauerauftrag added on
   // the 16th for the 26th immediately reduces the daily rate — the user doesn't have to
   // wait until the payment date for the budget to reflect it.
-  const recurInCycleFull  = getRecurringOccurrences(startStr, endStr, false);
+  const recurInCycleFull  = getRecurringOccurrences(startStr, endStr, false, true);
   // Variable spending still uses today-capped recurring (only realised transactions count).
-  const recurInCycleToday = getRecurringOccurrences(startStr, endStr, true);
+  const recurInCycleToday = getRecurringOccurrences(startStr, endStr, true, true);
   const fixKosten = [
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
     ...recurInCycleFull.filter(e=>isFixkostenEntry(e))
@@ -2791,7 +2794,7 @@ function getZyklusInfo(){
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr);
+  const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr, true, true);
   const prevFixKosten = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&isFixkostenEntry(e)),...prevRecur.filter(e=>isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevVarSpent  = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&!isFixkostenEntry(e)),...prevRecur.filter(e=>!isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
@@ -2817,7 +2820,7 @@ function parentOf(catName){ const c=DATA.categories.find(c=>c.name===catName); r
 function avgDailyVarSpend(mo, yr, daysElapsed){
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const recur=getRecurringOccurrences(s,e).filter(r=>!isFixkostenEntry(r));
+  const recur=getRecurringOccurrences(s,e,true,true).filter(r=>!isFixkostenEntry(r));
   const allExp=[...DATA.expenses.filter(ex=>{
     const d=new Date(ex.date+'T12:00:00');
     return d.getMonth()===mo&&d.getFullYear()===yr&&!isFixkostenEntry(ex)&&!ex.excludeAvg;
@@ -4033,7 +4036,7 @@ function getKategorienMitEintraegen(typ){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    entries = [...entries, ...getRecurringOccurrences(rangeStart, rangeEnd)];
+    entries = [...entries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true)];
   }
   entries = verlaufFilterEntries(entries);
   const byKat = {};
@@ -4096,7 +4099,7 @@ function buildMonthlyBarData(kat, typ){
   // Include Daueraufträge in the ausgaben monthly bars
   if(typ==='ausgaben'){
     const chartStart = dateStr(new Date(now.getFullYear(), now.getMonth()-(months-1), 1));
-    entries = [...entries, ...getRecurringOccurrences(chartStart, dateStr(now))];
+    entries = [...entries, ...getRecurringOccurrences(chartStart, dateStr(now), true, true)];
   }
   entries.filter(e=>e.cat===kat).forEach(e=>{
     const key = e.date.slice(0,7);
@@ -4182,7 +4185,7 @@ function renderVerlaufL1(){
   let entries = [
     ...DATA.expenses.map(e=>({...e,_type:'ausgabe'})),
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
-    ...getRecurringOccurrences(recurStart, recurEnd, false)
+    ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
   entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
@@ -4244,7 +4247,7 @@ function renderVerlaufL3(){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    baseEntries = [...baseEntries, ...getRecurringOccurrences(rangeStart, rangeEnd).filter(e=>e.cat===kat)];
+    baseEntries = [...baseEntries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true).filter(e=>e.cat===kat)];
   }
   let allEntries = verlaufFilterEntries(baseEntries)
     .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
@@ -4267,7 +4270,7 @@ function renderVerlaufL3(){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    allOfTypeArr = [...allOfTypeArr, ...getRecurringOccurrences(rangeStart, rangeEnd)];
+    allOfTypeArr = [...allOfTypeArr, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true)];
   }
   const grandTotal = verlaufFilterEntries(allOfTypeArr).reduce((s,e)=>s+e.amt, 0);
   const pct = grandTotal>0 ? total/grandTotal*100 : 0;
@@ -5122,7 +5125,7 @@ function renderWidgetTopKategorien(){
     const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
   // Daueraufträge occurrences in cycle
-  getRecurringOccurrences(startStr,endStr).forEach(e=>{
+  getRecurringOccurrences(startStr,endStr,true,true).forEach(e=>{
     const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
   const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -5155,7 +5158,7 @@ function renderWidgetMonatverlauf(){
   const totals = months.map(m=>{
     const s=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-01`;
     const e=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-${String(new Date(m.yr,m.mo+1,0).getDate()).padStart(2,'0')}`;
-    const recur=getRecurringOccurrences(s,e).reduce((a,x)=>a+x.amt,0);
+    const recur=getRecurringOccurrences(s,e,true,true).reduce((a,x)=>a+x.amt,0);
     return DATA.expenses.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amt,0)+recur;
   });
   const max = Math.max(...totals,1);
@@ -5252,7 +5255,7 @@ function renderWidgetMonatSummary(mo, yr){
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
   const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
   const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const recurExp = getRecurringOccurrences(s,e);
+  const recurExp = getRecurringOccurrences(s,e,true,true);
   const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + recurExp.reduce((a,ex)=>a+ex.amt,0);
   const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
   const bal      = totalIn - totalOut;
@@ -5284,7 +5287,7 @@ function renderWidgetMonatKategorien(mo, yr, limit=5){
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
   const catMap={};
-  [...DATA.expenses.filter(x=>x.date>=s&&x.date<=e),...getRecurringOccurrences(s,e)].forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
+  [...DATA.expenses.filter(x=>x.date>=s&&x.date<=e),...getRecurringOccurrences(s,e,true,true)].forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
   // Parent-category rollup
   const parentMap={};
   DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
@@ -5332,7 +5335,7 @@ function renderWidgetJahresSparquote(yr){
     const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
     const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
     const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
-      +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
+      +getRecurringOccurrences(s,e,true,true).reduce((a,ex)=>a+ex.amt,0);
     yMonths.push({label:months[m],net:inc-out,cur:isCurrentYear&&m===now.getMonth()});
   }
   const cashSaved=yMonths.reduce((s,m)=>s+m.net,0);
@@ -5383,7 +5386,7 @@ function renderWidgetJahresKategorien(yr){
   if(!yr) yr = new Date().getFullYear();
   const catMap={};
   const yrStart=`${yr}-01-01`, yrEnd=`${yr}-12-31`;
-  [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd)]
+  [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd,true,true)]
     .forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
   if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben erfasst.</div></div>`;
@@ -5415,7 +5418,7 @@ function renderWidgetMonatsverlaufJahr(yr){
     const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
     const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
     const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
-      +getRecurringOccurrences(s,e).reduce((a,ex)=>a+ex.amt,0);
+      +getRecurringOccurrences(s,e,true,true).reduce((a,ex)=>a+ex.amt,0);
     const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
     trend.push({label:months[m],out,inc,net:inc-out,mo:m,cur:isCurrentYear&&m===now.getMonth()});
   }
@@ -6222,17 +6225,17 @@ async function confirmRecurringExecution(){
   if(!what||!amt||!date){ toast('Felder ausfüllen','err'); return; }
 
   const id = genId('A');
-  // Find the matching recurring entry to inherit affectsAvg
   const n = (CFG.notifications||[]).find(n=>n.id===notifId);
   const recurEntry = n ? DATA.recurring.find(r=>r.id===n.recurId) : null;
-  const excludeAvg = recurEntry ? !recurEntry.affectsAvg : false;
-  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)',excludeAvg};
+  const recurId = n ? (n.recurId||'') : '';
+  const isFixk = recurEntry ? !recurEntry.affectsAvg : false;
+  const entry = {id,date,what,cat,amt,note:'(Dauerauftrag)',recurringId:recurId,isFixkosten:isFixk};
   DATA.expenses.push(entry);
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)',excludeAvg?'1':'']]);
+      await apiAppend('Ausgaben',[[id,date,what,cat,amt,'(Dauerauftrag)',recurId,isFixk?'1':'0']]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
@@ -6574,7 +6577,7 @@ function buildBalanceChart(months){
   const events=[];
   DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:-e.amt}));
   DATA.incomes.filter(e=>e.date>=startStr&&e.date<=todayStr).forEach(e=>events.push({date:e.date,amt:e.amt}));
-  getRecurringOccurrences(startStr,todayStr).forEach(e=>events.push({date:e.date,amt:-e.amt}));
+  getRecurringOccurrences(startStr,todayStr,true,true).forEach(e=>events.push({date:e.date,amt:-e.amt}));
   events.sort((a,b)=>a.date.localeCompare(b.date));
   if(!events.length) return `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Keine Daten für diesen Zeitraum</div>`;
   let bal=0;
