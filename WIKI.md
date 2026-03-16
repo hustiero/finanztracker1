@@ -2132,4 +2132,165 @@ Aus dem vorigen Commit:
 
 ---
 
+## 23. Budget-Formeln & Fixkosten-Referenz
+
+> Aktualisiert März 2026 — Branch `claude/fix-pwa-tab-bar-NgE1s`
+
+### 23.1 Lohnzyklus-Grenzen (`getCycleRange`)
+
+```
+lohnTag = CFG.lohnTag  (Standard: 25)
+
+if today.day >= lohnTag:
+  cycleStart = lohnTag des aktuellen Monats
+  cycleEnd   = (lohnTag − 1) des nächsten Monats
+else:
+  cycleStart = lohnTag des Vormonats
+  cycleEnd   = (lohnTag − 1) des aktuellen Monats
+```
+
+Beispiel mit `lohnTag = 25`, heute = 16. März:
+→ Zyklus = 25. Feb – 24. März
+
+---
+
+### 23.2 Was zählt als Fixkosten (`isFixkostenEntry`)
+
+Ein Buchungseintrag gilt als **Fixkosten** wenn EINES dieser Kriterien zutrifft:
+
+| Priorität | Bedingung | Wie setzen |
+|-----------|-----------|-----------|
+| 1 | `e.isFixkosten === true` | Per-Eintrag-Toggle im Lohn-Tab |
+| 2 | `e.cat` ist in `CFG.fixkostenKats` | Kategorie als Fixkosten markieren (Lohn-Einstellungen) |
+| 3 | `e.recurringId` verknüpft auf einen Dauerauftrag mit `affectsAvg=false` | Dauerauftrag: "Zählt für Ø" **deaktiviert** lassen |
+| 4 | `e._type==='recurring'` oder `e.isRecurring===true` und `recurring.affectsAvg===false` | Wie oben (für virtuelle Einträge) |
+
+**Empfehlung für Daueraufträge:**
+
+| Kategorie | "Zählt für Ø Tagesausgabe" | Ergebnis |
+|-----------|---------------------------|---------|
+| Miete | ☐ (deaktiviert) | Fixkosten — wird sofort vom Tagesbudget abgezogen |
+| Handy-Abo | ☐ (deaktiviert) | Fixkosten |
+| Netflix | ☐ (deaktiviert) | Fixkosten |
+| Wocheneinkauf (regelmässig) | ☑ (aktiviert) | Variable Ausgabe — fliesst in Ø Tagesausgabe |
+
+---
+
+### 23.3 Budget-Hauptformel (`getZyklusInfo`)
+
+```
+lohn          = Σ Einnahmen im Zyklus mit isLohn=true
+
+recurFull     = getRecurringOccurrences(zyklusStart, zyklusEnd, capToToday=FALSE)
+                → ALLE geplanten Daueraufträge im Zyklus, auch zukünftige
+
+recurToday    = getRecurringOccurrences(zyklusStart, zyklusEnd, capToToday=TRUE)
+                → nur Daueraufträge mit date ≤ heute
+
+fixKosten     = Σ expenses[isFixkosten, im Zyklus]
+              + Σ recurFull[isFixkosten]
+              ⚠ Verwendet capToToday=FALSE: Miete am 26. wird bereits am 16.
+                vom Tagesbudget abgezogen — die Ausgabe ist sicher, nur noch
+                nicht realisiert.
+
+prevCarryover = prevLohn − prevFixKosten − prevVarSpent
+                (0 falls kein Lohn im Vormonat)
+
+varBudget     = lohn − fixKosten + prevCarryover − mSparziel
+
+varSpent      = Σ expenses[!isFixkosten, date ≤ heute, im Zyklus]
+              + Σ recurToday[!isFixkosten]
+              ⚠ Nur realisierte Transaktionen (capToToday=TRUE)
+
+varRemaining  = varBudget − varSpent
+daysLeft      = zyklusTage − vergangene Tage
+dailyRate     = varRemaining / daysLeft   (null wenn daysLeft=0)
+```
+
+Rückgabe-Objekt: `{lohn, fixKosten, varBudget, varSpent, varRemaining, dailyRate, daysElapsed, daysLeft, cycleDays, hasSalary, prevCarryover, mSparziel, start, end, startStr, endStr}`
+
+---
+
+### 23.4 Ø Tagesausgabe-Formeln
+
+**`avgDailyVarSpend(mo, yr, daysElapsed)`**
+```
+entries = DATA.expenses für Monat [!isFixkosten, !excludeAvg]
+        + getRecurringOccurrences(monatsStart, monatsEnd)[!isFixkosten]
+avg     = Σ entries.amt / daysElapsed
+```
+
+**`avgDailyVarSpendYear(yr)`**
+```
+fixCats = Kategorien aktiver Daueraufträge mit affectsAvg=false
+entries = DATA.expenses für Jahr [!in fixCats, !excludeAvg, !isFixkosten]
+avg     = Σ entries.amt / vergangene Tage des Jahres
+```
+
+---
+
+### 23.5 Sparquote-Formeln
+
+**Laufender Zyklus (`renderWidgetSparquote`):**
+```
+saved = lohn − fixKosten − varSpent
+pct   = saved / lohn × 100
+```
+
+**Jahres-Sparquote (`renderWidgetJahresSparquote`):**
+```
+yearInc  = Σ Einnahmen des Jahres
+yearOut  = Σ Ausgaben + Daueraufträge des Jahres
+           (+Portfoliowert falls CFG.aktienInBilanz)
+saved    = yearInc − yearOut
+pct      = saved / yearInc × 100
+```
+
+---
+
+### 23.6 `getRecurringOccurrences` — Einheitliche Recurring-Expansion
+
+**Alle Dauerauftrag-Erweiterungen gehen über DIESE Funktion** (seit März 2026).
+
+```javascript
+getRecurringOccurrences(startStr, endStr, capToToday=true)
+```
+
+Unterstützte Intervalle: `monatlich`, `wöchentlich`, `zweiwöchentlich`, `jährlich`, `quartalsweise`, `halbjährlich`, `semestral`
+
+Ausgabe je Eintrag:
+```javascript
+{
+  id:          r.id + '_r_' + dateStr,
+  date:        'YYYY-MM-DD',
+  what, cat, amt, note,
+  isFixkosten: !r.affectsAvg,   // für Budget-Klassifizierung
+  isRecurring: true,             // für isFixkostenEntry()
+  _type:       'recurring',      // für Verlauf-Rendering
+  _recurId:    r.id,             // Rückverweis auf DATA.recurring
+}
+```
+
+| `capToToday` | Wann verwenden |
+|---|---|
+| `true` (Standard) | Variable Ausgaben, historische Ansichten, Materialisierung |
+| `false` | **fixKosten** in `getZyklusInfo` · Aktueller Monat in `renderMonat` · L1-Liste in Verlauf |
+
+**Veraltete Funktion `getRecurringInstances()`:** Nicht mehr aufrufen. Alle Call-Sites wurden auf `getRecurringOccurrences` migriert.
+
+---
+
+### 23.7 Verlauf: Daueraufträge in allen Ansichten
+
+| Ansicht | Recurring-Quelle | Zeigt Zukunft? |
+|---------|-----------------|----------------|
+| L1 „Alle" | `getRecurringOccurrences(recurStart, filterBis, capToToday=false)` | ✅ als „geplant" (Akzent-Label) |
+| L2 Kategorie-Kacheln | `getKategorienMitEintraegen` → `getRecurringOccurrences` (default cap) | ❌ nur realisiert |
+| L3 Drilldown | `renderVerlaufL3` → `getRecurringOccurrences` (default cap) | ❌ nur realisiert |
+| Monats-Balkendiagramm | `buildMonthlyBarData` → `getRecurringOccurrences` (default cap) | ❌ nur realisiert |
+
+**Regel:** Jede Ausgaben-Aggregation muss `getRecurringOccurrences()` einschliessen. Nie recurring-Einträge direkt zu `DATA.expenses` hinzufügen.
+
+---
+
 *Generiert aus `/home/user/finanztracker1/index.html` — Branch `claude/stocks-settings-toggle-pOwg7`*
