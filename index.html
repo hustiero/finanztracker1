@@ -1275,15 +1275,34 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
     <!-- TAB: Verlauf -->
     <div id="tab-verlauf" class="tab-page" style="display:none">
-      <div class="section">
-        <div class="filter-row" id="verlauf-filters"></div>
+      <!-- Verlauf-Header: Type-Switch (L1/L2) oder Zurück-Button (L3) -->
+      <div style="padding:12px 16px 0">
+        <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
+        <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
+          <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
+          <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
+          <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+        </div>
+        <!-- L3: Zurück-Button + Kategoriename + Suche-Icon -->
+        <div id="verlauf-l3-bar" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
+          <button onclick="verlaufGoBack()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
+          <span id="verlauf-l3-title" style="flex:1;font-size:16px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></span>
+          <button onclick="verlaufToggleL3Search()" id="verlauf-l3-search-btn" style="background:none;border:none;color:var(--text3);padding:4px 6px;flex-shrink:0;line-height:0">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
+        <!-- Suchfeld: immer sichtbar L1/L2, per Icon ein-/ausblendbar L3 -->
+        <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="margin:0 0 8px">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
+        </div>
       </div>
-      <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="display:none">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
-      </div>
-      <div id="verlauf-chart-section" style="padding:0 16px 8px"></div>
-      <div id="verlauf-list"></div>
+      <!-- L1: Alle Buchungen (chronologisch) -->
+      <div id="verlauf-l1-content"></div>
+      <!-- L2: Kategorienliste (nach Typ gefiltert) -->
+      <div id="verlauf-l2-content" style="display:none"></div>
+      <!-- L3: Kategorie-Detailansicht (Stats + Transaktionen) -->
+      <div id="verlauf-l3-content" style="display:none"></div>
     </div>
 
     <!-- TAB: Kategorien -->
@@ -1430,6 +1449,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
     <!-- TAB: Aktien -->
     <div id="tab-aktien" class="tab-page" style="display:none">
+      <div id="aktien-dashboard-top"></div>
       <div class="section" style="padding-bottom:8px">
         <div class="type-toggle" style="margin-bottom:8px">
           <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
@@ -1595,6 +1615,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="card" style="padding:0 14px">
           <div class="settings-row">
             <div>
+              <div class="settings-row-label">Aktien aktivieren</div>
+              <div class="settings-row-sub">Aktien-Tab, Widgets und Plus-Menü-Eintrag einblenden</div>
+            </div>
+            <div class="toggle-switch" id="aktien-enabled-sw" onclick="toggleAktienEnabled()"></div>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border)" id="aktien-bilanz-row">
+            <div>
               <div class="settings-row-label">Depot in Gesamtbilanz</div>
               <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
             </div>
@@ -1661,6 +1688,35 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
+</div>
+
+<!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->
+<div id="fab-speed-dial" style="display:none;position:fixed;inset:0;z-index:97" onclick="closeFabMenu()">
+  <div id="fab-speed-dial-sheet" onclick="event.stopPropagation()" style="position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <button onclick="closeFabMenu();goTab('eingabe')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Ausgabe / Einnahme
+    </button>
+    <button onclick="closeFabMenu();openAddAktieFlow()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      <span style="color:var(--accent)">Aktie / Trade erfassen</span>
+    </button>
+  </div>
+</div>
+
+<!-- Aktie-Flow Modal (Bestehende wählen oder Neue erstellen) -->
+<div class="modal-overlay" id="aktie-flow-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="aktie-flow-title">Aktie / Trade erfassen</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aktie-flow-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="aktie-flow-body"></div>
+    <div class="modal-actions" id="aktie-flow-actions" style="display:none">
+      <button class="btn-cancel" onclick="closeModal('aktie-flow-modal')">Abbrechen</button>
+    </div>
+  </div>
 </div>
 
 <!-- Menu Overlay -->
@@ -1983,7 +2039,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="mv-bar-title" id="aktie-detail-title">Aktie</div>
-    <button id="aktie-del-btn" onclick="deleteAktie(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;margin-right:4px">Löschen</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="openEditAktieModal(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px">Bearbeiten</button>
+      <button id="aktie-del-btn" onclick="deleteAktie(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;margin-right:4px">Löschen</button>
+    </div>
   </div>
   <div class="aktie-detail-actions">
     <button class="btn-kauf" onclick="openTradeModal('kauf')">↑ Kauf</button>
@@ -2011,8 +2070,8 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
-          <label class="form-label">Ticker <span style="color:var(--text3)">(Yahoo)</span></label>
-          <input id="na-ticker" class="form-input" type="text" placeholder="AAPL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters">
+          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <input id="na-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW, GOOGL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
         </div>
       </div>
       <div class="form-group">
@@ -2022,10 +2081,57 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <button onclick="testTickerFromNew()" style="flex:1;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">Kurs abrufen testen</button>
+        <div id="na-ticker-result" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;text-align:center">—</div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('new-aktie-modal')">Abbrechen</button>
       <button class="btn-save" onclick="saveNewAktie()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Aktie Bearbeiten Modal -->
+<div class="modal-overlay" id="edit-aktie-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Aktie bearbeiten</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('edit-aktie-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ea-id">
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input id="ea-title" class="form-input" type="text" placeholder="z.B. Apple Inc." autocorrect="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">ISIN <span style="color:var(--text3)">(optional)</span></label>
+          <input id="ea-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <input id="ea-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Basis-Währung</label>
+        <select id="ea-currency" class="form-select">
+          <option>CHF</option><option>EUR</option><option selected>USD</option>
+          <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <button onclick="testTickerFromEdit()" style="flex:1;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">Kurs abrufen testen</button>
+        <div id="ea-ticker-result" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;text-align:center">—</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('edit-aktie-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveEditAktie()">Speichern</button>
     </div>
   </div>
 </div>
@@ -2085,7 +2191,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2588,6 +2694,7 @@ function _profileExportable(){
     homeWidgets:       CFG.homeWidgets||null,
     notifSettings:     CFG.notifSettings||{},
     fixkostenKats:     CFG.fixkostenKats||[],
+    aktienEnabled:     !!CFG.aktienEnabled,
     aktienInBilanz:    !!CFG.aktienInBilanz,
     widgetAktienPosId: CFG.widgetAktienPosId||'',
     currency:          curr()
@@ -2604,6 +2711,7 @@ function _profileApply(prof){
   if(prof.homeWidgets       !== undefined) CFG.homeWidgets       = prof.homeWidgets;
   if(prof.notifSettings     !== undefined) CFG.notifSettings     = prof.notifSettings;
   if(prof.fixkostenKats     !== undefined) CFG.fixkostenKats     = prof.fixkostenKats;
+  if(prof.aktienEnabled     !== undefined) CFG.aktienEnabled     = !!prof.aktienEnabled;
   if(prof.aktienInBilanz    !== undefined) CFG.aktienInBilanz    = !!prof.aktienInBilanz;
   if(prof.widgetAktienPosId !== undefined) CFG.widgetAktienPosId = prof.widgetAktienPosId;
   if(prof.currency          !== undefined) CFG.currency          = prof.currency;
@@ -3503,8 +3611,10 @@ function exportExcel(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-let verlaufFilter = 'alle';
-let verlaufChartMonths = 3;
+// Verlauf Navigation State (3 Ebenen)
+let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen'
+let verlaufKat = null;            // null | string — gewählte Kategorie für L3
+let verlaufL3SearchVis = false;   // Suchfeld auf L3 sichtbar?
 let dashboardChartMonths = 3;
 
 function renderAll(){
@@ -3562,80 +3672,124 @@ function getRecurringInstances(startStr, endStr){
   return entries;
 }
 
-function renderVerlauf(){
-  // Filters
-  const allCats = [...new Set([...DATA.expenses.map(e=>e.cat),...DATA.incomes.map(e=>e.cat),...DATA.recurring.filter(r=>r.active).map(r=>r.cat)])];
-  const filterRow = document.getElementById('verlauf-filters');
-  filterRow.innerHTML = ['alle','Ausgaben','Einnahmen',...allCats]
-    .map(f=>`<button class="filter-chip${verlaufFilter===f?' active':''}" onclick="setVerlaufFilter('${f}')">${f}</button>`)
-    .join('');
+// ═══════════════════════════════════════════════════════════════
+// VERLAUF — 3-Ebenen-Navigation
+// Ebene 1 (L1): Alle Buchungen, Typ = 'alle'
+// Ebene 2 (L2): Kategorienliste, Typ = 'ausgaben' | 'einnahmen'
+// Ebene 3 (L3): Kategorie-Detail, verlaufKat gesetzt
+// ═══════════════════════════════════════════════════════════════
 
-  // Chart section — bar chart for specific category, nothing for alle/Ausgaben/Einnahmen
-  const chartSection = document.getElementById('verlauf-chart-section');
-  if(verlaufFilter!=='alle'&&verlaufFilter!=='Ausgaben'&&verlaufFilter!=='Einnahmen'){
-    const days = 30;
-    const todayD = new Date(); todayD.setHours(12,0,0,0);
-    const dayData = {};
-    for(let i=days-1;i>=0;i--){
-      const d=new Date(todayD.getTime()-i*86400000);
-      dayData[dateStr(d)]=0;
-    }
-    const startStr = Object.keys(dayData)[0];
-    const endStr = today();
-    DATA.expenses.filter(e=>e.cat===verlaufFilter&&e.date>=startStr&&e.date<=endStr)
-      .forEach(e=>{ if(dayData[e.date]!==undefined) dayData[e.date]+=e.amt; });
-    chartSection.innerHTML = `<div style="overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 8px;margin-bottom:4px">${buildBarChart(dayData, days)}</div>`;
-  } else {
-    chartSection.innerHTML = '';
+// ── Universelle Suchfunktion ─────────────────────────────────────────────────
+// Durchsucht Einträge nach Betrag, Kategorie, Datum und Notiz.
+// Source: DATA.expenses / DATA.incomes (je nach Kontext)
+function sucheTransaktionen(query, entries){
+  if(!query) return entries;
+  const q = query.toLowerCase();
+  return entries.filter(e=>
+    (e.what||'').toLowerCase().includes(q)||
+    (e.cat||'').toLowerCase().includes(q)||
+    (e.note||'').toLowerCase().includes(q)||
+    fmtAmt(e.amt).includes(q)||
+    fmtDate(e.date).toLowerCase().includes(q)
+  );
+}
+
+// ── Kategorien mit Einträgen (für L2) ────────────────────────────────────────
+// Gibt alle Kategorien mit min. 1 Eintrag zurück, sortiert nach Gesamtbetrag.
+// typ: 'ausgaben' | 'einnahmen'
+function getKategorienMitEintraegen(typ){
+  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  const byKat = {};
+  entries.forEach(e=>{
+    if(!byKat[e.cat]) byKat[e.cat] = {name:e.cat, total:0, count:0};
+    byKat[e.cat].total += e.amt;
+    byKat[e.cat].count++;
+  });
+  return Object.values(byKat).sort((a,b)=>b.total-a.total);
+}
+
+// ── Kategorie-Details (für L3 Stats) ─────────────────────────────────────────
+// Gibt Statistiken für eine Kategorie zurück (total, Ø/Monat, Anzahl, %).
+// Datenquelle: DATA.expenses oder DATA.incomes je nach Kategorie-Typ
+function getKategorieDetails(kat, von='', bis=''){
+  const catDef = DATA.categories.find(c=>c.name===kat);
+  const isInc = catDef?.type==='einnahme';
+  let entries = isInc
+    ? DATA.incomes.filter(e=>e.cat===kat)
+    : DATA.expenses.filter(e=>e.cat===kat);
+  if(von) entries = entries.filter(e=>e.date>=von);
+  if(bis) entries = entries.filter(e=>e.date<=bis);
+  const total = entries.reduce((s,e)=>s+e.amt, 0);
+  const count = entries.length;
+  let avgPerMonth = 0;
+  if(count){
+    const dates = entries.map(e=>e.date);
+    const minD = dates.reduce((a,b)=>a<b?a:b);
+    const maxD = dates.reduce((a,b)=>a>b?a:b);
+    const months = getMonthsBetween(minD, maxD);
+    avgPerMonth = months > 0 ? total/months : total;
   }
+  const allOfType = isInc ? DATA.incomes : DATA.expenses;
+  const grandTotal = allOfType.reduce((s,e)=>s+e.amt, 0);
+  const pct = grandTotal>0 ? total/grandTotal*100 : 0;
+  return {total, count, avgPerMonth, pct, entries};
+}
 
-  // Combine & filter entries (including recurring)
-  const todayStr = today();
-  // Look back 12 months for recurring
-  const recurStart = dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
-  let entries = [];
-  const showExp = verlaufFilter==='alle'||verlaufFilter==='Ausgaben'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='ausgabe');
-  const showInc = verlaufFilter==='alle'||verlaufFilter==='Einnahmen'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='einnahme');
-  const showRec = verlaufFilter==='alle'||verlaufFilter==='Ausgaben'||DATA.recurring.find(r=>r.cat===verlaufFilter);
+// ── Hilfsfunktion: Monate zwischen zwei Datumsstrings ────────────────────────
+function getMonthsBetween(a, b){
+  if(!a||!b) return 1;
+  const da = new Date(a+'T12:00:00'), db = new Date(b+'T12:00:00');
+  return Math.max(1, (db.getFullYear()-da.getFullYear())*12+(db.getMonth()-da.getMonth())+1);
+}
 
-  if(showExp){
-    const expData = (verlaufFilter==='alle'||verlaufFilter==='Ausgaben') ? DATA.expenses : DATA.expenses.filter(e=>e.cat===verlaufFilter);
-    entries.push(...expData.map(e=>({...e,_type:'ausgabe'})));
+// ── Monatlicher Balken-Chart für L3 ─────────────────────────────────────────
+// Zeigt Ausgaben/Einnahmen einer Kategorie über die letzten 12 Monate.
+// Datenquelle: DATA.expenses oder DATA.incomes (je nach typ)
+function buildMonthlyBarData(kat, typ){
+  const now = new Date();
+  const months = 12;
+  const monthData = {}, monthLabels = [];
+  for(let i=months-1;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthData[key] = 0;
+    monthLabels.push({key, label:`${d.getMonth()+1}.${d.getFullYear().toString().slice(2)}`});
   }
-  if(showInc){
-    const incData = (verlaufFilter==='alle'||verlaufFilter==='Einnahmen') ? DATA.incomes : DATA.incomes.filter(e=>e.cat===verlaufFilter);
-    entries.push(...incData.map(e=>({...e,_type:'einnahme'})));
-  }
-  if(showRec){
-    const recInsts = getRecurringInstances(recurStart, todayStr);
-    const filtered = verlaufFilter==='alle'||verlaufFilter==='Ausgaben' ? recInsts : recInsts.filter(r=>r.cat===verlaufFilter);
-    entries.push(...filtered);
-  }
+  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  entries.filter(e=>e.cat===kat).forEach(e=>{
+    const key = e.date.slice(0,7);
+    if(key in monthData) monthData[key] += e.amt;
+  });
+  const maxAmt = Math.max(...Object.values(monthData), 0.01);
+  if(Object.values(monthData).every(v=>v===0)) return null;
+  const W=320, H=72, padB=16, padT=4;
+  const chartW=W, chartH=H-padB-padT;
+  const barW = Math.max(1, chartW/months-2);
+  const bars = monthLabels.map((m,i)=>{
+    const amt = monthData[m.key];
+    const bh = amt>0 ? Math.max(2,(amt/maxAmt)*chartH) : 0;
+    const x = i*(chartW/months);
+    const y = padT+chartH-bh;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${catColor(kat)}" opacity="0.75" rx="1"/>`;
+  });
+  const labels = monthLabels.map((m,i)=>{
+    if(i%3!==0 && i!==months-1) return '';
+    const x = i*(chartW/months);
+    return `<text x="${x.toFixed(1)}" y="${H-3}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${m.label}</text>`;
+  }).filter(Boolean);
+  return `<svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">${bars.join('')}${labels.join('')}</svg>`;
+}
 
-  entries.sort((a,b)=>b.date.localeCompare(a.date));
-
-  // Search filter (only for 'alle')
-  const searchWrap = document.getElementById('verlauf-search-wrap');
-  if(searchWrap) searchWrap.style.display = verlaufFilter==='alle' ? 'flex' : 'none';
-  if(verlaufFilter==='alle' && verlaufSearch){
-    const q = verlaufSearch.toLowerCase();
-    entries = entries.filter(e=>(e.what||'').toLowerCase().includes(q)||(e.cat||'').toLowerCase().includes(q)||(e.note||'').toLowerCase().includes(q));
-  }
-
-  const container = document.getElementById('verlauf-list');
-  if(!entries.length){
-    container.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
-    return;
-  }
-
-  // Group by date
+// ── Einträge nach Datum gruppiert rendern ─────────────────────────────────────
+// Gemeinsame Renderfunktion für L1 und L3 Transaktionslisten.
+// entries: Array mit _type: 'ausgabe' | 'einnahme' | 'recurring'
+function renderVerlaufEntryGroups(entries){
   const byDate = {};
   entries.forEach(e=>{ if(!byDate[e.date])byDate[e.date]=[]; byDate[e.date].push(e); });
-
-  container.innerHTML = Object.entries(byDate)
+  return Object.entries(byDate)
     .sort(([a],[b])=>b.localeCompare(a))
     .map(([date, items])=>{
-      const dayTotal = items.reduce((s,e)=>s+(e._type==='einnahme'?e.amt:-e.amt),0);
+      const dayTotal = items.reduce((s,e)=>s+(e._type==='einnahme'?e.amt:-e.amt), 0);
       const daySign = dayTotal>=0?'+':'−';
       const dayColor = dayTotal>=0?'var(--green)':'var(--red)';
       return `
@@ -3662,13 +3816,223 @@ function renderVerlauf(){
             </div>`;
           }).join('')}
         </div>
-      </div>
-    `;
+      </div>`;
     }).join('');
 }
 
-function setVerlaufFilter(f){ verlaufFilter=f; renderVerlauf(); }
-function setVerlaufMonths(m){ verlaufChartMonths=m; renderVerlauf(); }
+const _VERLAUF_EMPTY = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
+
+// ── L1: Alle Buchungen ────────────────────────────────────────────────────────
+// Zeigt alle Ausgaben, Einnahmen und aktive Daueraufträge chronologisch.
+// Suche filtert über Bezeichnung, Kategorie, Betrag, Datum und Notiz.
+function renderVerlaufL1(){
+  const container = document.getElementById('verlauf-l1-content');
+  if(!container) return;
+  const todayStr = today();
+  const recurStart = dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+  let entries = [
+    ...DATA.expenses.map(e=>({...e,_type:'ausgabe'})),
+    ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
+    ...getRecurringInstances(recurStart, todayStr)
+  ];
+  entries = sucheTransaktionen(verlaufSearch, entries);
+  entries.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
+  container.innerHTML = renderVerlaufEntryGroups(entries);
+}
+
+// ── L2: Kategorienliste ───────────────────────────────────────────────────────
+// Zeigt alle Kategorien mit mind. 1 Eintrag, sortiert nach Gesamtbetrag.
+// Suche filtert Kategorienamen. Klick → L3.
+// Datenquelle: DATA.expenses (ausgaben) oder DATA.incomes (einnahmen)
+function renderVerlaufL2(){
+  const container = document.getElementById('verlauf-l2-content');
+  if(!container) return;
+  let cats = getKategorienMitEintraegen(verlaufType);
+  if(verlaufSearch){
+    const q = verlaufSearch.toLowerCase();
+    cats = cats.filter(c=>c.name.toLowerCase().includes(q));
+  }
+  if(!cats.length){
+    container.innerHTML = `<div class="empty"><div class="empty-text">Keine Kategorien</div></div>`;
+    return;
+  }
+  const grandTotal = cats.reduce((s,c)=>s+c.total, 0);
+  container.innerHTML = `<div style="padding:4px 16px 8px">` +
+    cats.map(c=>{
+      const pct = grandTotal>0 ? c.total/grandTotal*100 : 0;
+      return `
+      <div class="card-row" data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px">
+        <div style="width:36px;height:36px;border-radius:8px;background:${catColor(c.name)}22;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${catEmoji(c.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px">${esc(c.name)}</div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct.toFixed(1)}%;background:${catColor(c.name)};border-radius:2px;transition:width .3s"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">${c.count} Eintr${c.count===1?'ag':'äge'} · ${pct.toFixed(0)}%</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text)">${curr()} ${fmtAmt(c.total)}</div>
+        </div>
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+// ── L3: Kategorie-Detailansicht ───────────────────────────────────────────────
+// Zeigt Stats (Gesamtbetrag, Ø/Monat, Anzahl, Anteil) + Verlaufsdiagramm
+// + gefilterte Transaktionsliste für die gewählte Kategorie.
+// Datenquelle: DATA.expenses oder DATA.incomes (je nach Kategorie-Typ)
+function renderVerlaufL3(){
+  const container = document.getElementById('verlauf-l3-content');
+  if(!container) return;
+  const kat = verlaufKat;
+  const catDef = DATA.categories.find(c=>c.name===kat);
+  const isInc = catDef?.type==='einnahme' || verlaufType==='einnahmen';
+  const allEntries = (isInc ? DATA.incomes : DATA.expenses)
+    .filter(e=>e.cat===kat)
+    .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const displayedEntries = sucheTransaktionen(verlaufSearch, allEntries);
+
+  // Stats berechnen
+  const total = allEntries.reduce((s,e)=>s+e.amt, 0);
+  const count = allEntries.length;
+  let avgPerMonth = 0;
+  if(count){
+    const dates = allEntries.map(e=>e.date);
+    const minD = dates.reduce((a,b)=>a<b?a:b);
+    const maxD = dates.reduce((a,b)=>a>b?a:b);
+    avgPerMonth = total / getMonthsBetween(minD, maxD);
+  }
+  const allOfType = isInc ? DATA.incomes : DATA.expenses;
+  const grandTotal = allOfType.reduce((s,e)=>s+e.amt, 0);
+  const pct = grandTotal>0 ? total/grandTotal*100 : 0;
+  const monthChart = buildMonthlyBarData(kat, verlaufType);
+
+  let html = `
+  <div style="padding:4px 16px 0">
+    <!-- Visuals & Stats -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(total)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Ø / Monat</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(avgPerMonth)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Anzahl</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${count}</div>
+        </div>
+      </div>
+      <!-- Anteil-Balken -->
+      <div style="margin-bottom:${monthChart?'12px':'0'}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px;color:var(--text3)">
+          <span>Anteil an Gesamt-${isInc?'Einnahmen':'Ausgaben'}</span>
+          <span style="font-weight:700;color:var(--text)">${pct.toFixed(1)}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,100).toFixed(1)}%;background:${catColor(kat)};border-radius:3px"></div>
+        </div>
+      </div>
+      <!-- Monatliches Verlaufsdiagramm -->
+      ${monthChart ? `<div style="overflow-x:hidden;margin-top:0">${monthChart}</div>` : ''}
+    </div>
+  </div>
+  <!-- Trennlinie -->
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px 6px">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);text-transform:uppercase">Transaktionen</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>`;
+  if(!displayedEntries.length){
+    html += `<div class="empty" style="padding:24px 0"><div class="empty-text">${verlaufSearch?'Keine Treffer':'Keine Einträge'}</div></div>`;
+  } else {
+    html += renderVerlaufEntryGroups(displayedEntries);
+  }
+  container.innerHTML = html;
+}
+
+// ── renderVerlauf: Haupt-Dispatcher ──────────────────────────────────────────
+// Steuert Header-Anzeige und leitet an L1/L2/L3 weiter.
+// Navigation-State: verlaufType, verlaufKat, verlaufL3SearchVis, verlaufSearch
+function renderVerlauf(){
+  const isL3 = verlaufKat !== null;
+  // Header: Type-Switch oder Zurück-Button
+  const typBar = document.getElementById('verlauf-type-bar');
+  const l3Bar = document.getElementById('verlauf-l3-bar');
+  if(typBar) typBar.style.display = isL3 ? 'none' : '';
+  if(l3Bar) l3Bar.style.display = isL3 ? 'flex' : 'none';
+  // L3-Titel aktualisieren
+  if(isL3){
+    const titleEl = document.getElementById('verlauf-l3-title');
+    if(titleEl) titleEl.textContent = verlaufKat;
+  }
+  // Type-Button aktiv-Klassen setzen
+  if(!isL3){
+    [['alle',''],['ausgaben',' expense'],['einnahmen',' income']].forEach(([t,cls])=>{
+      const btn = document.getElementById('v-btn-'+t);
+      if(btn) btn.className = 'type-btn'+(verlaufType===t?' active'+cls:'');
+    });
+  }
+  // Suchfeld sichtbar: immer auf L1/L2, per Toggle auf L3
+  const sw = document.getElementById('verlauf-search-wrap');
+  if(sw) sw.style.display = (!isL3 || verlaufL3SearchVis) ? '' : 'none';
+  // Suchfeld-Icon auf L3 einfärben wenn aktiv
+  const sbtn = document.getElementById('verlauf-l3-search-btn');
+  if(sbtn) sbtn.style.color = verlaufL3SearchVis ? 'var(--accent)' : 'var(--text3)';
+  // Content-Bereiche umschalten
+  const l1 = document.getElementById('verlauf-l1-content');
+  const l2 = document.getElementById('verlauf-l2-content');
+  const l3 = document.getElementById('verlauf-l3-content');
+  if(l1) l1.style.display = (!isL3 && verlaufType==='alle') ? '' : 'none';
+  if(l2) l2.style.display = (!isL3 && verlaufType!=='alle') ? '' : 'none';
+  if(l3) l3.style.display = isL3 ? '' : 'none';
+  // Inhalt rendern
+  if(isL3) renderVerlaufL3();
+  else if(verlaufType!=='alle') renderVerlaufL2();
+  else renderVerlaufL1();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+// verlaufSetType: wechselt Typ-Ansicht (L1 ↔ L2), resettet Suche und Kategorie
+function verlaufSetType(t){
+  verlaufType = t; verlaufKat = null;
+  verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufOpenKatFromEl: Hilfsfunktion für data-kat onclick (umgeht Anführungszeichen-Problem)
+function verlaufOpenKatFromEl(el){ verlaufOpenKat(el.dataset.kat); }
+// verlaufOpenKat: öffnet L3 für eine Kategorie, resettet Suche
+function verlaufOpenKat(name){
+  verlaufKat = name; verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufGoBack: kehrt von L3 zu L2 zurück
+function verlaufGoBack(){
+  verlaufKat = null; verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufToggleL3Search: blendet Suchfeld auf L3 ein/aus
+function verlaufToggleL3Search(){
+  verlaufL3SearchVis = !verlaufL3SearchVis;
+  if(!verlaufL3SearchVis){ verlaufSearch=''; const inp=document.getElementById('verlauf-search'); if(inp) inp.value=''; }
+  const sw = document.getElementById('verlauf-search-wrap');
+  if(sw) sw.style.display = verlaufL3SearchVis ? '' : 'none';
+  const sbtn = document.getElementById('verlauf-l3-search-btn');
+  if(sbtn) sbtn.style.color = verlaufL3SearchVis ? 'var(--accent)' : 'var(--text3)';
+  if(verlaufL3SearchVis) setTimeout(()=>document.getElementById('verlauf-search')?.focus(), 50);
+  else renderVerlaufL3();
+}
 function setDashboardMonths(m){ dashboardChartMonths=m; renderDashboard(); }
 
 function renderCategories(){
@@ -3759,6 +4123,7 @@ const WIDGET_CATALOG = [
   { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
   { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
   { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
+  { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
   { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
   { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
   { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in CHF und % (benötigt Live-Kurse)' },
@@ -3808,13 +4173,16 @@ function moveWidget(key, dir){
 function renderHome(){
   const el = document.getElementById('tab-home');
   if(!el) return;
-  const widgets = getHomeWidgets();
-  const available = WIDGET_CATALOG.filter(c=>!widgets.includes(c.key));
+  const aktienWidgetKeys = ['aktienDashboard','aktienPortfolio','aktienWert','aktienPnl','aktienTop','aktienVerteilung','aktienPosition'];
+  const visibleCatalog = CFG.aktienEnabled ? WIDGET_CATALOG : WIDGET_CATALOG.filter(w=>!aktienWidgetKeys.includes(w.key));
+  const allWidgets = getHomeWidgets();
+  const widgets = CFG.aktienEnabled ? allWidgets : allWidgets.filter(k=>!aktienWidgetKeys.includes(k));
+  const available = visibleCatalog.filter(c=>!widgets.includes(c.key));
   let html = '';
 
   // Active widgets
   widgets.forEach((key,idx)=>{
-    const def = WIDGET_CATALOG.find(c=>c.key===key);
+    const def = visibleCatalog.find(c=>c.key===key);
     if(!def) return;
     html += `<div class="widget-card" id="widget-card-${key}">`;
     if(homeEditMode){
@@ -3872,6 +4240,7 @@ function renderWidgetContent(key){
     case 'jahresSparquote':  return renderWidgetJahresSparquote();
     case 'jahresKategorien': return renderWidgetJahresKategorien();
     case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
+    case 'aktienDashboard':  return renderWidgetAktienDashboard();
     case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
     case 'aktienWert':       return renderWidgetAktienWert();
     case 'aktienPnl':        return renderWidgetAktienPnl();
@@ -4496,6 +4865,60 @@ function renderWidgetAktienPosition(){
   </div>`;
 }
 
+// Tagesveränderung des gesamten Portfolios (benötigt prevClose in stockPriceCache)
+function getPortfolioTodayChange(){
+  let totalChange = 0, hasData = false;
+  SDATA.stocks.forEach(s => {
+    const pos = calcPosition(s.id); if(pos.qty < 0.0001) return;
+    const cached = s.ticker ? stockPriceCache[s.ticker] : null;
+    if(!cached?.price || !cached?.prevClose) return;
+    const fxRate = getFxRate(cached.currency || s.currency);
+    totalChange += (cached.price - cached.prevClose) * pos.qty * fxRate;
+    hasData = true;
+  });
+  return { amt: totalChange, hasData };
+}
+
+function renderWidgetAktienDashboard(){
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  const total = getGesamtPortfoliowert();
+  const gv = getGesamtGewinnVerlust();
+  const todayChg = getPortfolioTodayChange();
+  const posCount = active.length;
+  if(!posCount) return `<div>
+    <div class="widget-title">Aktien-Dashboard</div>
+    <div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div>
+    <div style="margin-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Aktien →</button></div>
+  </div>`;
+  const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
+  const gvSign = gv.amt>=0?'+':'';
+  const todayColor = !todayChg.hasData ? 'var(--text2)' : todayChg.amt>=0 ? 'var(--green)' : 'var(--red)';
+  const todaySign = todayChg.amt>=0?'+':'';
+  const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
+  return `<div>
+    <div class="widget-title" style="margin-bottom:10px">Aktien-Dashboard</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-right:12px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
+      </div>
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
+      </div>
+      <div style="padding:8px 0;padding-right:12px;margin-top:2px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
+      </div>
+      <div style="padding:8px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:2px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
+      </div>
+    </div>
+    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Depot →</button></div>
+  </div>`;
+}
+
 function renderDashboard(){
   const now = new Date();
   const isCurrentYear = dashYear === now.getFullYear();
@@ -4658,7 +5081,13 @@ function goTab(tab){
     fab.innerHTML = tab==='eingabe'
       ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
+    if(tab==='eingabe'){
+      fab.onclick = ()=>goTab('home');
+    } else if(CFG.aktienEnabled){
+      fab.onclick = ()=>openFabMenu();
+    } else {
+      fab.onclick = ()=>goTab('eingabe');
+    }
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
@@ -4682,6 +5111,55 @@ function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.ge
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
+// ── FAB Speed-Dial (Aktien) ──────────────────────────────────────────────────
+function openFabMenu(){
+  const overlay = document.getElementById('fab-speed-dial');
+  if(overlay) overlay.style.display = '';
+}
+function closeFabMenu(){
+  const overlay = document.getElementById('fab-speed-dial');
+  if(overlay) overlay.style.display = 'none';
+}
+
+// Aktie / Trade erfassen Flow
+function openAddAktieFlow(){
+  const activeStocks = SDATA.stocks.filter(s => calcPosition(s.id).qty > 0.0001 || SDATA.trades.some(t=>t.stockId===s.id));
+  const body = document.getElementById('aktie-flow-body');
+  const title = document.getElementById('aktie-flow-title');
+  const actionsEl = document.getElementById('aktie-flow-actions');
+  if(!body) return;
+  title.textContent = 'Aktie / Trade erfassen';
+  actionsEl.style.display = 'none';
+  let html = '';
+  if(activeStocks.length > 0){
+    html += `<div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Bestehende Aktie</div>`;
+    activeStocks.forEach(s=>{
+      const pos = calcPosition(s.id);
+      html += `<button onclick="closeModal('aktie-flow-modal');openAktieDetailFromFlow('${s.id}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:6px;color:var(--text);font-size:14px;cursor:pointer;text-align:left">
+        <div>
+          <div style="font-weight:600">${esc(s.title)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.ticker?esc(s.ticker)+' · ':''} ${fmtQty(pos.qty)} Stk.</div>
+        </div>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+    });
+    html += `</div>`;
+  }
+  html += `<button onclick="closeModal('aktie-flow-modal');openNewAktieModal()" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(200,245,60,.08);border:1px solid rgba(200,245,60,.2);border-radius:var(--r2);color:var(--accent);font-size:14px;font-weight:600;cursor:pointer">
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Neue Aktie hinzufügen
+  </button>`;
+  body.innerHTML = html;
+  openModal('aktie-flow-modal');
+}
+
+function openAktieDetailFromFlow(stockId){
+  // Navigate to aktien tab, then open detail
+  if(currentTab !== 'aktien') goTab('aktien');
+  setTimeout(()=>openAktieDetail(stockId), 100);
+}
+
 // All tabs available for pinning / showing in Mehr
 const PINNABLE_TABS = [
   { key:'dashboard',      label:'Jahresübersicht',      icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
@@ -4704,13 +5182,15 @@ function renderMenuOverlay(){
   const footer = document.getElementById('menu-overlay-footer');
   if(!container) return;
   let html = '';
+  // Filter aktien tab when feature is disabled
+  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
 
   if(menuEditMode){
     // Edit mode: show pinned with unpin + unpinned with pin icon
     if(pinned.length > 0){
       html += '<span class="menu-section-label">In Taskleiste</span>';
       pinned.forEach(key=>{
-        const tab = PINNABLE_TABS.find(t=>t.key===key);
+        const tab = visibleTabs.find(t=>t.key===key);
         if(!tab) return;
         html += `<div class="menu-item-row">
           <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
@@ -4722,7 +5202,7 @@ function renderMenuOverlay(){
         </div>`;
       });
     }
-    const unpinnedTabs = PINNABLE_TABS.filter(t=>!pinned.includes(t.key));
+    const unpinnedTabs = visibleTabs.filter(t=>!pinned.includes(t.key));
     if(unpinnedTabs.length > 0){
       html += '<span class="menu-section-label">Weitere Ansichten</span>';
       const canPin = pinned.length < 2;
@@ -4740,7 +5220,7 @@ function renderMenuOverlay(){
   } else {
     // Normal mode: all tabs without pin icons, pinned ones get accent dot
     html += '<span class="menu-section-label">Ansichten</span>';
-    PINNABLE_TABS.forEach(tab=>{
+    visibleTabs.forEach(tab=>{
       const isPinned = pinned.includes(tab.key);
       html += `<div class="menu-item-row">
         <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
@@ -6172,7 +6652,8 @@ async function fetchStockPrice(ticker){
     const d = await r.json();
     const meta = d?.chart?.result?.[0]?.meta;
     if(!meta?.regularMarketPrice) return null;
-    const res = { price: meta.regularMarketPrice, currency: meta.currency||'', ts: Date.now() };
+    const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPreviousClose ?? null;
+    const res = { price: meta.regularMarketPrice, prevClose, currency: meta.currency||'', ts: Date.now() };
     stockPriceCache[ticker] = res;
     return res;
   } catch(e){ return null; }
@@ -6407,7 +6888,46 @@ function renderAktienTabelle(stocks){
 let aktienTabView='karten'; // 'karten' | 'tabelle' | 'charts'
 function setAktienTabView(v){ aktienTabView=v; renderAktien(); }
 
+function renderAktienDashboardTop(){
+  const dashEl = document.getElementById('aktien-dashboard-top');
+  if(!dashEl) return;
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  if(!active.length){ dashEl.innerHTML=''; return; }
+  const total = getGesamtPortfoliowert();
+  const gv = getGesamtGewinnVerlust();
+  const todayChg = getPortfolioTodayChange();
+  const posCount = active.length;
+  const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
+  const gvSign = gv.amt>=0?'+':'';
+  const todayColor = !todayChg.hasData ? 'var(--text2)' : todayChg.amt>=0 ? 'var(--green)' : 'var(--red)';
+  const todaySign = todayChg.amt>=0?'+':'';
+  const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
+  dashEl.innerHTML = `
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:12px 16px 6px;padding:14px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:10px;text-transform:uppercase">Portfolio-Übersicht</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-right:12px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
+      </div>
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
+      </div>
+      <div style="padding:6px 0;padding-right:12px;margin-top:4px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
+      </div>
+      <div style="padding:6px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:4px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function renderAktien(){
+  renderAktienDashboardTop();
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
   const histStocks = positions.filter(s => s.pos.qty <= 0.0001 && SDATA.trades.some(t=>t.stockId===s.id));
@@ -6618,7 +7138,74 @@ async function refreshStockPrice(stockId){
 function openNewAktieModal(){
   ['na-title','na-isin','na-ticker'].forEach(id=>{ document.getElementById(id).value=''; });
   document.getElementById('na-currency').value = 'USD';
+  const res = document.getElementById('na-ticker-result');
+  if(res) res.textContent = '—';
   openModal('new-aktie-modal');
+}
+
+async function testTickerFromNew(){
+  const ticker = document.getElementById('na-ticker').value.trim().toUpperCase();
+  const res = document.getElementById('na-ticker-result');
+  if(!ticker){ if(res) res.textContent = 'Kein Ticker'; return; }
+  if(res){ res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
+  delete stockPriceCache[ticker];
+  const data = await fetchStockPrice(ticker);
+  if(res){
+    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
+    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+  }
+}
+
+function openEditAktieModal(stockId){
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s) return;
+  document.getElementById('ea-id').value = s.id;
+  document.getElementById('ea-title').value = s.title||'';
+  document.getElementById('ea-isin').value = s.isin||'';
+  document.getElementById('ea-ticker').value = s.ticker||'';
+  document.getElementById('ea-currency').value = s.currency||'USD';
+  const res = document.getElementById('ea-ticker-result');
+  if(res){ res.textContent = '—'; res.style.color = 'var(--text3)'; }
+  openModal('edit-aktie-modal');
+}
+
+async function testTickerFromEdit(){
+  const ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
+  const res = document.getElementById('ea-ticker-result');
+  if(!ticker){ if(res) res.textContent = 'Kein Ticker'; return; }
+  if(res){ res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
+  delete stockPriceCache[ticker];
+  const data = await fetchStockPrice(ticker);
+  if(res){
+    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
+    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+  }
+}
+
+function saveEditAktie(){
+  const id = document.getElementById('ea-id').value;
+  const title = document.getElementById('ea-title').value.trim();
+  if(!title){ toast('Titel erforderlich','err'); return; }
+  const s = SDATA.stocks.find(s=>s.id===id);
+  if(!s){ toast('Aktie nicht gefunden','err'); return; }
+  const oldTicker = s.ticker;
+  s.title = title;
+  s.isin = document.getElementById('ea-isin').value.trim().toUpperCase();
+  s.ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
+  s.currency = document.getElementById('ea-currency').value;
+  sdataSave();
+  // Invalidate price cache if ticker changed
+  if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
+    apiFindRow('Aktien',id).then(row=>{
+      if(row) apiUpdate(`Aktien!B${row}:E${row}`,[[s.title,s.isin,s.ticker,s.currency]]);
+    }).catch(e=>toast('Sheet-Sync: '+e.message,'err'));
+  }
+  closeModal('edit-aktie-modal');
+  toast('✓ Aktie aktualisiert','ok');
+  document.getElementById('aktie-detail-title').textContent = s.title;
+  renderAktieDetail(id);
+  renderAktien();
 }
 
 function saveNewAktie(){
@@ -6775,6 +7362,10 @@ function renderEinstellungen(){
   if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
+  const aktEnabledSw = document.getElementById('aktien-enabled-sw');
+  if(aktEnabledSw) aktEnabledSw.classList.toggle('on', !!CFG.aktienEnabled);
+  const aktBilanzRow = document.getElementById('aktien-bilanz-row');
+  if(aktBilanzRow) aktBilanzRow.style.display = CFG.aktienEnabled ? '' : 'none';
   const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
   if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
   const currSel = document.getElementById('s-currency');
@@ -6794,6 +7385,23 @@ function renderEinstellungen(){
     const adminLink = document.getElementById('settings-admin-link');
     if(adminLink) adminLink.style.display = CFG.authRole==='admin' ? '' : 'none';
   }
+}
+
+function toggleAktienEnabled(){
+  CFG.aktienEnabled = !CFG.aktienEnabled;
+  cfgSave();
+  autoSyncProfile();
+  // If disabling: remove aktien from pinnedTabs and homeWidgets
+  if(!CFG.aktienEnabled){
+    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='aktien');
+    const aktienWidgetKeys = ['aktienPortfolio','aktienWert','aktienPnl','aktienTop','aktienVerteilung','aktienPosition','aktienDashboard'];
+    if(CFG.homeWidgets) CFG.homeWidgets = CFG.homeWidgets.filter(k=>!aktienWidgetKeys.includes(k));
+    cfgSave();
+    if(currentTab==='aktien') goTab('home');
+  }
+  renderEinstellungen();
+  renderNav();
+  if(currentTab==='home') renderHome();
 }
 
 // ═══════════════════════════════════════════════════════════════
