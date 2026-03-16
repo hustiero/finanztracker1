@@ -95,6 +95,63 @@ Persisted to `localStorage` key `ft_cfg`. Key fields:
 
 ---
 
+## Daueraufträge (Recurring) in Verlauf / Ausgaben
+
+Recurring entries (`DATA.recurring`) are **virtual** — they are never stored in
+`DATA.expenses`. Instead `getRecurringInstances(startStr, endStr)` generates
+synthetic entries on-the-fly for every interval that falls in the date range.
+They carry `_type:'recurring'`.
+
+**Every place that aggregates Ausgaben must include recurring:**
+
+| Function | What it does | Fix applied |
+|----------|-------------|-------------|
+| `getKategorienMitEintraegen('ausgaben')` | L2 category tiles | ✅ merges `getRecurringInstances` before aggregation |
+| `renderVerlaufL3()` | Category drilldown entries + stats | ✅ merges recurring for expense categories |
+| `buildMonthlyBarData(kat, 'ausgaben')` | 12-month bar chart in L3 | ✅ merges recurring for ausgaben |
+| `renderVerlaufL1()` | "Alle" chronological list | already correct (untouched) |
+
+> **Rule:** whenever you query `DATA.expenses` for ausgaben aggregation, also
+> call `getRecurringInstances(rangeStart, rangeEnd)` and merge the result.
+> Do NOT add recurring to `DATA.expenses` directly.
+
+The date range for the recurring fetch should match the verlauf filter:
+```javascript
+const {von, bis} = verlaufGetRange();
+const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+const rangeEnd   = bis || today();
+```
+
+---
+
+## Live Stock Prices (GOOGLEFINANCE)
+
+**Do NOT call Yahoo Finance directly from the browser — CORS blocks it.**
+
+The correct flow uses the Google Apps Script backend:
+1. `syncKurseSheet(extraTickers=[])` writes tickers to the `Kurse` sheet,
+   sets `=GOOGLEFINANCE(A_n,"price")` formulas, reads back the computed values,
+   and populates `stockPriceCache[ticker]`.
+2. `fetchStockPrice(ticker)` is the single entry point for callers. It:
+   - Returns from `stockPriceCache` if fresh (< 5 min old)
+   - Calls `syncKurseSheet([ticker])` to get the price via GOOGLEFINANCE
+   - Falls back to Yahoo Finance direct only when no backend is configured
+     (demo mode) — this will fail in browsers due to CORS but is kept as a
+     last-resort for non-browser / proxy contexts.
+
+**`syncKurseSheet(extraTickers=[])`** accepts an optional array of additional
+tickers. This is used when testing a ticker in the "Neue Aktie" modal before
+the stock is saved to `SDATA.stocks` (so it wouldn't be picked up by the
+normal ticker loop).
+
+GOOGLEFINANCE ticker format (per https://support.google.com/docs/answer/3093281):
+- US stocks: `AAPL`, `MSFT` (exchange inferred)
+- Explicit exchange: `NASDAQ:AAPL`, `NYSE:GS`
+- Swiss stocks: `VTX:NESN`
+- FX rates: `CURRENCY:USDCHF`
+
+---
+
 ## Common Patterns
 
 - **Tab navigation:** `goTab('home')` — updates `currentTab`, shows/hides `.tab-page` divs, updates `#nav` active state.

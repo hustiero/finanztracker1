@@ -4006,6 +4006,13 @@ function sucheTransaktionen(query, entries){
 // typ: 'ausgaben' | 'einnahmen'. Respektiert verlaufGetRange()-Filter.
 function getKategorienMitEintraegen(typ){
   let entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  // Daueraufträge count as Ausgaben — merge recurring instances into the date range
+  if(typ==='ausgaben'){
+    const {von, bis} = verlaufGetRange();
+    const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+    const rangeEnd   = bis || today();
+    entries = [...entries, ...getRecurringInstances(rangeStart, rangeEnd)];
+  }
   entries = verlaufFilterEntries(entries);
   const byKat = {};
   entries.forEach(e=>{
@@ -4063,7 +4070,12 @@ function buildMonthlyBarData(kat, typ){
     monthData[key] = 0;
     monthLabels.push({key, label:`${d.getMonth()+1}.${d.getFullYear().toString().slice(2)}`});
   }
-  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  let entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  // Include Daueraufträge in the ausgaben monthly bars
+  if(typ==='ausgaben'){
+    const chartStart = dateStr(new Date(now.getFullYear(), now.getMonth()-(months-1), 1));
+    entries = [...entries, ...getRecurringInstances(chartStart, dateStr(now))];
+  }
   entries.filter(e=>e.cat===kat).forEach(e=>{
     const key = e.date.slice(0,7);
     if(key in monthData) monthData[key] += e.amt;
@@ -4197,9 +4209,15 @@ function renderVerlaufL3(){
   const kat = verlaufKat;
   const catDef = DATA.categories.find(c=>c.name===kat);
   const isInc = catDef?.type==='einnahme' || verlaufType==='einnahmen';
-  let allEntries = (isInc ? DATA.incomes : DATA.expenses)
-    .filter(e=>e.cat===kat);
-  allEntries = verlaufFilterEntries(allEntries)
+  // For expense categories include Daueraufträge (recurring) as well
+  let baseEntries = (isInc ? DATA.incomes : DATA.expenses).filter(e=>e.cat===kat);
+  if(!isInc){
+    const {von, bis} = verlaufGetRange();
+    const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+    const rangeEnd   = bis || today();
+    baseEntries = [...baseEntries, ...getRecurringInstances(rangeStart, rangeEnd).filter(e=>e.cat===kat)];
+  }
+  let allEntries = verlaufFilterEntries(baseEntries)
     .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
     .sort((a,b)=>b.date.localeCompare(a.date));
   const displayedEntries = sucheTransaktionen(verlaufSearch, allEntries);
@@ -4214,8 +4232,15 @@ function renderVerlaufL3(){
     const maxD = dates.reduce((a,b)=>a>b?a:b);
     avgPerMonth = total / getMonthsBetween(minD, maxD);
   }
-  const allOfType = isInc ? DATA.incomes : DATA.expenses;
-  const grandTotal = allOfType.reduce((s,e)=>s+e.amt, 0);
+  // grandTotal also includes recurring so the "Anteil" percentage stays consistent
+  let allOfTypeArr = (isInc ? DATA.incomes : DATA.expenses).slice();
+  if(!isInc){
+    const {von, bis} = verlaufGetRange();
+    const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+    const rangeEnd   = bis || today();
+    allOfTypeArr = [...allOfTypeArr, ...getRecurringInstances(rangeStart, rangeEnd)];
+  }
+  const grandTotal = verlaufFilterEntries(allOfTypeArr).reduce((s,e)=>s+e.amt, 0);
   const pct = grandTotal>0 ? total/grandTotal*100 : 0;
   const monthChart = buildMonthlyBarData(kat, verlaufType);
 
@@ -7151,14 +7176,15 @@ function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
 // ── GOOGLEFINANCE: Kurse-Sheet Sync ──────────────────────────────────────────
 // Writes tickers to Kurse sheet, sets GOOGLEFINANCE formulas, reads back prices + FX rates.
 // Falls back to Yahoo Finance if sheet unavailable.
-async function syncKurseSheet(){
+// extraTickers: optional additional tickers to fetch (e.g. ticker being tested before save)
+async function syncKurseSheet(extraTickers=[]){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>s.ticker.toUpperCase());
   const userCurr = curr().toUpperCase();
   // Build FX pairs needed: e.g. USD→CHF = "CURRENCY:USDCHF"
   const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
   const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
-  const allTickers = [...new Set([...tickers, ...fxTickers])];
+  const allTickers = [...new Set([...tickers, ...fxTickers, ...extraTickers.map(t=>t.toUpperCase())])];
   if(!allTickers.length) return;
   try{
     // Ensure Kurse sheet exists
@@ -7340,22 +7366,37 @@ function setAktienView(v){
   renderAktien();
 }
 
+// Fetches a live price for a single ticker.
+// Primary path: GOOGLEFINANCE via Apps Script (syncKurseSheet with extraTicker).
+//   This is the only path that works reliably in browsers due to CORS restrictions
+//   on direct third-party finance APIs.
+// Fallback: Yahoo Finance direct — kept for demo mode / no-backend setups, but
+//   will fail silently due to CORS in most browser contexts.
 async function fetchStockPrice(ticker){
   if(!ticker) return null;
-  const cached = stockPriceCache[ticker];
+  const key = ticker.toUpperCase();
+  const cached = stockPriceCache[key];
   if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
+
+  // Primary: route through Apps Script → GOOGLEFINANCE (no CORS issues)
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
+    await syncKurseSheet([key]);
+    const afterSync = stockPriceCache[key];
+    if(afterSync) return afterSync;
+  }
+
+  // Fallback: Yahoo Finance direct (blocked by CORS in most browser contexts)
   try{
     const r = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(key)}?interval=1d&range=1d`,
       { signal: AbortSignal.timeout(6000) }
     );
     if(!r.ok) return null;
     const d = await r.json();
     const meta = d?.chart?.result?.[0]?.meta;
     if(!meta?.regularMarketPrice) return null;
-    const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPreviousClose ?? null;
-    const res = { price: meta.regularMarketPrice, prevClose, currency: meta.currency||'', ts: Date.now() };
-    stockPriceCache[ticker] = res;
+    const res = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose??meta.previousClose??null, currency: meta.currency||'', ts: Date.now() };
+    stockPriceCache[key] = res;
     return res;
   } catch(e){ return null; }
 }
