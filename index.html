@@ -77,14 +77,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #app{
   display:flex;flex-direction:column;
   height:100vh;height:100dvh;
-  padding-top:var(--safe-top);
 }
 #app.hidden{display:none}
 
 /* Header */
 .top-bar{
   position:relative;display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px 8px;
+  padding:calc(var(--safe-top) + 10px) 12px 8px;
   background:var(--bg0);
   border-bottom:1px solid var(--border);
   flex-shrink:0;
@@ -814,6 +813,39 @@ body.glass-on .type-toggle{
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
     background:rgba(var(--glass-rgb),0.72) !important;
   }
+}
+/* ── Smart contrast: boost muted text in glass mode ── */
+/* Dark mode: secondary/tertiary text is too dark against bright backgrounds */
+body.glass-on{
+  --text2:#B8B8C8;
+  --text3:#8888A0;
+}
+/* Light mode: secondary/tertiary text stays dark enough against light glass */
+[data-theme="light"] body.glass-on{
+  --text2:#333340;
+  --text3:#545462;
+}
+/* Text-shadow on bars/nav sitting directly over background image */
+body.glass-on .top-bar-title,
+body.glass-on .top-bar-sub,
+body.glass-on .nav-btn{
+  text-shadow:0 1px 5px rgba(0,0,0,0.6);
+}
+[data-theme="light"] body.glass-on .top-bar-title,
+[data-theme="light"] body.glass-on .top-bar-sub,
+[data-theme="light"] body.glass-on .nav-btn{
+  text-shadow:0 1px 3px rgba(255,255,255,0.8);
+}
+/* Cards over busy backgrounds: subtle shadow lifts text off the blur */
+body.glass-on .card,
+body.glass-on .widget-card{
+  --text2:#B8B8C8;
+  --text3:#8888A0;
+}
+[data-theme="light"] body.glass-on .card,
+[data-theme="light"] body.glass-on .widget-card{
+  --text2:#333340;
+  --text3:#545462;
 }
 
 /* ═══════════════════════════════════════════════════
