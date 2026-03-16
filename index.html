@@ -77,14 +77,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #app{
   display:flex;flex-direction:column;
   height:100vh;height:100dvh;
-  padding-top:var(--safe-top);
 }
 #app.hidden{display:none}
 
 /* Header */
 .top-bar{
   position:relative;display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px 8px;
+  padding:calc(var(--safe-top) + 10px) 12px 8px;
   background:var(--bg0);
   border-bottom:1px solid var(--border);
   flex-shrink:0;
@@ -764,43 +763,89 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* ═══════════════════════════════════════════════════
    GLASSMORPHISM + HINTERGRUNDBILD
 ═══════════════════════════════════════════════════ */
-/* Background image: body gets background-image via JS */
+/* Background image: body + html get background-image via JS */
 body.has-bg-image{background-size:cover;background-position:center;background-attachment:fixed}
-body.has-bg-image::before{background:rgba(0,0,0,0.38) !important}
-[data-theme="light"] body.has-bg-image::before{background:rgba(255,255,255,0.08) !important}
-/* Glass surface mixin — applied when .glass-on + supported */
+/* Dark overlay for legibility – dark mode slightly heavier than light */
+body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
+[data-theme="light"] body.has-bg-image::before{background:rgba(0,0,0,0.20) !important}
+
+/* ── Glass surfaces (only meaningful with a background) ── */
 body.glass-on .card,
 body.glass-on .widget-card{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-  box-shadow:0 4px 30px rgba(0,0,0,0.15);
+  box-shadow:0 4px 30px rgba(0,0,0,0.12);
 }
-body.glass-on #nav{
+/* Nav — override light-mode solid bg */
+body.glass-on #nav,
+[data-theme="light"] body.glass-on #nav{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
-body.glass-on .top-bar{
+/* Top-bar — override light-mode solid bg */
+body.glass-on .top-bar,
+[data-theme="light"] body.glass-on .top-bar{
   background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 body.glass-on .type-toggle{
-  background:rgba(var(--glass-rgb),calc(var(--glass-alpha))) !important;
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
   backdrop-filter:blur(var(--glass-blur));
   -webkit-backdrop-filter:blur(var(--glass-blur));
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
+/* Modal in light mode: ensure glass tint is opaque enough to be readable */
+[data-theme="light"] body.glass-on .modal-overlay .modal{
+  background:rgba(var(--glass-rgb),0.75) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+}
 /* Reduced motion: no blur, keep tint for legibility */
 @media (prefers-reduced-motion:reduce){
-  body.glass-on .card,body.glass-on .widget-card,body.glass-on #nav,body.glass-on .top-bar{
+  body.glass-on .card,body.glass-on .widget-card,
+  body.glass-on #nav,body.glass-on .top-bar{
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
-    background:rgba(var(--glass-rgb),0.70) !important;
+    background:rgba(var(--glass-rgb),0.72) !important;
   }
+}
+/* ── Smart contrast: boost muted text in glass mode ── */
+/* Dark mode: secondary/tertiary text is too dark against bright backgrounds */
+body.glass-on{
+  --text2:#B8B8C8;
+  --text3:#8888A0;
+}
+/* Light mode: secondary/tertiary text stays dark enough against light glass */
+[data-theme="light"] body.glass-on{
+  --text2:#333340;
+  --text3:#545462;
+}
+/* Text-shadow on bars/nav sitting directly over background image */
+body.glass-on .top-bar-title,
+body.glass-on .top-bar-sub,
+body.glass-on .nav-btn{
+  text-shadow:0 1px 5px rgba(0,0,0,0.6);
+}
+[data-theme="light"] body.glass-on .top-bar-title,
+[data-theme="light"] body.glass-on .top-bar-sub,
+[data-theme="light"] body.glass-on .nav-btn{
+  text-shadow:0 1px 3px rgba(255,255,255,0.8);
+}
+/* Cards over busy backgrounds: subtle shadow lifts text off the blur */
+body.glass-on .card,
+body.glass-on .widget-card{
+  --text2:#B8B8C8;
+  --text3:#8888A0;
+}
+[data-theme="light"] body.glass-on .card,
+[data-theme="light"] body.glass-on .widget-card{
+  --text2:#333340;
+  --text3:#545462;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -7964,12 +8009,17 @@ function toggleThemeSwitch(){
 
 // Preset background gradients (displayed as CSS gradient on body)
 const BG_PRESETS = {
+  // Dark presets (recommended for dark mode)
   aurora:   { label:'Aurora',   color:'#0d1a2e', gradient:'radial-gradient(ellipse 80% 60% at 20% 15%, #1a0a3e 0%, transparent 55%), radial-gradient(ellipse 60% 70% at 80% 80%, #0d2b2a 0%, transparent 55%), radial-gradient(ellipse 100% 100% at 50% 50%, #0a0a18 0%, #080810 100%)' },
   midnight: { label:'Midnight', color:'#080820', gradient:'radial-gradient(ellipse 70% 50% at 50% 0%, #1a1a4e 0%, transparent 65%), linear-gradient(180deg, #080820 0%, #0a0a2a 100%)' },
   forest:   { label:'Wald',     color:'#0a1a0e', gradient:'radial-gradient(ellipse 80% 60% at 30% 40%, #0d2a14 0%, transparent 65%), linear-gradient(160deg, #050e07 0%, #0f1f0e 100%)' },
   sunset:   { label:'Sunset',   color:'#2a1008', gradient:'radial-gradient(ellipse 70% 50% at 50% 0%, #3d1505 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 80% 80%, #2a0a20 0%, transparent 55%), linear-gradient(160deg, #1a0808 0%, #2a100a 100%)' },
   ocean:    { label:'Ozean',    color:'#020d1e', gradient:'radial-gradient(ellipse 70% 50% at 20% 30%, #022a4e 0%, transparent 60%), radial-gradient(ellipse 60% 60% at 80% 70%, #01102a 0%, transparent 60%), linear-gradient(180deg, #010810 0%, #010d1e 100%)' },
   slate:    { label:'Slate',    color:'#0f1220', gradient:'radial-gradient(ellipse 60% 50% at 30% 20%, #1e2030 0%, transparent 55%), linear-gradient(160deg, #0d0f18 0%, #181a28 100%)' },
+  // Light presets (recommended for light mode)
+  sky:      { label:'Sky',      color:'#c8e8f5', gradient:'radial-gradient(ellipse 80% 60% at 30% 20%, #b8d8f0 0%, transparent 60%), radial-gradient(ellipse 60% 80% at 75% 85%, #d0e8f8 0%, transparent 55%), linear-gradient(160deg, #d4ecf8 0%, #e8f4fc 100%)' },
+  blossom:  { label:'Blossom',  color:'#f5d8e8', gradient:'radial-gradient(ellipse 70% 50% at 25% 20%, #f0c0d8 0%, transparent 55%), radial-gradient(ellipse 60% 60% at 80% 80%, #e8d0f0 0%, transparent 55%), linear-gradient(160deg, #f8e0ec 0%, #f0e4f8 100%)' },
+  sand:     { label:'Sand',     color:'#f0e8d0', gradient:'radial-gradient(ellipse 70% 50% at 40% 30%, #e8d8b8 0%, transparent 55%), linear-gradient(160deg, #f4ece0 0%, #ede4d4 100%)' },
 };
 
 // Check if backdrop-filter is supported
@@ -7981,17 +8031,24 @@ function _saveBgImageData(d){ if(d) localStorage.setItem('ft_bg_image',d); else 
 // Apply background image + glass to DOM
 function applyAppBackground(){
   const body = document.body;
+  const html = document.documentElement;
   const imgData = _getBgImageData();
   const hasBg = !!(imgData || CFG.bgPreset);
+  let bgValue = '';
   if(imgData){
-    body.style.backgroundImage = `url(${imgData})`;
+    bgValue = `url(${imgData})`;
   } else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]){
-    body.style.backgroundImage = BG_PRESETS[CFG.bgPreset].gradient;
-  } else {
-    body.style.backgroundImage = '';
+    bgValue = BG_PRESETS[CFG.bgPreset].gradient;
   }
+  body.style.backgroundImage = bgValue;
+  // Sync html element so overscroll areas show the same background (no white flash)
+  html.style.backgroundImage = bgValue;
+  html.style.backgroundSize = hasBg ? 'cover' : '';
+  html.style.backgroundPosition = hasBg ? 'center' : '';
+  html.style.backgroundAttachment = hasBg ? 'fixed' : '';
   body.classList.toggle('has-bg-image', hasBg);
-  const glassOn = CFG.glassEnabled && GLASS_SUPPORTED;
+  // Glass requires both glassEnabled AND a background to show through
+  const glassOn = CFG.glassEnabled && GLASS_SUPPORTED && hasBg;
   body.classList.toggle('glass-on', glassOn);
   _updateGlassCssVars();
 }
