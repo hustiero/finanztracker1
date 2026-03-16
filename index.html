@@ -1254,6 +1254,69 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 /* account strip in top bar */
 .auth-user-chip{font-size:11px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-right:4px;white-space:nowrap;overflow:hidden;max-width:80px;text-overflow:ellipsis}
 
+/* Settings group accordion */
+.settings-group-toggle{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:14px 16px;margin-bottom:8px;
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  color:var(--text);font-size:15px;font-weight:600;
+  cursor:pointer;transition:background .2s;
+}
+.settings-group-toggle:active{background:var(--bg2)}
+.settings-group-toggle svg:first-child{flex-shrink:0;stroke:var(--accent)}
+.settings-group-toggle span{flex:1;text-align:left}
+.settings-group-chevron{
+  width:18px;height:18px;stroke:var(--text3);fill:none;stroke-width:2;
+  transition:transform .25s ease;flex-shrink:0;
+}
+.settings-group-toggle.open .settings-group-chevron{transform:rotate(180deg)}
+.settings-group-body{
+  overflow:hidden;transition:max-height .3s ease, opacity .2s ease;
+  max-height:0;opacity:0;
+}
+.settings-group-body.open{max-height:3000px;opacity:1}
+body.glass-on .settings-group-toggle{
+  background:rgba(var(--glass-rgb),var(--glass-alpha));
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border-color:rgba(255,255,255,.08);
+}
+
+/* Sparen / Planen */
+.spar-goal-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r2);
+  padding:14px 16px;margin-bottom:10px;transition:background .2s;
+}
+.spar-goal-card:active{background:var(--bg2)}
+.spar-goal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.spar-goal-name{font-size:15px;font-weight:600;color:var(--text)}
+.spar-goal-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
+.spar-goal-badge.tax{background:rgba(255,77,109,.12);color:var(--red)}
+.spar-goal-badge.open{background:rgba(200,245,60,.12);color:var(--accent)}
+.spar-goal-badge.done{background:rgba(46,204,113,.15);color:var(--green)}
+.spar-goal-amounts{display:flex;align-items:baseline;gap:6px;margin-bottom:6px;font-size:13px}
+.spar-goal-amounts .saved{font-weight:700;color:var(--accent)}
+.spar-goal-amounts .target{color:var(--text3)}
+.spar-prog-wrap{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.spar-prog-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.spar-prog-sub{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px}
+.spar-prio{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);margin-top:6px}
+.spar-prio svg{width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2}
+.spar-summary-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+.spar-summary-row+.spar-summary-row{border-top:1px solid var(--border)}
+.spar-summary-label{font-size:13px;color:var(--text2)}
+.spar-summary-val{font-size:14px;font-weight:700;color:var(--text)}
+.spar-add-btn{
+  display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;
+  background:rgba(200,245,60,.06);border:1px solid rgba(200,245,60,.18);border-radius:var(--r2);
+  color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;
+}
+.spar-add-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+body.glass-on .spar-goal-card{
+  background:rgba(var(--glass-rgb),var(--glass-alpha));
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border-color:rgba(255,255,255,.08);
+}
+
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -1902,6 +1965,11 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
       <div id="monat-content"></div>
     </div>
 
+    <!-- TAB: Sparen / Planen -->
+    <div id="tab-sparen" class="tab-page" style="display:none">
+      <div id="sparen-content"></div>
+    </div>
+
     <!-- TAB: Einstellungen -->
     <div id="tab-einstellungen" class="tab-page" style="display:none">
       <!-- Account-Bereich (nur bei Account-Modus sichtbar) -->
@@ -1928,163 +1996,168 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
           </div>
         </div>
       </div>
-      <div class="section" id="settings-url-section">
-        <div class="section-title">Verbindung</div>
-        <div class="card" style="padding:14px">
-          <div class="form-group">
-            <label class="form-label">Script URL</label>
-            <input id="s-url2" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
-          </div>
-          <button class="save-btn" onclick="applySettings2()">Speichern &amp; neu laden</button>
-        </div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Profil</div>
-        <div class="card" style="padding:14px">
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label">Dein Name (für Home-Begrüssung)</label>
-            <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
-          </div>
-        </div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Profil-Sync</div>
-        <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
-          <div style="font-size:12px;color:var(--text2);line-height:1.6">
-            Einstellungen geräteübergreifend nutzen: im Google Sheet speichern oder als Datei exportieren/importieren.
-          </div>
-          <button class="save-btn" onclick="syncProfileToSheet()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px">
-            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Im Sheet speichern
-          </button>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn-outline-setup" onclick="exportProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
-              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Exportieren
-            </button>
-            <button class="btn-outline-setup" onclick="importProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
-              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Importieren
-            </button>
-          </div>
-          <div style="font-size:11px;color:var(--text3);line-height:1.5">«Im Sheet speichern» benötigt ein Tab «Einstellungen» im Google Sheet. Beim nächsten App-Start wird das Profil automatisch geladen.</div>
-        </div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Darstellung</div>
-        <div class="card" style="padding:0 14px">
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Standardwährung</div>
-              <div class="settings-row-sub">Alle Beträge in dieser Währung anzeigen</div>
+
+      <!-- ── 1. Persönliche Info ──────────────────────────────── -->
+      <div class="section">
+        <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-personal')">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Persönliche Info</span>
+          <svg class="settings-group-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="sg-personal" class="settings-group-body" style="display:none">
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label">Dein Name (für Home-Begrüssung)</label>
+              <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
             </div>
-            <select id="s-currency" class="form-select" style="width:auto;min-width:72px;padding:6px 8px;font-size:14px" onchange="CFG.currency=this.value;cfgSave();autoSyncProfile();renderAll()">
-              <option value="CHF">CHF</option>
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="GBP">GBP</option>
-              <option value="JPY">JPY</option>
-              <option value="SEK">SEK</option>
-              <option value="NOK">NOK</option>
-              <option value="DKK">DKK</option>
-            </select>
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border)">
-            <div>
-              <div class="settings-row-label">Dunkel-Modus</div>
-              <div class="settings-row-sub">Dunkles oder helles Design</div>
-            </div>
-            <div class="toggle-switch" id="theme-toggle-sw" onclick="toggleThemeSwitch()"></div>
-          </div>
-        </div>
-      </div>
-      <!-- ── Erscheinungsbild ──────────────────────────────────────── -->
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Erscheinungsbild</div>
-        <div class="card" style="padding:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Hintergrund</div>
-          <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
-            <button onclick="triggerBgUpload()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
-              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              Eigenes Bild
-            </button>
-            <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
-          </div>
-          <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
-          <div id="bg-blur-section" style="display:none;margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-              <span style="font-size:12px;color:var(--text2)">Hintergrund-Unschärfe</span>
-              <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="bg-blur-val">0px</span>
-            </div>
-            <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
-          </div>
-          <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
-          <div class="settings-row" style="padding:0 0 10px">
-            <div>
-              <div class="settings-row-label">Glassmorphism</div>
-              <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
-            </div>
-            <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
-          </div>
-          <div id="glass-sliders" style="display:none;margin-top:4px">
-            <div style="margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
-                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
+            <div class="settings-row" style="padding:0">
+              <div>
+                <div class="settings-row-label">Standardwährung</div>
+                <div class="settings-row-sub">Alle Beträge in dieser Währung anzeigen</div>
               </div>
-              <input id="glass-blur-slider" type="range" min="4" max="20" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
+              <select id="s-currency" class="form-select" style="width:auto;min-width:72px;padding:6px 8px;font-size:14px" onchange="CFG.currency=this.value;cfgSave();autoSyncProfile();renderAll()">
+                <option value="CHF">CHF</option><option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="JPY">JPY</option><option value="SEK">SEK</option><option value="NOK">NOK</option><option value="DKK">DKK</option>
+              </select>
             </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:12px;color:var(--text2)">Transparenz</span>
-                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
+          </div>
+          <div id="settings-url-section" class="card" style="padding:14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Verbindung</div>
+            <div class="form-group">
+              <label class="form-label">Script URL</label>
+              <input id="s-url2" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+            </div>
+            <button class="save-btn" onclick="applySettings2()">Speichern &amp; neu laden</button>
+          </div>
+          <div class="card" style="padding:14px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Profil-Sync</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+              Einstellungen geräteübergreifend nutzen: im Google Sheet speichern oder als Datei exportieren/importieren.
+            </div>
+            <button class="save-btn" onclick="syncProfileToSheet()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:8px">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Im Sheet speichern
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button class="btn-outline-setup" onclick="exportProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exportieren
+              </button>
+              <button class="btn-outline-setup" onclick="importProfileJSON()" style="display:flex;align-items:center;justify-content:center;gap:5px">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Importieren
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 2. App-Layout ──────────────────────────────── -->
+      <div class="section" style="padding-top:0">
+        <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-layout')">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>App-Layout</span>
+          <svg class="settings-group-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="sg-layout" class="settings-group-body" style="display:none">
+          <div class="card" style="padding:0 14px;margin-bottom:10px">
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Dunkel-Modus</div>
+                <div class="settings-row-sub">Dunkles oder helles Design</div>
               </div>
-              <input id="glass-alpha-slider" type="range" min="5" max="40" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+              <div class="toggle-switch" id="theme-toggle-sw" onclick="toggleThemeSwitch()"></div>
             </div>
+          </div>
+          <!-- Erscheinungsbild -->
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Hintergrund</div>
+            <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+              <button onclick="triggerBgUpload()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Eigenes Bild
+              </button>
+              <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
+            </div>
+            <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
+            <div id="bg-blur-section" style="display:none;margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text2)">Hintergrund-Unschärfe</span>
+                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="bg-blur-val">0px</span>
+              </div>
+              <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
+            </div>
+            <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+            <div class="settings-row" style="padding:0 0 10px">
+              <div>
+                <div class="settings-row-label">Glassmorphism</div>
+                <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
+              </div>
+              <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
+            </div>
+            <div id="glass-sliders" style="display:none;margin-top:4px">
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
+                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
+                </div>
+                <input id="glass-blur-slider" type="range" min="4" max="20" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text2)">Transparenz</span>
+                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
+                </div>
+                <input id="glass-alpha-slider" type="range" min="5" max="40" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Navigation</div>
+            <p style="font-size:13px;color:var(--text2);line-height:1.5;margin:0">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 3 Tabs erscheinen neben «Home» in der unteren Navigation.</p>
           </div>
         </div>
       </div>
+
+      <!-- ── 3. Spezifische Funktionen ──────────────────── -->
       <div class="section" style="padding-top:0">
-        <div class="section-title">Aktien</div>
-        <div class="card" style="padding:0 14px">
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Aktien aktivieren</div>
-              <div class="settings-row-sub">Aktien-Tab, Widgets und Plus-Menü-Eintrag einblenden</div>
+        <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-features')">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Funktionen</span>
+          <svg class="settings-group-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="sg-features" class="settings-group-body" style="display:none">
+          <div class="card" style="padding:0 14px;margin-bottom:10px">
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Aktien aktivieren</div>
+                <div class="settings-row-sub">Aktien-Tab, Widgets und Plus-Menü-Eintrag einblenden</div>
+              </div>
+              <div class="toggle-switch" id="aktien-enabled-sw" onclick="toggleAktienEnabled()"></div>
             </div>
-            <div class="toggle-switch" id="aktien-enabled-sw" onclick="toggleAktienEnabled()"></div>
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border)" id="aktien-bilanz-row">
-            <div>
-              <div class="settings-row-label">Depot in Gesamtbilanz</div>
-              <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
+            <div class="settings-row" style="border-top:1px solid var(--border)" id="aktien-bilanz-row">
+              <div>
+                <div class="settings-row-label">Depot in Gesamtbilanz</div>
+                <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
+              </div>
+              <div class="toggle-switch" id="aktien-bilanz-sw" onclick="CFG.aktienInBilanz=!CFG.aktienInBilanz;cfgSave();this.classList.toggle('on',CFG.aktienInBilanz);renderHome()"></div>
             </div>
-            <div class="toggle-switch" id="aktien-bilanz-sw" onclick="CFG.aktienInBilanz=!CFG.aktienInBilanz;cfgSave();this.classList.toggle('on',CFG.aktienInBilanz);renderHome()"></div>
+          </div>
+          <div class="card" style="padding:0 14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:12px 0 6px">Benachrichtigungen</div>
+            <div id="notif-settings-list"></div>
+          </div>
+          <div class="card" style="padding:14px">
+            <button class="save-btn" onclick="exportExcel()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Als Excel exportieren
+            </button>
           </div>
         </div>
       </div>
+
+      <!-- ── App-Info ──────────────────── -->
       <div class="section" style="padding-top:0">
-        <div class="section-title">Navigation</div>
-        <div class="card" style="padding:14px">
-          <p style="font-size:13px;color:var(--text2);line-height:1.5">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 3 Tabs erscheinen neben «Home» in der unteren Navigation.</p>
-        </div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Benachrichtigungen</div>
-        <div id="notif-settings-list" class="card" style="padding:0 14px"></div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">Export</div>
-        <div class="card" style="padding:14px">
-          <button class="save-btn" onclick="exportExcel()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Als Excel exportieren
-          </button>
-        </div>
-      </div>
-      <div class="section" style="padding-top:0">
-        <div class="section-title">App-Info</div>
         <div class="card" style="padding:14px">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div class="logo-circle" style="width:40px;height:40px;font-size:18px">₣</div>
@@ -2665,6 +2738,7 @@ const DATA = {
   incomes: [],    // {id,date,what,cat,amt,note}
   recurring: [],  // {id,what,cat,amt,interval,day,note,active,start,endDate,affectsAvg}
   categories: [], // {id,name,type,color,sort,parent}
+  sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
@@ -2910,7 +2984,9 @@ function getZyklusInfo(){
   const prevFixKosten = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&isFixkostenEntry(e)),...prevRecur.filter(e=>isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevVarSpent  = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&!isFixkostenEntry(e)),...prevRecur.filter(e=>!isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
-  const mSparziel = CFG.mSparziel||0;
+  // Use dynamic Sparziele monthly total if goals exist, fallback to CFG.mSparziel
+  const sparMonthly = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0) ? sparTotalMonthly() : 0;
+  const mSparziel = sparMonthly > 0 ? sparMonthly : (CFG.mSparziel||0);
   const cycleDays   = Math.round((end-start)/86400000)+1;
   const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
   const daysLeft    = cycleDays - daysElapsed;
@@ -3310,14 +3386,15 @@ async function loadAll(){
   if(hadCache) renderAll();
 
   try{
-    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes] = await Promise.allSettled([
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] = await Promise.allSettled([
       apiGet('Kategorien!A2:F500'),
       apiGet('Ausgaben!A2:H5000'),
       apiGet('Einnahmen!A2:H5000'),
       apiGet('Daueraufträge!A2:K200'),
       apiGet('Aktien!A2:F5000'),
       apiGet('Trades!A2:J5000'),
-      loadProfileFromSheet()
+      loadProfileFromSheet(),
+      apiGet('Sparziele!A2:K200')
     ]);
 
     if(katRes.status==='fulfilled'){
@@ -3344,6 +3421,16 @@ async function loadAll(){
         .filter(r=>r[0])
         .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
     } else { if(!hadCache) DATA.recurring=[]; }
+
+    // Sparziele
+    if(sparRes.status==='fulfilled'){
+      DATA.sparziele = (sparRes.value.values||[])
+        .filter(r=>r[0]&&String(r[10]||'')!=='1')
+        .map(r=>({id:r[0],name:r[1]||'',target:parseFloat(r[2])||0,start:parseFloat(r[3])||0,
+          saved:parseFloat(r[4])||0,deadline:r[5]||'',open:String(r[6]||'')==='1',
+          priority:parseInt(r[7])||99,taxPct:parseFloat(r[8])||0,taxAmt:parseFloat(r[9])||0,
+          isTax:String(r[6]||'')==='tax'}));
+    }
 
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
@@ -4138,6 +4225,7 @@ function renderAll(){
   renderRecurring();
   renderDashboard();
   renderHome();
+  if(currentTab==='sparen') renderSparen();
   updatePageSub();
   autoMaterializeRecurrings();
   checkDueRecurrings();
@@ -4756,6 +4844,343 @@ function verlaufFilterEntries(entries){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: SPAREN & PLANEN
+// Sparziele CRUD, progress, priority, Steuern, budget integration
+// Sheet: "Sparziele" — columns A:K
+//   A=id, B=name, C=target, D=start, E=saved, F=deadline, G=open/tax, H=priority, I=taxPct, J=taxAmt, K=deleted
+// ═══════════════════════════════════════════════════════════════
+
+function getSparzieleNonTax(){ return DATA.sparziele.filter(g=>!g.isTax).sort((a,b)=>a.priority-b.priority); }
+function getSparTax(){ return DATA.sparziele.filter(g=>g.isTax); }
+
+function sparGoalPct(g){
+  if(g.open) return g.saved>0?100:0;
+  if(g.target<=0) return 0;
+  return Math.min((g.saved/g.target)*100, 100);
+}
+
+function sparTotalMonthly(){
+  // Sum of monthly minimums from all active goals
+  const goals = getSparzieleNonTax();
+  let total = 0;
+  for(const g of goals){
+    if(g.target<=0||g.open) continue;
+    if(!g.deadline) continue;
+    const remaining = g.target - g.saved;
+    if(remaining<=0) continue;
+    const now = new Date();
+    const dl = new Date(g.deadline);
+    const months = Math.max(1, (dl.getFullYear()-now.getFullYear())*12 + dl.getMonth()-now.getMonth());
+    total += remaining / months;
+  }
+  // Add tax amounts
+  const taxes = getSparTax();
+  for(const t of taxes){
+    if(t.taxAmt>0) total += t.taxAmt;
+  }
+  return total;
+}
+
+function renderSparen(){
+  const el = document.getElementById('sparen-content');
+  if(!el) return;
+  const goals = getSparzieleNonTax();
+  const taxes = getSparTax();
+  const totalSaved = goals.reduce((s,g)=>s+g.saved,0);
+  const totalTarget = goals.filter(g=>!g.open).reduce((s,g)=>s+g.target,0);
+  const monthlyMin = sparTotalMonthly();
+
+  let html = '';
+
+  // Summary card
+  html += `<div class="section">
+    <div class="section-title">Übersicht</div>
+    <div class="card" style="padding:14px">
+      <div class="spar-summary-row">
+        <span class="spar-summary-label">Gespart (gesamt)</span>
+        <span class="spar-summary-val" style="color:var(--accent)">${curr()} ${fmtAmt(totalSaved)}</span>
+      </div>
+      <div class="spar-summary-row">
+        <span class="spar-summary-label">Ziel (gesamt)</span>
+        <span class="spar-summary-val">${curr()} ${fmtAmt(totalTarget)}</span>
+      </div>
+      ${totalTarget>0?`
+      <div style="margin-top:8px">
+        <div class="spar-prog-wrap" style="height:10px">
+          <div class="spar-prog-fill" style="width:${Math.min(totalSaved/totalTarget*100,100).toFixed(1)}%;background:var(--accent)"></div>
+        </div>
+        <div class="spar-prog-sub"><span>${(totalSaved/totalTarget*100).toFixed(0)}%</span><span>${curr()} ${fmtAmt(totalTarget-totalSaved)} verbleibend</span></div>
+      </div>`:''}
+      ${monthlyMin>0?`<div class="spar-summary-row" style="margin-top:4px">
+        <span class="spar-summary-label">Monatl. Minimum</span>
+        <span class="spar-summary-val" style="color:var(--yellow)">${curr()} ${fmtAmt(monthlyMin)}</span>
+      </div>`:''}
+    </div>
+  </div>`;
+
+  // Goals list (sorted by priority)
+  html += `<div class="section" style="padding-top:0">
+    <div class="section-title">Sparziele (Priorität)</div>`;
+  if(goals.length===0){
+    html += `<div class="card" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
+      Noch keine Sparziele erfasst. Erstelle dein erstes Ziel!
+    </div>`;
+  }
+  goals.forEach((g,i)=>{
+    const pct = sparGoalPct(g);
+    const done = !g.open && pct>=100;
+    const progColor = done ? 'var(--green)' : 'var(--accent)';
+    let deadlineLabel = '';
+    if(g.deadline){
+      const dl = new Date(g.deadline);
+      const now = new Date();
+      const daysLeft = Math.ceil((dl-now)/86400000);
+      deadlineLabel = daysLeft>0 ? `${daysLeft} Tage verbleibend` : 'Frist abgelaufen';
+    }
+    html += `<div class="spar-goal-card" onclick="openSparGoalDetail('${g.id}')">
+      <div class="spar-goal-header">
+        <span class="spar-goal-name">${esc(g.name)}</span>
+        ${done?'<span class="spar-goal-badge done">Erreicht ✓</span>':g.open?'<span class="spar-goal-badge open">Offen</span>':''}
+      </div>
+      <div class="spar-goal-amounts">
+        <span class="saved">${curr()} ${fmtAmt(g.saved)}</span>
+        ${!g.open?`<span class="target">/ ${curr()} ${fmtAmt(g.target)}</span>`:''}
+      </div>
+      ${!g.open?`<div class="spar-prog-wrap"><div class="spar-prog-fill" style="width:${pct.toFixed(1)}%;background:${progColor}"></div></div>
+      <div class="spar-prog-sub"><span>${pct.toFixed(0)}%</span>${deadlineLabel?`<span>${deadlineLabel}</span>`:''}</div>`:''}
+      <div class="spar-prio">
+        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
+        Priorität ${i+1}
+      </div>
+    </div>`;
+  });
+  html += `<button class="spar-add-btn" onclick="openSparGoalModal()">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Neues Sparziel
+  </button>`;
+  html += `</div>`;
+
+  // Steuern section
+  html += `<div class="section" style="padding-top:0">
+    <div class="section-title">Steuern</div>`;
+  if(taxes.length===0){
+    html += `<div class="card" style="padding:14px;font-size:13px;color:var(--text3)">
+      Noch keine Steuerrückstellung erfasst. Steuern werden als feste Kosten vom Budget abgezogen.
+    </div>`;
+  }
+  taxes.forEach(t=>{
+    html += `<div class="spar-goal-card" onclick="openSparGoalDetail('${t.id}')">
+      <div class="spar-goal-header">
+        <span class="spar-goal-name">${esc(t.name)}</span>
+        <span class="spar-goal-badge tax">Steuer</span>
+      </div>
+      <div class="spar-goal-amounts">
+        ${t.taxPct>0?`<span class="target">${t.taxPct}% vom Lohn</span>`:''}
+        <span class="saved">${curr()} ${fmtAmt(t.taxAmt)} / Monat</span>
+      </div>
+    </div>`;
+  });
+  html += `<button class="spar-add-btn" onclick="openSparGoalModal(true)">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Steuerrückstellung hinzufügen
+  </button>`;
+  html += `</div>`;
+
+  // Budget integration info
+  const budgetDeduct = sparTotalMonthly();
+  if(budgetDeduct>0){
+    html += `<div class="section" style="padding-top:0">
+      <div class="section-title">Budget-Integration</div>
+      <div class="card" style="padding:14px;font-size:13px;color:var(--text2);line-height:1.6">
+        Monatlich werden <strong style="color:var(--accent)">${curr()} ${fmtAmt(budgetDeduct)}</strong> vom Lohnzyklus-Budget abgezogen
+        (Sparziele + Steuern). Überschüsse fliessen automatisch in das Sparziel mit höchster Priorität.
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ── Sparziel Modal (create/edit) ──
+function openSparGoalModal(isTax=false, editId=null){
+  const existing = editId ? DATA.sparziele.find(g=>g.id===editId) : null;
+  const isEdit = !!existing;
+  const title = isTax ? (isEdit?'Steuer bearbeiten':'Steuerrückstellung') : (isEdit?'Sparziel bearbeiten':'Neues Sparziel');
+
+  let body = `<div style="display:flex;flex-direction:column;gap:12px">
+    <div>
+      <label class="form-label">Name</label>
+      <input id="spar-name" class="form-input" placeholder="${isTax?'z.B. Einkommenssteuer':'z.B. Ferien, Notgroschen'}" value="${isEdit?esc(existing.name):''}">
+    </div>`;
+
+  if(isTax){
+    body += `<div>
+      <label class="form-label">Prozent vom Lohn (optional)</label>
+      <input id="spar-tax-pct" type="number" class="form-input" placeholder="z.B. 15" step="0.1" value="${isEdit?existing.taxPct||'':''}">
+    </div>
+    <div>
+      <label class="form-label">Fester Monatsbetrag (${curr()})</label>
+      <input id="spar-tax-amt" type="number" class="form-input" placeholder="z.B. 500" step="0.01" value="${isEdit?existing.taxAmt||'':''}">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Wenn % gesetzt, wird der Betrag automatisch berechnet.</div>
+    </div>`;
+  } else {
+    body += `<div>
+      <label class="form-label">Zielbetrag (${curr()})</label>
+      <input id="spar-target" type="number" class="form-input" placeholder="z.B. 5000" step="0.01" value="${isEdit?existing.target||'':''}">
+    </div>
+    <div>
+      <label class="form-label">Startbetrag / bereits gespart (${curr()})</label>
+      <input id="spar-saved" type="number" class="form-input" placeholder="0" step="0.01" value="${isEdit?existing.saved||0:''}">
+    </div>
+    <div>
+      <label class="form-label">Zieldatum (optional — leer = offenes Ziel)</label>
+      <input id="spar-deadline" type="date" class="form-input" value="${isEdit&&existing.deadline?existing.deadline:''}">
+    </div>
+    <div>
+      <label class="form-label">Priorität (1 = höchste)</label>
+      <input id="spar-priority" type="number" class="form-input" min="1" value="${isEdit?existing.priority:getSparzieleNonTax().length+1}">
+    </div>`;
+  }
+  body += `</div>`;
+
+  const actions = isEdit
+    ? `<div style="display:flex;gap:8px">
+        <button class="btn-delete" style="flex:1" onclick="deleteSparGoal('${editId}')">Löschen</button>
+        <button class="btn-primary" style="flex:2" onclick="saveSparGoal('${editId}',${isTax})">Speichern</button>
+      </div>`
+    : `<button class="btn-primary" style="width:100%" onclick="saveSparGoal(null,${isTax})">Erstellen</button>`;
+
+  openGenericModal(title, body, actions);
+}
+
+function openSparGoalDetail(id){
+  const g = DATA.sparziele.find(x=>x.id===id);
+  if(!g) return;
+  openSparGoalModal(g.isTax, id);
+}
+
+async function saveSparGoal(editId, isTax){
+  const name = document.getElementById('spar-name')?.value.trim();
+  if(!name){ toast('Name eingeben','err'); return; }
+
+  let goal;
+  if(isTax){
+    const taxPct = parseFloat(document.getElementById('spar-tax-pct')?.value)||0;
+    let taxAmt = parseFloat(document.getElementById('spar-tax-amt')?.value)||0;
+    // Auto-calc from Lohn if pct set
+    if(taxPct>0){
+      const z = getZyklusInfo();
+      if(z.lohn>0) taxAmt = Math.round(z.lohn * taxPct / 100 * 100)/100;
+    }
+    goal = {id:editId||genId('SZ'),name,target:0,start:0,saved:0,deadline:'',open:false,priority:99,taxPct,taxAmt,isTax:true};
+  } else {
+    const target = parseFloat(document.getElementById('spar-target')?.value)||0;
+    const saved = parseFloat(document.getElementById('spar-saved')?.value)||0;
+    const deadline = document.getElementById('spar-deadline')?.value||'';
+    const priority = parseInt(document.getElementById('spar-priority')?.value)||99;
+    const open = !deadline && target<=0;
+    goal = {id:editId||genId('SZ'),name,target,start:saved,saved,deadline,open,priority,taxPct:0,taxAmt:0,isTax:false};
+  }
+
+  if(editId){
+    const idx = DATA.sparziele.findIndex(g=>g.id===editId);
+    if(idx>=0) DATA.sparziele[idx] = goal;
+  } else {
+    DATA.sparziele.push(goal);
+  }
+
+  closeGenericModal();
+  renderSparen();
+  toast('Gespeichert');
+
+  // Sync to Sheet
+  try{
+    const row = [goal.id,goal.name,goal.target,goal.start,goal.saved,goal.deadline,
+      goal.isTax?'tax':(goal.open?'1':'0'),goal.priority,goal.taxPct,goal.taxAmt,''];
+    if(editId){
+      const rowNum = await apiFindRow('Sparziele', editId);
+      if(rowNum) await apiUpdate(`Sparziele!A${rowNum}:K${rowNum}`, [row]);
+      else await apiAppend('Sparziele', [row]);
+    } else {
+      await apiAppend('Sparziele', [row]);
+    }
+    setSyncStatus('online');
+  }catch(e){ toast('Sync-Fehler: '+e.message,'err'); setSyncStatus('error'); }
+}
+
+async function deleteSparGoal(id){
+  const idx = DATA.sparziele.findIndex(g=>g.id===id);
+  if(idx<0) return;
+  DATA.sparziele.splice(idx,1);
+  closeGenericModal();
+  renderSparen();
+  toast('Gelöscht');
+  try{
+    const rowNum = await apiFindRow('Sparziele', id);
+    if(rowNum) await apiUpdate(`Sparziele!K${rowNum}`, [['1']]);
+    setSyncStatus('online');
+  }catch(e){ setSyncStatus('error'); }
+}
+
+// Update saved amount (deposit into goal)
+async function addToSparGoal(id, amount){
+  const g = DATA.sparziele.find(x=>x.id===id);
+  if(!g) return;
+  g.saved = Math.round((g.saved + amount)*100)/100;
+  renderSparen();
+  try{
+    const rowNum = await apiFindRow('Sparziele', id);
+    if(rowNum) await apiUpdate(`Sparziele!E${rowNum}`, [[g.saved]]);
+    setSyncStatus('online');
+  }catch(e){ setSyncStatus('error'); }
+}
+
+// Generic modal helper (reused for sparen)
+function openGenericModal(title, bodyHtml, actionsHtml){
+  let modal = document.getElementById('generic-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'generic-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `<div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="generic-modal-title"></div>
+      <div id="generic-modal-body" style="padding:0 20px"></div>
+      <div id="generic-modal-actions" style="padding:16px 20px 24px"></div>
+    </div>`;
+    modal.addEventListener('click', e=>{ if(e.target===modal) closeGenericModal(); });
+    document.body.appendChild(modal);
+  }
+  document.getElementById('generic-modal-title').textContent = title;
+  document.getElementById('generic-modal-body').innerHTML = bodyHtml;
+  document.getElementById('generic-modal-actions').innerHTML = actionsHtml;
+  modal.classList.add('show');
+}
+function closeGenericModal(){
+  const m = document.getElementById('generic-modal');
+  if(m) m.classList.remove('show');
+}
+
+// Widget: Sparziele overview for Home
+function renderWidgetSparzieleOverview(){
+  const goals = getSparzieleNonTax().slice(0,3);
+  if(goals.length===0) return '<div style="font-size:13px;color:var(--text3);padding:8px 0">Keine Sparziele erfasst</div>';
+  let html = '';
+  goals.forEach(g=>{
+    const pct = sparGoalPct(g);
+    const done = !g.open && pct>=100;
+    html += `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span style="font-weight:600">${esc(g.name)}</span>
+        <span style="color:var(--text3)">${g.open?curr()+' '+fmtAmt(g.saved):pct.toFixed(0)+'%'}</span>
+      </div>
+      ${!g.open?`<div class="spar-prog-wrap"><div class="spar-prog-fill" style="width:${pct.toFixed(1)}%;background:${done?'var(--green)':'var(--accent)'}"></div></div>`:''}
+    </div>`;
+  });
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: AKTIEN-TRADE VIA EINGABE-TAB
 // ═══════════════════════════════════════════════════════════════
 let aktienTradeTyp = 'kauf'; // 'kauf' | 'verkauf'
@@ -5042,6 +5467,7 @@ const WIDGET_CATALOG = [
   { key:'aktienTop',        label:'Top-Performer',            sub:'Aktie mit höchstem prozentualen Gewinn' },
   { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
   { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
+  { key:'sparzieleOverview', label:'Sparziele',              sub:'Übersicht deiner Sparziele mit Fortschrittsbalken' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','topKategorien','tagesavg'];
 let homeEditMode = false;
@@ -5091,6 +5517,7 @@ const WIDGET_TAB_MAP = {
   monatsverlaufJahr:'dashboard', verlaufZeitraum:'verlauf',
   aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
   aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
+  sparzieleOverview:'sparen',
 };
 
 function renderHome(){
@@ -5173,6 +5600,7 @@ function renderWidgetContent(key){
     case 'aktienTop':        return renderWidgetAktienTop();
     case 'aktienVerteilung': return renderWidgetAktienVerteilung();
     case 'aktienPosition':   return renderWidgetAktienPosition();
+    case 'sparzieleOverview': return renderWidgetSparzieleOverview();
     default: return '';
   }
 }
@@ -6039,7 +6467,8 @@ function goTab(tab){
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dauerauftraege:'Daueraufträge', dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
-    aktien:'Aktien', monat:'Monatsübersicht', einstellungen:'Einstellungen', admin:'Admin'
+    aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
+    einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
   if(tab==='home') renderHome();
@@ -6049,6 +6478,7 @@ function goTab(tab){
   if(tab==='aktien') renderAktien();
   if(tab==='einstellungen') renderNotifSettings();
   if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); renderMonat(); }
+  if(tab==='sparen') renderSparen();
   if(tab==='einstellungen') renderEinstellungen();
   if(tab==='admin') renderAdmin();
 }
@@ -6110,6 +6540,7 @@ const PINNABLE_TABS = [
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
   { key:'dauerauftraege', label:'Daueraufträge / Abos', icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
+  { key:'sparen',         label:'Sparen &amp; Planen',   icon:'<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.4-11.3-1.5-11.3 5.2 0 4 3 6.8 7.3 10.8l1 1 1-1C18 19 21 16.2 21 12.2c0-2-1-3.2-2-3.2z"/>' },
 ];
 const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>';
 
@@ -8314,6 +8745,16 @@ function toggleThemeSwitch(){
   cfgSave();
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', newTheme!=='light');
+}
+
+function toggleSettingsGroup(id){
+  const body = document.getElementById(id);
+  if(!body) return;
+  const btn = body.previousElementSibling;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  body.style.display = isOpen ? 'none' : '';
+  if(btn) btn.classList.toggle('open', !isOpen);
 }
 
 // ═══════════════════════════════════════════════════════════════
