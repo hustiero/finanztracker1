@@ -5158,12 +5158,14 @@ function renderWidgetHeuteAusgaben(){
   const dExp = DATA.expenses.filter(e=>e.date===t);
   const dInc = DATA.incomes.filter(e=>e.date===t);
   const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
+  // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
+  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
   const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
 
-  // Tagesbudget from Zyklus
+  // Tagesbudget from Zyklus — compare against variable spending only
   const z = getZyklusInfo();
   const dailyBudget = z.dailyRate;
-  const overBudget = dailyBudget!==null && todayOut > dailyBudget;
+  const overBudget = dailyBudget!==null && todayVar > dailyBudget;
   const amtColor = dailyBudget===null ? 'var(--text)' : overBudget ? 'var(--red)' : 'var(--green)';
 
   let html = `<div>
@@ -5175,7 +5177,7 @@ function renderWidgetHeuteAusgaben(){
   }
 
   if(dailyBudget!==null){
-    const remaining = dailyBudget - todayOut;
+    const remaining = dailyBudget - todayVar;
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
       <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
       <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
