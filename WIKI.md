@@ -23,6 +23,7 @@
 14. [Hilfsfunktionen](#14-hilfsfunktionen)
 15. [Datenfluss-Übersicht](#15-datenfluss-übersicht)
 16. [Aktien: Dashboard, Toggle & UX](#16-aktien-dashboard-toggle--ux)
+17. [Verlauf: 3-Ebenen-Navigation](#17-verlauf-3-ebenen-navigation)
 
 ---
 
@@ -1465,6 +1466,227 @@ const visibleCatalog = CFG.aktienEnabled
 ```javascript
 const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
 ```
+
+---
+
+---
+
+## 17. Verlauf: 3-Ebenen-Navigation
+
+### 17.1 Überblick und Navigationszustand
+
+Der Verlauf-Tab verwendet eine dreistufige Navigation mit zugehörigen State-Variablen:
+
+```javascript
+let verlaufType = 'alle';       // 'alle' | 'ausgaben' | 'einnahmen'
+let verlaufKat  = null;         // null = L1/L2 aktiv | string = L3 aktiv
+let verlaufL3SearchVis = false; // Suche in L3 ein-/ausgeblendet
+let verlaufSearch = '';         // aktueller Suchstring (alle Ebenen)
+```
+
+| Zustand | Ebene | Beschreibung |
+|---------|-------|--------------|
+| `verlaufKat === null && verlaufType === 'alle'` | L1 | Alle Einträge chronologisch |
+| `verlaufKat === null && verlaufType !== 'alle'` | L2 | Kategorieliste für gewählten Typ |
+| `verlaufKat !== null` | L3 | Kategorie-Detailansicht |
+
+---
+
+### 17.2 Navigationsfunktionen
+
+```javascript
+function verlaufSetType(t)
+```
+- Wechselt den Typ-Filter (`'alle'`, `'ausgaben'`, `'einnahmen'`)
+- Setzt `verlaufKat = null`, `verlaufL3SearchVis = false`, `verlaufSearch = ''`
+- Aktualisiert aktive Klasse auf den Typ-Buttons (`#v-btn-alle`, `#v-btn-ausgaben`, `#v-btn-einnahmen`)
+- Ruft `renderVerlauf()` auf
+
+```javascript
+function verlaufOpenKat(name)
+```
+- Öffnet L3 für die übergebene Kategorie
+- Setzt `verlaufKat = name`, `verlaufL3SearchVis = false`, `verlaufSearch = ''`
+- Ruft `renderVerlauf()` auf
+
+```javascript
+function verlaufOpenKatFromEl(el)
+```
+- Wrapper für `verlaufOpenKat(el.dataset.kat)`
+- Wird als `onclick`-Handler auf `.card-row`-Elementen gesetzt, um Sonderzeichen in Kategorienamen sicher zu übergeben (via `data-kat`-Attribut statt inline-JS-String-Escaping)
+
+```javascript
+function verlaufGoBack()
+```
+- Kehrt von L3 nach L2 zurück (oder von L2 nach L1 bei `verlaufType === 'alle'`)
+- Setzt `verlaufKat = null`, `verlaufL3SearchVis = false`, `verlaufSearch = ''`
+- Ruft `renderVerlauf()` auf
+
+```javascript
+function verlaufToggleL3Search()
+```
+- Toggelt `verlaufL3SearchVis`
+- Blendet `#verlauf-search-wrap` ein/aus
+- Fokussiert das Suchfeld bei Einblendung
+
+```javascript
+function setVerlaufSearch(val)
+```
+- Setzt `verlaufSearch = val`
+- Ruft `renderVerlauf()` auf
+
+---
+
+### 17.3 Datenfunktionen
+
+```javascript
+function sucheTransaktionen(query, entries)
+```
+- **Zweck:** Universelle Suche über eine Eintrags-Liste
+- **Datenquelle:** Beliebiges Array von Eintrags-Objekten (Ausgaben, Einnahmen oder gemischt)
+- **Suchfelder:** `what` (Bezeichnung), `cat` (Kategorie), `note` (Notiz), `amt` (Betrag als String), `date` (Datum als String)
+- **Rückgabe:** Gefiltertes Array mit denselben Objekten
+- **Groß-/Kleinschreibung:** Invariant (`.toLowerCase()`)
+
+```javascript
+function getKategorienMitEintraegen(typ)
+```
+- **Zweck:** Aggregiert alle Einträge nach Kategorie für L2-Ansicht
+- **Parameter:** `typ` — `'ausgaben'` oder `'einnahmen'`
+- **Datenquelle:** `DATA.expenses` / `DATA.incomes` + `getRecurringInstances()` für den aktuellen Monat
+- **Rückgabe:** `[{ name, total, count }]`, absteigend nach `total` sortiert
+- **Filtert** Kategorien ohne Einträge heraus (mind. 1 Eintrag erforderlich)
+
+```javascript
+function getKategorieDetails(kat, von, bis)
+```
+- **Zweck:** Detailstatistiken für eine einzelne Kategorie (L3-Statistikblock)
+- **Parameter:** `kat` — Kategoriename; `von`/`bis` — ISO-Datums-Strings (optional, Standard: alle)
+- **Datenquelle:** `DATA.expenses` / `DATA.incomes` je nach `verlaufType`; schließt wiederkehrende Einträge via `getRecurringInstances()` ein
+- **Rückgabe:**
+  ```javascript
+  {
+    total,        // Gesamtbetrag der Kategorie
+    count,        // Anzahl Einträge
+    avgPerMonth,  // Ø pro Monat (total / Monate im Zeitraum)
+    pct,          // Anteil am Gesamtbetrag des Typs (0–100)
+    entries       // vollständiges gefiltertes Eintrags-Array
+  }
+  ```
+
+```javascript
+function getMonthsBetween(a, b)
+```
+- **Zweck:** Hilfsfunktion — Anzahl voller Monate zwischen zwei ISO-Datums-Strings
+- **Rückgabe:** `number` (mind. 1)
+
+```javascript
+function buildMonthlyBarData(kat, typ)
+```
+- **Zweck:** Baut SVG-Balkendiagramm (12 Monate) für L3-Statistikblock
+- **Datenquelle:** `DATA.expenses` / `DATA.incomes` je nach `typ`, gefiltert auf `kat`
+- **Rückgabe:** SVG-String mit 12 Balken, farblich kodiert via `catColor(kat)`
+- **Achsenbeschriftung:** Monatskürzel (Jan–Dez) unter jedem Balken
+
+---
+
+### 17.4 Render-Funktionen
+
+```javascript
+function renderVerlauf()
+```
+- **Zweck:** Haupt-Dispatcher — bestimmt aktive Ebene und delegiert
+- **Steuerung:**
+  - Zeigt/versteckt `#verlauf-l3-bar` (Zurück-Button + Kategorietitel + Suche-Icon) je nach Ebene
+  - Setzt `#verlauf-l3-title` auf aktuellen Kategorienamen
+  - Zeigt/versteckt `#verlauf-search-wrap` (L1/L2: immer sichtbar; L3: per Toggle)
+  - Blendet je genau einen der drei Content-Bereiche ein: `#verlauf-l1-content`, `#verlauf-l2-content`, `#verlauf-l3-content`
+  - Delegiert an `renderVerlaufL1()`, `renderVerlaufL2()` oder `renderVerlaufL3()`
+
+```javascript
+function renderVerlaufEntryGroups(entries)
+```
+- **Zweck:** Gemeinsamer Renderer für chronologisch gruppierte Einträge (nach Datum)
+- **Datenquelle:** Beliebiges Eintrags-Array (bereits gefiltert und sortiert)
+- **Format:** Datums-Header (`fmtDate(date)`) gefolgt von `.card-row`-Elementen
+- **Jede Zeile:** Icon (Emoji via `catEmoji`) + Body (`what` / `cat` + `note`) + Amount (`fmtAmt`) + Chevron (tippbar → `openEditEntry(id, typ)`)
+
+```javascript
+function renderVerlaufL1()
+```
+- **Zweck:** L1-Ansicht — alle Einträge chronologisch mit Suche
+- **Datenquelle:** `DATA.expenses` + `DATA.incomes` (+ Recurring), zusammengeführt und nach Datum absteigend sortiert
+- **Suche:** `sucheTransaktionen(verlaufSearch, allEntries)`
+- **Ausgabe in:** `#verlauf-l1-content`
+
+```javascript
+function renderVerlaufL2()
+```
+- **Zweck:** L2-Ansicht — Kategorieübersicht mit Mini-Fortschrittsbalken
+- **Datenquelle:** `getKategorienMitEintraegen(verlaufType)`
+- **Suche:** Filtert Kategorienamen via `verlaufSearch`
+- **Jede Kategorie:**
+  - `.card-row` mit `data-kat`-Attribut (Sonderzeichen-sicher) + `onclick="verlaufOpenKatFromEl(this)"`
+  - Icon (`catEmoji(name)`) + Name + Eintragsanzahl
+  - Mini-Fortschrittsbalken (Breite = Anteil relativ zur größten Kategorie)
+  - Gesamtbetrag rechts + Chevron
+- **Ausgabe in:** `#verlauf-l2-content`
+
+```javascript
+function renderVerlaufL3()
+```
+- **Zweck:** L3-Ansicht — Statistikblock + Eintrags-Liste für eine Kategorie
+- **Datenquelle:** `getKategorieDetails(verlaufKat)` + `buildMonthlyBarData(verlaufKat, verlaufType)`
+- **Statistikblock (3-Spalten-Grid):**
+  - Gesamtbetrag
+  - Ø pro Monat
+  - Anzahl Einträge
+  - Horizontaler Anteil-Balken (volle Breite, Prozentanzeige)
+  - 12-Monats-SVG-Balkendiagramm
+- **Trennlinie** zwischen Statistikblock und Eintrags-Liste
+- **Eintrags-Liste:** `renderVerlaufEntryGroups(gefilterte Einträge)` mit `sucheTransaktionen(verlaufSearch, details.entries)`
+- **Ausgabe in:** `#verlauf-l3-content`
+
+---
+
+### 17.5 HTML-Struktur (`#tab-verlauf`)
+
+```html
+<div id="tab-verlauf" class="tab-page">
+  <div style="padding:12px 16px 0">
+    <!-- Typ-Umschalter (immer sichtbar) -->
+    <div id="verlauf-type-bar" class="type-toggle">
+      <button id="v-btn-alle"      onclick="verlaufSetType('alle')">Alle</button>
+      <button id="v-btn-ausgaben"  onclick="verlaufSetType('ausgaben')">Ausgaben</button>
+      <button id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+    </div>
+    <!-- L3-Navigationsleiste (nur auf L3 sichtbar) -->
+    <div id="verlauf-l3-bar">
+      <button onclick="verlaufGoBack()">← Zurück</button>
+      <span id="verlauf-l3-title"></span>
+      <button onclick="verlaufToggleL3Search()" id="verlauf-l3-search-btn">🔍</button>
+    </div>
+    <!-- Suchfeld (L1/L2: immer; L3: per Toggle) -->
+    <div class="verlauf-search-wrap" id="verlauf-search-wrap">
+      <input id="verlauf-search" oninput="setVerlaufSearch(this.value)" placeholder="Suchen…">
+    </div>
+  </div>
+  <!-- Inhaltscontainer (je genau einer sichtbar) -->
+  <div id="verlauf-l1-content"></div>
+  <div id="verlauf-l2-content" style="display:none"></div>
+  <div id="verlauf-l3-content" style="display:none"></div>
+</div>
+```
+
+---
+
+### 17.6 Suchverhalten je Ebene
+
+| Ebene | Sichtbarkeit Suche | Was wird durchsucht |
+|-------|--------------------|---------------------|
+| L1 (Alle) | Immer sichtbar | Bezeichnung, Kategorie, Notiz, Betrag, Datum aller Einträge |
+| L2 (Kategorien) | Immer sichtbar | Kategorienamen |
+| L3 (Detail) | Per 🔍-Toggle | Bezeichnung, Kategorie, Notiz, Betrag, Datum — nur Einträge der gewählten Kategorie |
 
 ---
 

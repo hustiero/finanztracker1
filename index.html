@@ -1275,15 +1275,34 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
     <!-- TAB: Verlauf -->
     <div id="tab-verlauf" class="tab-page" style="display:none">
-      <div class="section">
-        <div class="filter-row" id="verlauf-filters"></div>
+      <!-- Verlauf-Header: Type-Switch (L1/L2) oder Zurück-Button (L3) -->
+      <div style="padding:12px 16px 0">
+        <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
+        <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
+          <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
+          <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
+          <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+        </div>
+        <!-- L3: Zurück-Button + Kategoriename + Suche-Icon -->
+        <div id="verlauf-l3-bar" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
+          <button onclick="verlaufGoBack()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
+          <span id="verlauf-l3-title" style="flex:1;font-size:16px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></span>
+          <button onclick="verlaufToggleL3Search()" id="verlauf-l3-search-btn" style="background:none;border:none;color:var(--text3);padding:4px 6px;flex-shrink:0;line-height:0">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
+        <!-- Suchfeld: immer sichtbar L1/L2, per Icon ein-/ausblendbar L3 -->
+        <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="margin:0 0 8px">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
+        </div>
       </div>
-      <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="display:none">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
-      </div>
-      <div id="verlauf-chart-section" style="padding:0 16px 8px"></div>
-      <div id="verlauf-list"></div>
+      <!-- L1: Alle Buchungen (chronologisch) -->
+      <div id="verlauf-l1-content"></div>
+      <!-- L2: Kategorienliste (nach Typ gefiltert) -->
+      <div id="verlauf-l2-content" style="display:none"></div>
+      <!-- L3: Kategorie-Detailansicht (Stats + Transaktionen) -->
+      <div id="verlauf-l3-content" style="display:none"></div>
     </div>
 
     <!-- TAB: Kategorien -->
@@ -3592,8 +3611,10 @@ function exportExcel(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-let verlaufFilter = 'alle';
-let verlaufChartMonths = 3;
+// Verlauf Navigation State (3 Ebenen)
+let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen'
+let verlaufKat = null;            // null | string — gewählte Kategorie für L3
+let verlaufL3SearchVis = false;   // Suchfeld auf L3 sichtbar?
 let dashboardChartMonths = 3;
 
 function renderAll(){
@@ -3651,80 +3672,124 @@ function getRecurringInstances(startStr, endStr){
   return entries;
 }
 
-function renderVerlauf(){
-  // Filters
-  const allCats = [...new Set([...DATA.expenses.map(e=>e.cat),...DATA.incomes.map(e=>e.cat),...DATA.recurring.filter(r=>r.active).map(r=>r.cat)])];
-  const filterRow = document.getElementById('verlauf-filters');
-  filterRow.innerHTML = ['alle','Ausgaben','Einnahmen',...allCats]
-    .map(f=>`<button class="filter-chip${verlaufFilter===f?' active':''}" onclick="setVerlaufFilter('${f}')">${f}</button>`)
-    .join('');
+// ═══════════════════════════════════════════════════════════════
+// VERLAUF — 3-Ebenen-Navigation
+// Ebene 1 (L1): Alle Buchungen, Typ = 'alle'
+// Ebene 2 (L2): Kategorienliste, Typ = 'ausgaben' | 'einnahmen'
+// Ebene 3 (L3): Kategorie-Detail, verlaufKat gesetzt
+// ═══════════════════════════════════════════════════════════════
 
-  // Chart section — bar chart for specific category, nothing for alle/Ausgaben/Einnahmen
-  const chartSection = document.getElementById('verlauf-chart-section');
-  if(verlaufFilter!=='alle'&&verlaufFilter!=='Ausgaben'&&verlaufFilter!=='Einnahmen'){
-    const days = 30;
-    const todayD = new Date(); todayD.setHours(12,0,0,0);
-    const dayData = {};
-    for(let i=days-1;i>=0;i--){
-      const d=new Date(todayD.getTime()-i*86400000);
-      dayData[dateStr(d)]=0;
-    }
-    const startStr = Object.keys(dayData)[0];
-    const endStr = today();
-    DATA.expenses.filter(e=>e.cat===verlaufFilter&&e.date>=startStr&&e.date<=endStr)
-      .forEach(e=>{ if(dayData[e.date]!==undefined) dayData[e.date]+=e.amt; });
-    chartSection.innerHTML = `<div style="overflow-x:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 8px;margin-bottom:4px">${buildBarChart(dayData, days)}</div>`;
-  } else {
-    chartSection.innerHTML = '';
+// ── Universelle Suchfunktion ─────────────────────────────────────────────────
+// Durchsucht Einträge nach Betrag, Kategorie, Datum und Notiz.
+// Source: DATA.expenses / DATA.incomes (je nach Kontext)
+function sucheTransaktionen(query, entries){
+  if(!query) return entries;
+  const q = query.toLowerCase();
+  return entries.filter(e=>
+    (e.what||'').toLowerCase().includes(q)||
+    (e.cat||'').toLowerCase().includes(q)||
+    (e.note||'').toLowerCase().includes(q)||
+    fmtAmt(e.amt).includes(q)||
+    fmtDate(e.date).toLowerCase().includes(q)
+  );
+}
+
+// ── Kategorien mit Einträgen (für L2) ────────────────────────────────────────
+// Gibt alle Kategorien mit min. 1 Eintrag zurück, sortiert nach Gesamtbetrag.
+// typ: 'ausgaben' | 'einnahmen'
+function getKategorienMitEintraegen(typ){
+  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  const byKat = {};
+  entries.forEach(e=>{
+    if(!byKat[e.cat]) byKat[e.cat] = {name:e.cat, total:0, count:0};
+    byKat[e.cat].total += e.amt;
+    byKat[e.cat].count++;
+  });
+  return Object.values(byKat).sort((a,b)=>b.total-a.total);
+}
+
+// ── Kategorie-Details (für L3 Stats) ─────────────────────────────────────────
+// Gibt Statistiken für eine Kategorie zurück (total, Ø/Monat, Anzahl, %).
+// Datenquelle: DATA.expenses oder DATA.incomes je nach Kategorie-Typ
+function getKategorieDetails(kat, von='', bis=''){
+  const catDef = DATA.categories.find(c=>c.name===kat);
+  const isInc = catDef?.type==='einnahme';
+  let entries = isInc
+    ? DATA.incomes.filter(e=>e.cat===kat)
+    : DATA.expenses.filter(e=>e.cat===kat);
+  if(von) entries = entries.filter(e=>e.date>=von);
+  if(bis) entries = entries.filter(e=>e.date<=bis);
+  const total = entries.reduce((s,e)=>s+e.amt, 0);
+  const count = entries.length;
+  let avgPerMonth = 0;
+  if(count){
+    const dates = entries.map(e=>e.date);
+    const minD = dates.reduce((a,b)=>a<b?a:b);
+    const maxD = dates.reduce((a,b)=>a>b?a:b);
+    const months = getMonthsBetween(minD, maxD);
+    avgPerMonth = months > 0 ? total/months : total;
   }
+  const allOfType = isInc ? DATA.incomes : DATA.expenses;
+  const grandTotal = allOfType.reduce((s,e)=>s+e.amt, 0);
+  const pct = grandTotal>0 ? total/grandTotal*100 : 0;
+  return {total, count, avgPerMonth, pct, entries};
+}
 
-  // Combine & filter entries (including recurring)
-  const todayStr = today();
-  // Look back 12 months for recurring
-  const recurStart = dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
-  let entries = [];
-  const showExp = verlaufFilter==='alle'||verlaufFilter==='Ausgaben'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='ausgabe');
-  const showInc = verlaufFilter==='alle'||verlaufFilter==='Einnahmen'||DATA.categories.find(c=>c.name===verlaufFilter&&c.type==='einnahme');
-  const showRec = verlaufFilter==='alle'||verlaufFilter==='Ausgaben'||DATA.recurring.find(r=>r.cat===verlaufFilter);
+// ── Hilfsfunktion: Monate zwischen zwei Datumsstrings ────────────────────────
+function getMonthsBetween(a, b){
+  if(!a||!b) return 1;
+  const da = new Date(a+'T12:00:00'), db = new Date(b+'T12:00:00');
+  return Math.max(1, (db.getFullYear()-da.getFullYear())*12+(db.getMonth()-da.getMonth())+1);
+}
 
-  if(showExp){
-    const expData = (verlaufFilter==='alle'||verlaufFilter==='Ausgaben') ? DATA.expenses : DATA.expenses.filter(e=>e.cat===verlaufFilter);
-    entries.push(...expData.map(e=>({...e,_type:'ausgabe'})));
+// ── Monatlicher Balken-Chart für L3 ─────────────────────────────────────────
+// Zeigt Ausgaben/Einnahmen einer Kategorie über die letzten 12 Monate.
+// Datenquelle: DATA.expenses oder DATA.incomes (je nach typ)
+function buildMonthlyBarData(kat, typ){
+  const now = new Date();
+  const months = 12;
+  const monthData = {}, monthLabels = [];
+  for(let i=months-1;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    monthData[key] = 0;
+    monthLabels.push({key, label:`${d.getMonth()+1}.${d.getFullYear().toString().slice(2)}`});
   }
-  if(showInc){
-    const incData = (verlaufFilter==='alle'||verlaufFilter==='Einnahmen') ? DATA.incomes : DATA.incomes.filter(e=>e.cat===verlaufFilter);
-    entries.push(...incData.map(e=>({...e,_type:'einnahme'})));
-  }
-  if(showRec){
-    const recInsts = getRecurringInstances(recurStart, todayStr);
-    const filtered = verlaufFilter==='alle'||verlaufFilter==='Ausgaben' ? recInsts : recInsts.filter(r=>r.cat===verlaufFilter);
-    entries.push(...filtered);
-  }
+  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  entries.filter(e=>e.cat===kat).forEach(e=>{
+    const key = e.date.slice(0,7);
+    if(key in monthData) monthData[key] += e.amt;
+  });
+  const maxAmt = Math.max(...Object.values(monthData), 0.01);
+  if(Object.values(monthData).every(v=>v===0)) return null;
+  const W=320, H=72, padB=16, padT=4;
+  const chartW=W, chartH=H-padB-padT;
+  const barW = Math.max(1, chartW/months-2);
+  const bars = monthLabels.map((m,i)=>{
+    const amt = monthData[m.key];
+    const bh = amt>0 ? Math.max(2,(amt/maxAmt)*chartH) : 0;
+    const x = i*(chartW/months);
+    const y = padT+chartH-bh;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${catColor(kat)}" opacity="0.75" rx="1"/>`;
+  });
+  const labels = monthLabels.map((m,i)=>{
+    if(i%3!==0 && i!==months-1) return '';
+    const x = i*(chartW/months);
+    return `<text x="${x.toFixed(1)}" y="${H-3}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${m.label}</text>`;
+  }).filter(Boolean);
+  return `<svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">${bars.join('')}${labels.join('')}</svg>`;
+}
 
-  entries.sort((a,b)=>b.date.localeCompare(a.date));
-
-  // Search filter (only for 'alle')
-  const searchWrap = document.getElementById('verlauf-search-wrap');
-  if(searchWrap) searchWrap.style.display = verlaufFilter==='alle' ? 'flex' : 'none';
-  if(verlaufFilter==='alle' && verlaufSearch){
-    const q = verlaufSearch.toLowerCase();
-    entries = entries.filter(e=>(e.what||'').toLowerCase().includes(q)||(e.cat||'').toLowerCase().includes(q)||(e.note||'').toLowerCase().includes(q));
-  }
-
-  const container = document.getElementById('verlauf-list');
-  if(!entries.length){
-    container.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
-    return;
-  }
-
-  // Group by date
+// ── Einträge nach Datum gruppiert rendern ─────────────────────────────────────
+// Gemeinsame Renderfunktion für L1 und L3 Transaktionslisten.
+// entries: Array mit _type: 'ausgabe' | 'einnahme' | 'recurring'
+function renderVerlaufEntryGroups(entries){
   const byDate = {};
   entries.forEach(e=>{ if(!byDate[e.date])byDate[e.date]=[]; byDate[e.date].push(e); });
-
-  container.innerHTML = Object.entries(byDate)
+  return Object.entries(byDate)
     .sort(([a],[b])=>b.localeCompare(a))
     .map(([date, items])=>{
-      const dayTotal = items.reduce((s,e)=>s+(e._type==='einnahme'?e.amt:-e.amt),0);
+      const dayTotal = items.reduce((s,e)=>s+(e._type==='einnahme'?e.amt:-e.amt), 0);
       const daySign = dayTotal>=0?'+':'−';
       const dayColor = dayTotal>=0?'var(--green)':'var(--red)';
       return `
@@ -3751,13 +3816,223 @@ function renderVerlauf(){
             </div>`;
           }).join('')}
         </div>
-      </div>
-    `;
+      </div>`;
     }).join('');
 }
 
-function setVerlaufFilter(f){ verlaufFilter=f; renderVerlauf(); }
-function setVerlaufMonths(m){ verlaufChartMonths=m; renderVerlauf(); }
+const _VERLAUF_EMPTY = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div>`;
+
+// ── L1: Alle Buchungen ────────────────────────────────────────────────────────
+// Zeigt alle Ausgaben, Einnahmen und aktive Daueraufträge chronologisch.
+// Suche filtert über Bezeichnung, Kategorie, Betrag, Datum und Notiz.
+function renderVerlaufL1(){
+  const container = document.getElementById('verlauf-l1-content');
+  if(!container) return;
+  const todayStr = today();
+  const recurStart = dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
+  let entries = [
+    ...DATA.expenses.map(e=>({...e,_type:'ausgabe'})),
+    ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
+    ...getRecurringInstances(recurStart, todayStr)
+  ];
+  entries = sucheTransaktionen(verlaufSearch, entries);
+  entries.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
+  container.innerHTML = renderVerlaufEntryGroups(entries);
+}
+
+// ── L2: Kategorienliste ───────────────────────────────────────────────────────
+// Zeigt alle Kategorien mit mind. 1 Eintrag, sortiert nach Gesamtbetrag.
+// Suche filtert Kategorienamen. Klick → L3.
+// Datenquelle: DATA.expenses (ausgaben) oder DATA.incomes (einnahmen)
+function renderVerlaufL2(){
+  const container = document.getElementById('verlauf-l2-content');
+  if(!container) return;
+  let cats = getKategorienMitEintraegen(verlaufType);
+  if(verlaufSearch){
+    const q = verlaufSearch.toLowerCase();
+    cats = cats.filter(c=>c.name.toLowerCase().includes(q));
+  }
+  if(!cats.length){
+    container.innerHTML = `<div class="empty"><div class="empty-text">Keine Kategorien</div></div>`;
+    return;
+  }
+  const grandTotal = cats.reduce((s,c)=>s+c.total, 0);
+  container.innerHTML = `<div style="padding:4px 16px 8px">` +
+    cats.map(c=>{
+      const pct = grandTotal>0 ? c.total/grandTotal*100 : 0;
+      return `
+      <div class="card-row" data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px">
+        <div style="width:36px;height:36px;border-radius:8px;background:${catColor(c.name)}22;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${catEmoji(c.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px">${esc(c.name)}</div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct.toFixed(1)}%;background:${catColor(c.name)};border-radius:2px;transition:width .3s"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">${c.count} Eintr${c.count===1?'ag':'äge'} · ${pct.toFixed(0)}%</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text)">${curr()} ${fmtAmt(c.total)}</div>
+        </div>
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+// ── L3: Kategorie-Detailansicht ───────────────────────────────────────────────
+// Zeigt Stats (Gesamtbetrag, Ø/Monat, Anzahl, Anteil) + Verlaufsdiagramm
+// + gefilterte Transaktionsliste für die gewählte Kategorie.
+// Datenquelle: DATA.expenses oder DATA.incomes (je nach Kategorie-Typ)
+function renderVerlaufL3(){
+  const container = document.getElementById('verlauf-l3-content');
+  if(!container) return;
+  const kat = verlaufKat;
+  const catDef = DATA.categories.find(c=>c.name===kat);
+  const isInc = catDef?.type==='einnahme' || verlaufType==='einnahmen';
+  const allEntries = (isInc ? DATA.incomes : DATA.expenses)
+    .filter(e=>e.cat===kat)
+    .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const displayedEntries = sucheTransaktionen(verlaufSearch, allEntries);
+
+  // Stats berechnen
+  const total = allEntries.reduce((s,e)=>s+e.amt, 0);
+  const count = allEntries.length;
+  let avgPerMonth = 0;
+  if(count){
+    const dates = allEntries.map(e=>e.date);
+    const minD = dates.reduce((a,b)=>a<b?a:b);
+    const maxD = dates.reduce((a,b)=>a>b?a:b);
+    avgPerMonth = total / getMonthsBetween(minD, maxD);
+  }
+  const allOfType = isInc ? DATA.incomes : DATA.expenses;
+  const grandTotal = allOfType.reduce((s,e)=>s+e.amt, 0);
+  const pct = grandTotal>0 ? total/grandTotal*100 : 0;
+  const monthChart = buildMonthlyBarData(kat, verlaufType);
+
+  let html = `
+  <div style="padding:4px 16px 0">
+    <!-- Visuals & Stats -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(total)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Ø / Monat</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(avgPerMonth)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Anzahl</div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${count}</div>
+        </div>
+      </div>
+      <!-- Anteil-Balken -->
+      <div style="margin-bottom:${monthChart?'12px':'0'}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:11px;color:var(--text3)">
+          <span>Anteil an Gesamt-${isInc?'Einnahmen':'Ausgaben'}</span>
+          <span style="font-weight:700;color:var(--text)">${pct.toFixed(1)}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,100).toFixed(1)}%;background:${catColor(kat)};border-radius:3px"></div>
+        </div>
+      </div>
+      <!-- Monatliches Verlaufsdiagramm -->
+      ${monthChart ? `<div style="overflow-x:hidden;margin-top:0">${monthChart}</div>` : ''}
+    </div>
+  </div>
+  <!-- Trennlinie -->
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px 6px">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);text-transform:uppercase">Transaktionen</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>`;
+  if(!displayedEntries.length){
+    html += `<div class="empty" style="padding:24px 0"><div class="empty-text">${verlaufSearch?'Keine Treffer':'Keine Einträge'}</div></div>`;
+  } else {
+    html += renderVerlaufEntryGroups(displayedEntries);
+  }
+  container.innerHTML = html;
+}
+
+// ── renderVerlauf: Haupt-Dispatcher ──────────────────────────────────────────
+// Steuert Header-Anzeige und leitet an L1/L2/L3 weiter.
+// Navigation-State: verlaufType, verlaufKat, verlaufL3SearchVis, verlaufSearch
+function renderVerlauf(){
+  const isL3 = verlaufKat !== null;
+  // Header: Type-Switch oder Zurück-Button
+  const typBar = document.getElementById('verlauf-type-bar');
+  const l3Bar = document.getElementById('verlauf-l3-bar');
+  if(typBar) typBar.style.display = isL3 ? 'none' : '';
+  if(l3Bar) l3Bar.style.display = isL3 ? 'flex' : 'none';
+  // L3-Titel aktualisieren
+  if(isL3){
+    const titleEl = document.getElementById('verlauf-l3-title');
+    if(titleEl) titleEl.textContent = verlaufKat;
+  }
+  // Type-Button aktiv-Klassen setzen
+  if(!isL3){
+    [['alle',''],['ausgaben',' expense'],['einnahmen',' income']].forEach(([t,cls])=>{
+      const btn = document.getElementById('v-btn-'+t);
+      if(btn) btn.className = 'type-btn'+(verlaufType===t?' active'+cls:'');
+    });
+  }
+  // Suchfeld sichtbar: immer auf L1/L2, per Toggle auf L3
+  const sw = document.getElementById('verlauf-search-wrap');
+  if(sw) sw.style.display = (!isL3 || verlaufL3SearchVis) ? '' : 'none';
+  // Suchfeld-Icon auf L3 einfärben wenn aktiv
+  const sbtn = document.getElementById('verlauf-l3-search-btn');
+  if(sbtn) sbtn.style.color = verlaufL3SearchVis ? 'var(--accent)' : 'var(--text3)';
+  // Content-Bereiche umschalten
+  const l1 = document.getElementById('verlauf-l1-content');
+  const l2 = document.getElementById('verlauf-l2-content');
+  const l3 = document.getElementById('verlauf-l3-content');
+  if(l1) l1.style.display = (!isL3 && verlaufType==='alle') ? '' : 'none';
+  if(l2) l2.style.display = (!isL3 && verlaufType!=='alle') ? '' : 'none';
+  if(l3) l3.style.display = isL3 ? '' : 'none';
+  // Inhalt rendern
+  if(isL3) renderVerlaufL3();
+  else if(verlaufType!=='alle') renderVerlaufL2();
+  else renderVerlaufL1();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+// verlaufSetType: wechselt Typ-Ansicht (L1 ↔ L2), resettet Suche und Kategorie
+function verlaufSetType(t){
+  verlaufType = t; verlaufKat = null;
+  verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufOpenKatFromEl: Hilfsfunktion für data-kat onclick (umgeht Anführungszeichen-Problem)
+function verlaufOpenKatFromEl(el){ verlaufOpenKat(el.dataset.kat); }
+// verlaufOpenKat: öffnet L3 für eine Kategorie, resettet Suche
+function verlaufOpenKat(name){
+  verlaufKat = name; verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufGoBack: kehrt von L3 zu L2 zurück
+function verlaufGoBack(){
+  verlaufKat = null; verlaufL3SearchVis = false; verlaufSearch = '';
+  const inp = document.getElementById('verlauf-search');
+  if(inp) inp.value = '';
+  renderVerlauf();
+}
+// verlaufToggleL3Search: blendet Suchfeld auf L3 ein/aus
+function verlaufToggleL3Search(){
+  verlaufL3SearchVis = !verlaufL3SearchVis;
+  if(!verlaufL3SearchVis){ verlaufSearch=''; const inp=document.getElementById('verlauf-search'); if(inp) inp.value=''; }
+  const sw = document.getElementById('verlauf-search-wrap');
+  if(sw) sw.style.display = verlaufL3SearchVis ? '' : 'none';
+  const sbtn = document.getElementById('verlauf-l3-search-btn');
+  if(sbtn) sbtn.style.color = verlaufL3SearchVis ? 'var(--accent)' : 'var(--text3)';
+  if(verlaufL3SearchVis) setTimeout(()=>document.getElementById('verlauf-search')?.focus(), 50);
+  else renderVerlaufL3();
+}
 function setDashboardMonths(m){ dashboardChartMonths=m; renderDashboard(); }
 
 function renderCategories(){
