@@ -1,7 +1,7 @@
 # ₣ TRACKER — Entwickler-Wiki
 
 > Vollständige Dokumentation aller Funktionen, Datenstrukturen und des System-Handlings.
-> Stand: März 2026 · Branch `claude/tab-pinning-menu-Gf4m2`
+> Stand: März 2026 · Branch `claude/stocks-settings-toggle-pOwg7`
 
 ---
 
@@ -22,6 +22,7 @@
 13. [Navigation & UI-Helpers](#13-navigation--ui-helpers)
 14. [Hilfsfunktionen](#14-hilfsfunktionen)
 15. [Datenfluss-Übersicht](#15-datenfluss-übersicht)
+16. [Aktien: Dashboard, Toggle & UX](#16-aktien-dashboard-toggle--ux)
 
 ---
 
@@ -1324,4 +1325,147 @@ exportExcel()
 
 ---
 
-*Generiert aus `/home/user/finanztracker1/index.html` — Branch `claude/tab-pinning-menu-Gf4m2`*
+---
+
+## 16. Aktien: Dashboard, Toggle & UX
+
+Dieses Kapitel beschreibt alle Erweiterungen aus dem Feature-Branch `claude/stocks-settings-toggle-pOwg7`.
+
+### 16.1 Aktien aktivieren (Toggle)
+
+**Zweck:** Aktien-Tab, -Widgets und Plus-Menü-Eintrag sind standardmässig ausgeblendet. Nutzer aktivieren das Feature explizit in den Einstellungen.
+
+**CFG-Feld:** `aktienEnabled: false` (Standard)
+
+**Settings-UI:** Einstellungen → Sektion „Aktien" → Toggle „Aktien aktivieren"
+
+```javascript
+CFG.aktienEnabled  // boolean, steuert Sichtbarkeit aller Aktien-Features
+```
+
+**Effekte beim Deaktivieren:**
+- `CFG.pinnedTabs` wird um `'aktien'` bereinigt
+- `CFG.homeWidgets` wird um alle Aktien-Widget-Keys bereinigt
+- Falls Aktien-Tab aktiv → Redirect zu Home
+- Navigation und Mehr-Menü aktualisieren sich sofort
+
+**Effekte beim Aktivieren:**
+- Aktien-Tab erscheint im Mehr-Menü und ist anheftbar
+- Aktien-Widgets sind im Widget-Katalog verfügbar
+- FAB zeigt Speed-Dial mit „Aktie / Trade erfassen"
+
+**Funktion:** `toggleAktienEnabled()` — kümmert sich um alle Seiteneffekte
+
+**Profil-Sync:** `aktienEnabled` wird wie alle anderen Profil-Einstellungen per `syncProfileToSheet()` gespeichert.
+
+---
+
+### 16.2 Aktien-Dashboard (Tab-Top + Widget)
+
+**Tab-Dashboard:** Wird als erste Karte im Aktien-Tab angezeigt (über Aktiv/Historisch-Toggle). ID: `#aktien-dashboard-top`. Renderfunktion: `renderAktienDashboardTop()`.
+
+**Inhalt:**
+| Feld | Quelle |
+|------|--------|
+| Portfolio-Wert | `getGesamtPortfoliowert()` |
+| Heute (Tagesveränderung) | `getPortfolioTodayChange()` |
+| Gesamt G/V | `getGesamtGewinnVerlust()` |
+| Positionen | Anzahl aktiver Stocks |
+
+**Tagesveränderung:** Berechnet aus `stockPriceCache[ticker].prevClose` (aus Yahoo Finance `meta.chartPreviousClose`). Farbkodierung: grün/rot je nach Vorzeichen.
+
+**Widget:** Key `aktienDashboard` — zeigt die gleichen 4 Kennzahlen als Home-Widget. Callable als `aktienDashboard` im Widget-Katalog.
+
+**Einzelwidgets (bestehend):**
+- `aktienWert` → Portfolio-Wert (prominent)
+- `aktienPnl` → Gesamt G/V
+
+---
+
+### 16.3 fetchStockPrice — prevClose
+
+`fetchStockPrice(ticker)` speichert jetzt zusätzlich `prevClose` (Schlusskurs Vortag):
+
+```javascript
+stockPriceCache[ticker] = {
+  price:     meta.regularMarketPrice,
+  prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
+  currency:  meta.currency,
+  ts:        Date.now()
+}
+```
+
+`getPortfolioTodayChange()` iteriert über alle aktiven Positionen und berechnet:
+```
+change += (price - prevClose) * qty * fxRate
+```
+
+---
+
+### 16.4 FAB Speed-Dial (Aktien aktiviert)
+
+Wenn `CFG.aktienEnabled === true`, öffnet der FAB-Button ein Speed-Dial-Overlay (statt direkt zu `eingabe` zu navigieren).
+
+**HTML:** `#fab-speed-dial` — fixe Positionierung über der Navigationsleiste
+
+**Optionen:**
+1. „Ausgabe / Einnahme" → `goTab('eingabe')`
+2. „Aktie / Trade erfassen" → `openAddAktieFlow()`
+
+**Funktionen:** `openFabMenu()`, `closeFabMenu()`
+
+**Flow `openAddAktieFlow()`:**
+- Öffnet Modal `#aktie-flow-modal`
+- Zeigt bestehende Aktien (klickbar → öffnet Detail + Trade-Modal)
+- Button „Neue Aktie hinzufügen" → `openNewAktieModal()`
+- `openAktieDetailFromFlow(stockId)` navigiert zu Aktien-Tab und öffnet Detail
+
+---
+
+### 16.5 Aktien-Stammdaten bearbeiten
+
+**Button „Bearbeiten"** in der Aktien-Detailansicht (neben „Löschen").
+
+**Modal:** `#edit-aktie-modal`
+
+**Felder:**
+- Titel
+- ISIN (optional)
+- Ticker (mit Hint-Text für Google Finance, z.B. `AAPL`, `NESN.SW`, `GOOGL`)
+- Basis-Währung
+- **„Kurs abrufen testen"** Button → ruft `fetchStockPrice` auf und zeigt Kurs sofort an
+
+**Funktionen:**
+- `openEditAktieModal(stockId)` — füllt Modal aus Stock-Objekt
+- `testTickerFromEdit()` / `testTickerFromNew()` — testet Ticker live
+- `saveEditAktie()` — aktualisiert Stock-Objekt, invalidiert Preiscache bei Ticker-Änderung, synct zu Google Sheet
+
+**Sheet-Sync:** `apiUpdate(Aktien!B{row}:E{row}, [[title, isin, ticker, currency]])`
+
+---
+
+### 16.6 renderHome — Aktien-Widget-Filter
+
+Wenn `CFG.aktienEnabled === false`, werden Aktien-Widgets weder angezeigt noch im Katalog angeboten:
+
+```javascript
+const aktienWidgetKeys = ['aktienDashboard','aktienPortfolio','aktienWert','aktienPnl',
+                          'aktienTop','aktienVerteilung','aktienPosition'];
+const visibleCatalog = CFG.aktienEnabled
+  ? WIDGET_CATALOG
+  : WIDGET_CATALOG.filter(w => !aktienWidgetKeys.includes(w.key));
+```
+
+---
+
+### 16.7 Mehr-Menü — Aktien-Tab-Filter
+
+`renderMenuOverlay()` filtert den Aktien-Tab heraus, wenn `!CFG.aktienEnabled`:
+
+```javascript
+const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
+```
+
+---
+
+*Generiert aus `/home/user/finanztracker1/index.html` — Branch `claude/stocks-settings-toggle-pOwg7`*

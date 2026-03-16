@@ -1430,6 +1430,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 
     <!-- TAB: Aktien -->
     <div id="tab-aktien" class="tab-page" style="display:none">
+      <div id="aktien-dashboard-top"></div>
       <div class="section" style="padding-bottom:8px">
         <div class="type-toggle" style="margin-bottom:8px">
           <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
@@ -1595,6 +1596,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="card" style="padding:0 14px">
           <div class="settings-row">
             <div>
+              <div class="settings-row-label">Aktien aktivieren</div>
+              <div class="settings-row-sub">Aktien-Tab, Widgets und Plus-Menü-Eintrag einblenden</div>
+            </div>
+            <div class="toggle-switch" id="aktien-enabled-sw" onclick="toggleAktienEnabled()"></div>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border)" id="aktien-bilanz-row">
+            <div>
               <div class="settings-row-label">Depot in Gesamtbilanz</div>
               <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
             </div>
@@ -1661,6 +1669,35 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
+</div>
+
+<!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->
+<div id="fab-speed-dial" style="display:none;position:fixed;inset:0;z-index:97" onclick="closeFabMenu()">
+  <div id="fab-speed-dial-sheet" onclick="event.stopPropagation()" style="position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <button onclick="closeFabMenu();goTab('eingabe')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Ausgabe / Einnahme
+    </button>
+    <button onclick="closeFabMenu();openAddAktieFlow()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      <span style="color:var(--accent)">Aktie / Trade erfassen</span>
+    </button>
+  </div>
+</div>
+
+<!-- Aktie-Flow Modal (Bestehende wählen oder Neue erstellen) -->
+<div class="modal-overlay" id="aktie-flow-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="aktie-flow-title">Aktie / Trade erfassen</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aktie-flow-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="aktie-flow-body"></div>
+    <div class="modal-actions" id="aktie-flow-actions" style="display:none">
+      <button class="btn-cancel" onclick="closeModal('aktie-flow-modal')">Abbrechen</button>
+    </div>
+  </div>
 </div>
 
 <!-- Menu Overlay -->
@@ -1983,7 +2020,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
       <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="mv-bar-title" id="aktie-detail-title">Aktie</div>
-    <button id="aktie-del-btn" onclick="deleteAktie(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;margin-right:4px">Löschen</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="openEditAktieModal(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px">Bearbeiten</button>
+      <button id="aktie-del-btn" onclick="deleteAktie(currentAktieId)" style="background:none;color:var(--text3);font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;margin-right:4px">Löschen</button>
+    </div>
   </div>
   <div class="aktie-detail-actions">
     <button class="btn-kauf" onclick="openTradeModal('kauf')">↑ Kauf</button>
@@ -2011,8 +2051,8 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
-          <label class="form-label">Ticker <span style="color:var(--text3)">(Yahoo)</span></label>
-          <input id="na-ticker" class="form-input" type="text" placeholder="AAPL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters">
+          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <input id="na-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW, GOOGL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
         </div>
       </div>
       <div class="form-group">
@@ -2022,10 +2062,57 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
           <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <button onclick="testTickerFromNew()" style="flex:1;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">Kurs abrufen testen</button>
+        <div id="na-ticker-result" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;text-align:center">—</div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('new-aktie-modal')">Abbrechen</button>
       <button class="btn-save" onclick="saveNewAktie()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Aktie Bearbeiten Modal -->
+<div class="modal-overlay" id="edit-aktie-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Aktie bearbeiten</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('edit-aktie-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ea-id">
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input id="ea-title" class="form-input" type="text" placeholder="z.B. Apple Inc." autocorrect="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">ISIN <span style="color:var(--text3)">(optional)</span></label>
+          <input id="ea-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <input id="ea-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Basis-Währung</label>
+        <select id="ea-currency" class="form-select">
+          <option>CHF</option><option>EUR</option><option selected>USD</option>
+          <option>GBP</option><option>JPY</option><option>SEK</option><option>NOK</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <button onclick="testTickerFromEdit()" style="flex:1;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">Kurs abrufen testen</button>
+        <div id="ea-ticker-result" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;text-align:center">—</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('edit-aktie-modal')">Abbrechen</button>
+      <button class="btn-save" onclick="saveEditAktie()">Speichern</button>
     </div>
   </div>
 </div>
@@ -2085,7 +2172,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2588,6 +2675,7 @@ function _profileExportable(){
     homeWidgets:       CFG.homeWidgets||null,
     notifSettings:     CFG.notifSettings||{},
     fixkostenKats:     CFG.fixkostenKats||[],
+    aktienEnabled:     !!CFG.aktienEnabled,
     aktienInBilanz:    !!CFG.aktienInBilanz,
     widgetAktienPosId: CFG.widgetAktienPosId||'',
     currency:          curr()
@@ -2604,6 +2692,7 @@ function _profileApply(prof){
   if(prof.homeWidgets       !== undefined) CFG.homeWidgets       = prof.homeWidgets;
   if(prof.notifSettings     !== undefined) CFG.notifSettings     = prof.notifSettings;
   if(prof.fixkostenKats     !== undefined) CFG.fixkostenKats     = prof.fixkostenKats;
+  if(prof.aktienEnabled     !== undefined) CFG.aktienEnabled     = !!prof.aktienEnabled;
   if(prof.aktienInBilanz    !== undefined) CFG.aktienInBilanz    = !!prof.aktienInBilanz;
   if(prof.widgetAktienPosId !== undefined) CFG.widgetAktienPosId = prof.widgetAktienPosId;
   if(prof.currency          !== undefined) CFG.currency          = prof.currency;
@@ -3759,6 +3848,7 @@ const WIDGET_CATALOG = [
   { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
   { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
   { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
+  { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
   { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
   { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
   { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in CHF und % (benötigt Live-Kurse)' },
@@ -3808,13 +3898,16 @@ function moveWidget(key, dir){
 function renderHome(){
   const el = document.getElementById('tab-home');
   if(!el) return;
-  const widgets = getHomeWidgets();
-  const available = WIDGET_CATALOG.filter(c=>!widgets.includes(c.key));
+  const aktienWidgetKeys = ['aktienDashboard','aktienPortfolio','aktienWert','aktienPnl','aktienTop','aktienVerteilung','aktienPosition'];
+  const visibleCatalog = CFG.aktienEnabled ? WIDGET_CATALOG : WIDGET_CATALOG.filter(w=>!aktienWidgetKeys.includes(w.key));
+  const allWidgets = getHomeWidgets();
+  const widgets = CFG.aktienEnabled ? allWidgets : allWidgets.filter(k=>!aktienWidgetKeys.includes(k));
+  const available = visibleCatalog.filter(c=>!widgets.includes(c.key));
   let html = '';
 
   // Active widgets
   widgets.forEach((key,idx)=>{
-    const def = WIDGET_CATALOG.find(c=>c.key===key);
+    const def = visibleCatalog.find(c=>c.key===key);
     if(!def) return;
     html += `<div class="widget-card" id="widget-card-${key}">`;
     if(homeEditMode){
@@ -3872,6 +3965,7 @@ function renderWidgetContent(key){
     case 'jahresSparquote':  return renderWidgetJahresSparquote();
     case 'jahresKategorien': return renderWidgetJahresKategorien();
     case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
+    case 'aktienDashboard':  return renderWidgetAktienDashboard();
     case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
     case 'aktienWert':       return renderWidgetAktienWert();
     case 'aktienPnl':        return renderWidgetAktienPnl();
@@ -4496,6 +4590,60 @@ function renderWidgetAktienPosition(){
   </div>`;
 }
 
+// Tagesveränderung des gesamten Portfolios (benötigt prevClose in stockPriceCache)
+function getPortfolioTodayChange(){
+  let totalChange = 0, hasData = false;
+  SDATA.stocks.forEach(s => {
+    const pos = calcPosition(s.id); if(pos.qty < 0.0001) return;
+    const cached = s.ticker ? stockPriceCache[s.ticker] : null;
+    if(!cached?.price || !cached?.prevClose) return;
+    const fxRate = getFxRate(cached.currency || s.currency);
+    totalChange += (cached.price - cached.prevClose) * pos.qty * fxRate;
+    hasData = true;
+  });
+  return { amt: totalChange, hasData };
+}
+
+function renderWidgetAktienDashboard(){
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  const total = getGesamtPortfoliowert();
+  const gv = getGesamtGewinnVerlust();
+  const todayChg = getPortfolioTodayChange();
+  const posCount = active.length;
+  if(!posCount) return `<div>
+    <div class="widget-title">Aktien-Dashboard</div>
+    <div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div>
+    <div style="margin-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Aktien →</button></div>
+  </div>`;
+  const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
+  const gvSign = gv.amt>=0?'+':'';
+  const todayColor = !todayChg.hasData ? 'var(--text2)' : todayChg.amt>=0 ? 'var(--green)' : 'var(--red)';
+  const todaySign = todayChg.amt>=0?'+':'';
+  const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
+  return `<div>
+    <div class="widget-title" style="margin-bottom:10px">Aktien-Dashboard</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-right:12px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
+      </div>
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
+      </div>
+      <div style="padding:8px 0;padding-right:12px;margin-top:2px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
+      </div>
+      <div style="padding:8px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:2px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
+      </div>
+    </div>
+    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Depot →</button></div>
+  </div>`;
+}
+
 function renderDashboard(){
   const now = new Date();
   const isCurrentYear = dashYear === now.getFullYear();
@@ -4658,7 +4806,13 @@ function goTab(tab){
     fab.innerHTML = tab==='eingabe'
       ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
+    if(tab==='eingabe'){
+      fab.onclick = ()=>goTab('home');
+    } else if(CFG.aktienEnabled){
+      fab.onclick = ()=>openFabMenu();
+    } else {
+      fab.onclick = ()=>goTab('eingabe');
+    }
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
@@ -4682,6 +4836,55 @@ function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.ge
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
+// ── FAB Speed-Dial (Aktien) ──────────────────────────────────────────────────
+function openFabMenu(){
+  const overlay = document.getElementById('fab-speed-dial');
+  if(overlay) overlay.style.display = '';
+}
+function closeFabMenu(){
+  const overlay = document.getElementById('fab-speed-dial');
+  if(overlay) overlay.style.display = 'none';
+}
+
+// Aktie / Trade erfassen Flow
+function openAddAktieFlow(){
+  const activeStocks = SDATA.stocks.filter(s => calcPosition(s.id).qty > 0.0001 || SDATA.trades.some(t=>t.stockId===s.id));
+  const body = document.getElementById('aktie-flow-body');
+  const title = document.getElementById('aktie-flow-title');
+  const actionsEl = document.getElementById('aktie-flow-actions');
+  if(!body) return;
+  title.textContent = 'Aktie / Trade erfassen';
+  actionsEl.style.display = 'none';
+  let html = '';
+  if(activeStocks.length > 0){
+    html += `<div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Bestehende Aktie</div>`;
+    activeStocks.forEach(s=>{
+      const pos = calcPosition(s.id);
+      html += `<button onclick="closeModal('aktie-flow-modal');openAktieDetailFromFlow('${s.id}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:6px;color:var(--text);font-size:14px;cursor:pointer;text-align:left">
+        <div>
+          <div style="font-weight:600">${esc(s.title)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.ticker?esc(s.ticker)+' · ':''} ${fmtQty(pos.qty)} Stk.</div>
+        </div>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+    });
+    html += `</div>`;
+  }
+  html += `<button onclick="closeModal('aktie-flow-modal');openNewAktieModal()" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(200,245,60,.08);border:1px solid rgba(200,245,60,.2);border-radius:var(--r2);color:var(--accent);font-size:14px;font-weight:600;cursor:pointer">
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Neue Aktie hinzufügen
+  </button>`;
+  body.innerHTML = html;
+  openModal('aktie-flow-modal');
+}
+
+function openAktieDetailFromFlow(stockId){
+  // Navigate to aktien tab, then open detail
+  if(currentTab !== 'aktien') goTab('aktien');
+  setTimeout(()=>openAktieDetail(stockId), 100);
+}
+
 // All tabs available for pinning / showing in Mehr
 const PINNABLE_TABS = [
   { key:'dashboard',      label:'Jahresübersicht',      icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
@@ -4704,13 +4907,15 @@ function renderMenuOverlay(){
   const footer = document.getElementById('menu-overlay-footer');
   if(!container) return;
   let html = '';
+  // Filter aktien tab when feature is disabled
+  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
 
   if(menuEditMode){
     // Edit mode: show pinned with unpin + unpinned with pin icon
     if(pinned.length > 0){
       html += '<span class="menu-section-label">In Taskleiste</span>';
       pinned.forEach(key=>{
-        const tab = PINNABLE_TABS.find(t=>t.key===key);
+        const tab = visibleTabs.find(t=>t.key===key);
         if(!tab) return;
         html += `<div class="menu-item-row">
           <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
@@ -4722,7 +4927,7 @@ function renderMenuOverlay(){
         </div>`;
       });
     }
-    const unpinnedTabs = PINNABLE_TABS.filter(t=>!pinned.includes(t.key));
+    const unpinnedTabs = visibleTabs.filter(t=>!pinned.includes(t.key));
     if(unpinnedTabs.length > 0){
       html += '<span class="menu-section-label">Weitere Ansichten</span>';
       const canPin = pinned.length < 2;
@@ -4740,7 +4945,7 @@ function renderMenuOverlay(){
   } else {
     // Normal mode: all tabs without pin icons, pinned ones get accent dot
     html += '<span class="menu-section-label">Ansichten</span>';
-    PINNABLE_TABS.forEach(tab=>{
+    visibleTabs.forEach(tab=>{
       const isPinned = pinned.includes(tab.key);
       html += `<div class="menu-item-row">
         <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
@@ -6172,7 +6377,8 @@ async function fetchStockPrice(ticker){
     const d = await r.json();
     const meta = d?.chart?.result?.[0]?.meta;
     if(!meta?.regularMarketPrice) return null;
-    const res = { price: meta.regularMarketPrice, currency: meta.currency||'', ts: Date.now() };
+    const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPreviousClose ?? null;
+    const res = { price: meta.regularMarketPrice, prevClose, currency: meta.currency||'', ts: Date.now() };
     stockPriceCache[ticker] = res;
     return res;
   } catch(e){ return null; }
@@ -6407,7 +6613,46 @@ function renderAktienTabelle(stocks){
 let aktienTabView='karten'; // 'karten' | 'tabelle' | 'charts'
 function setAktienTabView(v){ aktienTabView=v; renderAktien(); }
 
+function renderAktienDashboardTop(){
+  const dashEl = document.getElementById('aktien-dashboard-top');
+  if(!dashEl) return;
+  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
+  if(!active.length){ dashEl.innerHTML=''; return; }
+  const total = getGesamtPortfoliowert();
+  const gv = getGesamtGewinnVerlust();
+  const todayChg = getPortfolioTodayChange();
+  const posCount = active.length;
+  const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
+  const gvSign = gv.amt>=0?'+':'';
+  const todayColor = !todayChg.hasData ? 'var(--text2)' : todayChg.amt>=0 ? 'var(--green)' : 'var(--red)';
+  const todaySign = todayChg.amt>=0?'+':'';
+  const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
+  dashEl.innerHTML = `
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:12px 16px 6px;padding:14px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:10px;text-transform:uppercase">Portfolio-Übersicht</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-right:12px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
+      </div>
+      <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
+      </div>
+      <div style="padding:6px 0;padding-right:12px;margin-top:4px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
+      </div>
+      <div style="padding:6px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:4px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function renderAktien(){
+  renderAktienDashboardTop();
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
   const histStocks = positions.filter(s => s.pos.qty <= 0.0001 && SDATA.trades.some(t=>t.stockId===s.id));
@@ -6618,7 +6863,74 @@ async function refreshStockPrice(stockId){
 function openNewAktieModal(){
   ['na-title','na-isin','na-ticker'].forEach(id=>{ document.getElementById(id).value=''; });
   document.getElementById('na-currency').value = 'USD';
+  const res = document.getElementById('na-ticker-result');
+  if(res) res.textContent = '—';
   openModal('new-aktie-modal');
+}
+
+async function testTickerFromNew(){
+  const ticker = document.getElementById('na-ticker').value.trim().toUpperCase();
+  const res = document.getElementById('na-ticker-result');
+  if(!ticker){ if(res) res.textContent = 'Kein Ticker'; return; }
+  if(res){ res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
+  delete stockPriceCache[ticker];
+  const data = await fetchStockPrice(ticker);
+  if(res){
+    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
+    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+  }
+}
+
+function openEditAktieModal(stockId){
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  if(!s) return;
+  document.getElementById('ea-id').value = s.id;
+  document.getElementById('ea-title').value = s.title||'';
+  document.getElementById('ea-isin').value = s.isin||'';
+  document.getElementById('ea-ticker').value = s.ticker||'';
+  document.getElementById('ea-currency').value = s.currency||'USD';
+  const res = document.getElementById('ea-ticker-result');
+  if(res){ res.textContent = '—'; res.style.color = 'var(--text3)'; }
+  openModal('edit-aktie-modal');
+}
+
+async function testTickerFromEdit(){
+  const ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
+  const res = document.getElementById('ea-ticker-result');
+  if(!ticker){ if(res) res.textContent = 'Kein Ticker'; return; }
+  if(res){ res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
+  delete stockPriceCache[ticker];
+  const data = await fetchStockPrice(ticker);
+  if(res){
+    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
+    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+  }
+}
+
+function saveEditAktie(){
+  const id = document.getElementById('ea-id').value;
+  const title = document.getElementById('ea-title').value.trim();
+  if(!title){ toast('Titel erforderlich','err'); return; }
+  const s = SDATA.stocks.find(s=>s.id===id);
+  if(!s){ toast('Aktie nicht gefunden','err'); return; }
+  const oldTicker = s.ticker;
+  s.title = title;
+  s.isin = document.getElementById('ea-isin').value.trim().toUpperCase();
+  s.ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
+  s.currency = document.getElementById('ea-currency').value;
+  sdataSave();
+  // Invalidate price cache if ticker changed
+  if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
+  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
+    apiFindRow('Aktien',id).then(row=>{
+      if(row) apiUpdate(`Aktien!B${row}:E${row}`,[[s.title,s.isin,s.ticker,s.currency]]);
+    }).catch(e=>toast('Sheet-Sync: '+e.message,'err'));
+  }
+  closeModal('edit-aktie-modal');
+  toast('✓ Aktie aktualisiert','ok');
+  document.getElementById('aktie-detail-title').textContent = s.title;
+  renderAktieDetail(id);
+  renderAktien();
 }
 
 function saveNewAktie(){
@@ -6775,6 +7087,10 @@ function renderEinstellungen(){
   if(nameEl) nameEl.value = CFG.userName||'';
   const sw = document.getElementById('theme-toggle-sw');
   if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
+  const aktEnabledSw = document.getElementById('aktien-enabled-sw');
+  if(aktEnabledSw) aktEnabledSw.classList.toggle('on', !!CFG.aktienEnabled);
+  const aktBilanzRow = document.getElementById('aktien-bilanz-row');
+  if(aktBilanzRow) aktBilanzRow.style.display = CFG.aktienEnabled ? '' : 'none';
   const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
   if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
   const currSel = document.getElementById('s-currency');
@@ -6794,6 +7110,23 @@ function renderEinstellungen(){
     const adminLink = document.getElementById('settings-admin-link');
     if(adminLink) adminLink.style.display = CFG.authRole==='admin' ? '' : 'none';
   }
+}
+
+function toggleAktienEnabled(){
+  CFG.aktienEnabled = !CFG.aktienEnabled;
+  cfgSave();
+  autoSyncProfile();
+  // If disabling: remove aktien from pinnedTabs and homeWidgets
+  if(!CFG.aktienEnabled){
+    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='aktien');
+    const aktienWidgetKeys = ['aktienPortfolio','aktienWert','aktienPnl','aktienTop','aktienVerteilung','aktienPosition','aktienDashboard'];
+    if(CFG.homeWidgets) CFG.homeWidgets = CFG.homeWidgets.filter(k=>!aktienWidgetKeys.includes(k));
+    cfgSave();
+    if(currentTab==='aktien') goTab('home');
+  }
+  renderEinstellungen();
+  renderNav();
+  if(currentTab==='home') renderHome();
 }
 
 // ═══════════════════════════════════════════════════════════════
