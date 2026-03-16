@@ -24,6 +24,9 @@
 15. [Datenfluss-Übersicht](#15-datenfluss-übersicht)
 16. [Aktien: Dashboard, Toggle & UX](#16-aktien-dashboard-toggle--ux)
 17. [Verlauf: 3-Ebenen-Navigation](#17-verlauf-3-ebenen-navigation)
+18. [Verlauf: Zeitraum-Filter](#18-verlauf-zeitraum-filter)
+19. [Kategorie-Verwaltung: Oberkategorien](#19-kategorie-verwaltung-oberkategorien)
+20. [Eingabe-Screen: 3-Tab-Switch & Aktien-Trade](#20-eingabe-screen-3-tab-switch--aktien-trade)
 
 ---
 
@@ -1687,6 +1690,230 @@ function renderVerlaufL3()
 | L1 (Alle) | Immer sichtbar | Bezeichnung, Kategorie, Notiz, Betrag, Datum aller Einträge |
 | L2 (Kategorien) | Immer sichtbar | Kategorienamen |
 | L3 (Detail) | Per 🔍-Toggle | Bezeichnung, Kategorie, Notiz, Betrag, Datum — nur Einträge der gewählten Kategorie |
+
+---
+
+---
+
+## 18. Verlauf: Zeitraum-Filter
+
+### 18.1 Zustandsvariablen
+
+```javascript
+let verlaufZeitraumMode = 'monat'; // 'woche'|'monat'|'jahr'|'custom'
+let verlaufVonCustom = '';         // ISO-Datum bei 'custom'
+let verlaufBisCustom = '';         // ISO-Datum bei 'custom'
+let verlaufFilterOpen = false;     // Filter-Panel auf-/zugeklappt
+```
+
+### 18.2 Funktionen
+
+```javascript
+function verlaufGetRange()
+```
+- Berechnet `{von, bis}` aus aktuellem `verlaufZeitraumMode`
+- Woche: Montag bis heute · Monat: 1. des Monats bis heute · Jahr: 1.1. bis heute · Custom: `verlaufVonCustom`/`verlaufBisCustom`
+- Rückgabe: `{von: 'YYYY-MM-DD'|'', bis: 'YYYY-MM-DD'|''}`
+
+```javascript
+function verlaufGetRangeLabel()
+```
+- Gibt menschenlesbaren Label zurück (z.B. `«März 2026»`, `«Diese Woche»`, `«2026»`)
+
+```javascript
+function toggleVerlaufFilter()
+```
+- Toggelt `verlaufFilterOpen`, zeigt/versteckt `#verlauf-filter-panel`
+- Dreht Chevron-Icon `#verlauf-filter-chevron`
+- Bei Öffnen: ruft `renderVerlaufFilterSummary()` auf
+
+```javascript
+function setVerlaufZeitraum(mode)
+```
+- Setzt `verlaufZeitraumMode`, aktualisiert Button-Klassen (`#vzm-woche/monat/jahr/custom`)
+- Zeigt/versteckt `#vzm-custom-dates` bei 'custom'
+- Ruft `renderVerlaufFilterSummary()` und `renderVerlauf()` auf
+
+```javascript
+function setVerlaufCustomRange()
+```
+- Liest `#verlauf-von-input` / `#verlauf-bis-input` aus
+- Setzt `verlaufVonCustom` / `verlaufBisCustom`
+- Ruft `renderVerlaufFilterSummary()` und `renderVerlauf()` auf
+
+```javascript
+function verlaufFilterEntries(entries)
+```
+- **Zweck:** Filtert ein Eintrags-Array nach dem aktuellen Zeitraum
+- **Datenquelle:** Beliebiges Array mit `.date`-Eigenschaft (ISO-String)
+- **Verwendet:** in `renderVerlaufL1()`, `renderVerlaufL3()`, `getKategorienMitEintraegen()`
+- **Rückgabe:** Gefiltertes Array
+
+```javascript
+function verlaufCalcSummary()
+```
+- **Zweck:** Berechnet Gesamt-Ausgaben, -Einnahmen, Netto und Top-5-Segmente für Donut-Chart
+- **Datenquelle:** `DATA.expenses` / `DATA.incomes`, gefiltert via `verlaufGetRange()`
+- **Rückgabe:** `{ausgaben, einnahmen, netto, segments, top5, weitereAmt}`
+  - `segments`: `[{name, amt, color}]` — Top 5 + optional "Weitere" (grau)
+
+```javascript
+function buildDonutSVG(segments, total, size=100)
+```
+- **Zweck:** Erzeugt SVG-Donut-Ring (nur äusserer Ring) aus Segmenten
+- **Parameter:** `segments` — Array mit `{name, amt, color}`; `total` — Gesamtbetrag; `size` — Pixel
+- **Algorithmus:** Berechnet Bogenpfade via `M … A … L … A … Z` (Donut-Pfad-Technik)
+- **Rückgabe:** SVG-String
+
+```javascript
+function renderVerlaufFilterSummary()
+```
+- Schreibt in `#verlauf-filter-summary`: Donut + Ausgaben/Einnahmen/Netto + Top-5-Legende mit farbigen Dots + horizontalen Balken
+
+### 18.3 HTML-Struktur
+
+```html
+<div id="verlauf-filter-bar">
+  <button id="verlauf-filter-toggle" onclick="toggleVerlaufFilter()">
+    Zeitraum: <span id="verlauf-filter-label">Dieser Monat</span>
+    <svg id="verlauf-filter-chevron">▾</svg>
+  </button>
+  <div id="verlauf-filter-panel" style="display:none">
+    <div class="type-toggle">
+      <button id="vzm-woche">Woche</button>
+      <button id="vzm-monat" class="type-btn active">Monat</button>
+      <button id="vzm-jahr">Jahr</button>
+      <button id="vzm-custom">Eigener</button>
+    </div>
+    <div id="vzm-custom-dates" style="display:none">
+      <input id="verlauf-von-input" type="date" onchange="setVerlaufCustomRange()">
+      <input id="verlauf-bis-input" type="date" onchange="setVerlaufCustomRange()">
+    </div>
+    <div id="verlauf-filter-summary"><!-- Donut + KPIs --></div>
+  </div>
+</div>
+```
+
+### 18.4 Home-Widget `verlaufZeitraum`
+
+- **Key:** `verlaufZeitraum`
+- **Render-Funktion:** `renderWidgetVerlaufZeitraum()`
+- **Inhalt:** Kompakter Donut (80px) + Ausgaben / Einnahmen / Netto
+- **Klick:** `goTab('verlauf')` — öffnet Verlauf mit aktuellem Filter
+
+---
+
+## 19. Kategorie-Verwaltung: Oberkategorien
+
+### 19.1 Überblick
+
+Oberkategorien sind Kategorien ohne `parent`-Feld. Sie können direkt im `tab-kategorien` erstellt, umbenannt und gelöscht werden.
+
+### 19.2 Funktionen
+
+```javascript
+function getOberkategorien(typ)
+```
+- **Parameter:** `typ` — `'ausgabe'` oder `'einnahme'`
+- **Rückgabe:** Array aller Kategorien ohne Parent (gefiltert nach Typ, ohne DELETED)
+
+```javascript
+function renderOberkategorien()
+```
+- Rendert in `#okt-ausgabe-list` / `#okt-einnahme-list`
+- Pro Oberkategorie: Name + Anzahl Unterkategorien + Buttons "Umbenennen" / "Löschen"
+- Wird automatisch von `renderCategories()` aufgerufen
+
+```javascript
+async function createOberkategorie()
+```
+- Liest `#new-okt-name` + `#new-okt-type`
+- Erstellt neue Kategorie ohne Parent-Referenz
+- Sheet-Sync: `apiAppend('Kategorien', [[id, name, typ, color, sort, '']])`
+- Ruft `renderCategories()` + `fillAllDropdowns()` auf
+
+```javascript
+async function renameOberkategoriePrompt(id)
+```
+- Öffnet `prompt()` mit aktuellem Namen
+- Aktualisiert `cat.name` und alle `sub.parent`-Referenzen
+- Sheet-Sync: `apiUpdate('Kategorien!A{row}:F{row}', ...)`
+
+```javascript
+function deleteOberkategorieModal(id)
+```
+- Zeigt Bestätigungs-Dialog mit Optionen für Unterkategorie-Zuweisung
+- Bei vorhandenen Unterkategorien: `prompt()` für Fallback-Oberkategorie
+- Delegiert an `confirmDeleteOberkategorie(id, fallbackParent)`
+
+```javascript
+async function confirmDeleteOberkategorie(id, fallbackParent)
+```
+- Markiert Oberkategorie als DELETED
+- Setzt `sub.parent = fallbackParent` für alle Unterkategorien (leer = eigenständig)
+- Sheet-Sync: markiert Oberkategorie als DELETED, aktualisiert alle Unterkategorie-Rows
+
+### 19.3 Datenmodell (Kategorien-Sheet)
+
+| Spalte | Inhalt |
+|--------|--------|
+| A | `id` |
+| B | `name` |
+| C | `type` (ausgabe/einnahme) |
+| D | `color` (Hex) |
+| E | `sort` (Reihenfolge) |
+| F | `parent` (Name der Oberkategorie, leer = Oberkategorie selbst) |
+
+---
+
+## 20. Eingabe-Screen: 3-Tab-Switch & Aktien-Trade
+
+### 20.1 3-Tab-Switch
+
+Der Eingabe-Tab zeigt nun bis zu drei Tabs:
+
+| Button | ID | Sichtbar wenn |
+|--------|-----|---------------|
+| `− Ausgabe` | `#type-aus` | Immer |
+| `+ Einnahme` | `#type-ein` | Immer |
+| `▲ Aktien` | `#type-akt` | `CFG.aktienEnabled === true` |
+
+- Sichtbarkeit des Aktien-Buttons wird gesetzt in: `fillAllDropdowns()` (beim Datenladen) und `toggleAktienEnabled()` (bei Settings-Änderung)
+- `setType('aktien')` schaltet Standard-Formular aus (`#eingabe-standard-section`) und Aktien-Formular ein (`#eingabe-aktien-section`)
+
+### 20.2 FAB-Vereinfachung
+
+- FAB zeigt bei allen Nicht-Eingabe-Tabs: Plus-Icon → direkt `goTab('eingabe')`
+- FAB zeigt bei Eingabe-Tab: X-Icon → `goTab('home')` (Schliessen)
+- Speed-Dial-Popup wurde entfernt; `openFabMenu()` ist ein Alias für `goTab('eingabe')`
+
+### 20.3 Aktien-Trade-Formular
+
+**HTML:** `#eingabe-aktien-section` (initial `display:none`)
+
+**Felder:**
+
+| Feld | ID | Typ |
+|------|----|-----|
+| Kauf/Verkauf-Toggle | `#at-kauf-btn` / `#at-verk-btn` | Buttons |
+| Aktie | `#at-stock` | `<select>` (aus `SDATA.stocks`) |
+| Datum | `#at-date` | `type="date"` |
+| Anzahl | `#at-qty` | `type="number"` |
+| Preis/Stück | `#at-price` | `type="number"` |
+| Total | `#at-total` | Readonly — `qty × price` |
+| Notiz | `#at-note` | Text |
+
+**Funktionen:**
+
+```javascript
+function setAktienTradeType(t)  // 'kauf'|'verkauf' — aktualisiert aktienTradeTyp und Button-Klassen
+function renderAktienTradeForm() // Befüllt #at-stock mit aktiven Positionen + Stückzahlen
+function updateAktienTotal()     // Rechnet qty × price → #at-total
+function openNewAktieModalFromEingabe() // Öffnet bestehendes Neue-Aktie-Modal
+async function saveAktienTradeFromEingabe() // Speichert Trade in SDATA.trades + Sheet
+```
+
+**Sheet-Sync:** `apiAppend('Trades', [[id, stockId, typ, qty, price, date, note]])`
 
 ---
 

@@ -1190,8 +1190,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         <div class="type-toggle">
           <button class="type-btn active expense" id="type-aus" onclick="setType('ausgabe')">− Ausgabe</button>
           <button class="type-btn income" id="type-ein" onclick="setType('einnahme')">+ Einnahme</button>
+          <button class="type-btn" id="type-akt" onclick="setType('aktien')" style="display:none">▲ Aktien</button>
         </div>
 
+        <!-- ── Standard-Formular (Ausgabe / Einnahme) ─────────────────── -->
+        <div id="eingabe-standard-section">
         <div class="form-group">
           <label class="form-label">Betrag (CHF)</label>
           <div class="amount-wrap">
@@ -1270,6 +1273,53 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
         </div>
 
         <button class="save-btn" id="f-save-btn" onclick="saveEntryOrRecurring()">Eintrag speichern</button>
+        </div><!-- end eingabe-standard-section -->
+
+        <!-- ── Aktien-Trade-Formular ────────────────────────────────────── -->
+        <div id="eingabe-aktien-section" style="display:none">
+          <div class="type-toggle" style="margin-bottom:14px">
+            <button class="type-btn active" id="at-kauf-btn" onclick="setAktienTradeType('kauf')">Kauf</button>
+            <button class="type-btn" id="at-verk-btn" onclick="setAktienTradeType('verkauf')">Verkauf</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aktie</label>
+            <select id="at-stock" class="form-select" onchange="updateAktienTotal()">
+              <option value="">— Aktie wählen —</option>
+            </select>
+          </div>
+          <div id="at-neue-aktie-wrap" style="margin-bottom:12px">
+            <button onclick="openNewAktieModalFromEingabe()" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(200,245,60,.07);border:1px solid rgba(200,245,60,.2);border-radius:var(--r2);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">
+              <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Neue Aktie hinzufügen
+            </button>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Datum</label>
+              <input id="at-date" class="form-input" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Anzahl</label>
+              <input id="at-qty" class="form-input" type="number" inputmode="decimal" placeholder="0" min="0.0001" step="any" oninput="updateAktienTotal()">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Preis / Stück</label>
+              <input id="at-price" class="form-input" type="number" inputmode="decimal" placeholder="0.00" min="0" step="any" oninput="updateAktienTotal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total</label>
+              <input id="at-total" class="form-input" type="text" readonly style="background:var(--bg3);color:var(--text2);cursor:default" placeholder="0.00">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
+            <input id="at-note" class="form-input" type="text" placeholder="optional" autocorrect="off">
+          </div>
+          <button class="save-btn" onclick="saveAktienTradeFromEingabe()">Eintrag speichern</button>
+        </div><!-- end eingabe-aktien-section -->
+
       </div>
     </div>
 
@@ -1277,6 +1327,37 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
     <div id="tab-verlauf" class="tab-page" style="display:none">
       <!-- Verlauf-Header: Type-Switch (L1/L2) oder Zurück-Button (L3) -->
       <div style="padding:12px 16px 0">
+        <!-- Zeitraum-Filter -->
+        <div id="verlauf-filter-bar" style="margin-bottom:8px">
+          <button id="verlauf-filter-toggle" onclick="toggleVerlaufFilter()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">
+            <span style="display:flex;align-items:center;gap:6px">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Zeitraum: <span id="verlauf-filter-label" style="color:var(--text);font-weight:600">Dieser Monat</span>
+            </span>
+            <svg id="verlauf-filter-chevron" viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div id="verlauf-filter-panel" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-top:4px;padding:12px">
+            <div class="type-toggle" style="margin-bottom:10px">
+              <button id="vzm-woche" class="type-btn" onclick="setVerlaufZeitraum('woche')">Woche</button>
+              <button id="vzm-monat" class="type-btn active" onclick="setVerlaufZeitraum('monat')">Monat</button>
+              <button id="vzm-jahr" class="type-btn" onclick="setVerlaufZeitraum('jahr')">Jahr</button>
+              <button id="vzm-custom" class="type-btn" onclick="setVerlaufZeitraum('custom')">Eigener</button>
+            </div>
+            <div id="vzm-custom-dates" style="display:none">
+              <div class="form-row" style="margin-bottom:8px">
+                <div class="form-group">
+                  <label class="form-label">Von</label>
+                  <input id="verlauf-von-input" type="date" class="form-input" onchange="setVerlaufCustomRange()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Bis</label>
+                  <input id="verlauf-bis-input" type="date" class="form-input" onchange="setVerlaufCustomRange()">
+                </div>
+              </div>
+            </div>
+            <div id="verlauf-filter-summary"></div>
+          </div>
+        </div>
         <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
         <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
           <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
@@ -1341,6 +1422,28 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
             <select id="new-cat-parent" class="form-select"><option value="">— keine —</option></select>
           </div>
           <button class="save-btn" onclick="addCategory()">Kategorie hinzufügen</button>
+        </div>
+      </div>
+      <!-- ── Oberkategorien verwalten ──────────────────────────────────── -->
+      <div class="section" style="padding-top:0">
+        <div class="section-title">Oberkategorien verwalten</div>
+        <div id="okt-ausgabe-list"></div>
+        <div id="okt-einnahme-list"></div>
+        <div class="card" style="padding:14px;margin-top:8px">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input id="new-okt-name" class="form-input" placeholder="Oberkategorie-Name" autocorrect="off">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Typ</label>
+              <select id="new-okt-type" class="form-select">
+                <option value="ausgabe">Ausgabe</option>
+                <option value="einnahme">Einnahme</option>
+              </select>
+            </div>
+          </div>
+          <button class="save-btn" onclick="createOberkategorie()">Oberkategorie hinzufügen</button>
         </div>
       </div>
     </div>
@@ -1691,9 +1794,9 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 </div>
 
 <!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->
-<div id="fab-speed-dial" style="display:none;position:fixed;inset:0;z-index:97" onclick="closeFabMenu()">
-  <div id="fab-speed-dial-sheet" onclick="event.stopPropagation()" style="position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 16px);left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
-    <button onclick="closeFabMenu();goTab('eingabe')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
+<div id="fab-speed-dial" style="display:none">
+  <div id="fab-speed-dial-sheet">
+    <button onclick="closeFabMenu();goTab('eingabe')" style="display:none">
       <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Ausgabe / Einnahme
     </button>
@@ -2951,6 +3054,14 @@ function setType(t){
   currentEntryType = t;
   document.getElementById('type-aus').className = 'type-btn'+(t==='ausgabe'?' active expense':'');
   document.getElementById('type-ein').className = 'type-btn'+(t==='einnahme'?' active income':'');
+  const aktBtn = document.getElementById('type-akt');
+  if(aktBtn) aktBtn.className = 'type-btn'+(t==='aktien'?' active':'');
+  // Toggle standard vs aktien section
+  const stdSec = document.getElementById('eingabe-standard-section');
+  const aktSec = document.getElementById('eingabe-aktien-section');
+  if(stdSec) stdSec.style.display = t==='aktien' ? 'none' : '';
+  if(aktSec) aktSec.style.display = t==='aktien' ? '' : 'none';
+  if(t==='aktien'){ renderAktienTradeForm(); return; }
   // Show/hide recurring toggle only for Ausgabe
   const recWrap = document.getElementById('f-recur-toggle-wrap');
   if(recWrap) recWrap.style.display = t==='ausgabe'?'block':'none';
@@ -3696,9 +3807,10 @@ function sucheTransaktionen(query, entries){
 
 // ── Kategorien mit Einträgen (für L2) ────────────────────────────────────────
 // Gibt alle Kategorien mit min. 1 Eintrag zurück, sortiert nach Gesamtbetrag.
-// typ: 'ausgaben' | 'einnahmen'
+// typ: 'ausgaben' | 'einnahmen'. Respektiert verlaufGetRange()-Filter.
 function getKategorienMitEintraegen(typ){
-  const entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  let entries = typ==='ausgaben' ? DATA.expenses : DATA.incomes;
+  entries = verlaufFilterEntries(entries);
   const byKat = {};
   entries.forEach(e=>{
     if(!byKat[e.cat]) byKat[e.cat] = {name:e.cat, total:0, count:0};
@@ -3835,14 +3947,15 @@ function renderVerlaufL1(){
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringInstances(recurStart, todayStr)
   ];
+  entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
   entries.sort((a,b)=>b.date.localeCompare(a.date));
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
   container.innerHTML = renderVerlaufEntryGroups(entries);
 }
 
-// ── L2: Kategorienliste ───────────────────────────────────────────────────────
-// Zeigt alle Kategorien mit mind. 1 Eintrag, sortiert nach Gesamtbetrag.
+// ── L2: Kategorie-Kacheln ─────────────────────────────────────────────────────
+// 2-Spalten-Kachelraster, sortiert nach Gesamtbetrag absteigend.
 // Suche filtert Kategorienamen. Klick → L3.
 // Datenquelle: DATA.expenses (ausgaben) oder DATA.incomes (einnahmen)
 function renderVerlaufL2(){
@@ -3858,23 +3971,22 @@ function renderVerlaufL2(){
     return;
   }
   const grandTotal = cats.reduce((s,c)=>s+c.total, 0);
-  container.innerHTML = `<div style="padding:4px 16px 8px">` +
+  const maxTotal = cats[0]?.total||1;
+  container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 16px 16px">` +
     cats.map(c=>{
       const pct = grandTotal>0 ? c.total/grandTotal*100 : 0;
+      const barPct = maxTotal>0 ? c.total/maxTotal*100 : 0;
       return `
-      <div class="card-row" data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${catColor(c.name)}22;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${catEmoji(c.name)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px">${esc(c.name)}</div>
-          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${pct.toFixed(1)}%;background:${catColor(c.name)};border-radius:2px;transition:width .3s"></div>
-          </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">${c.count} Eintr${c.count===1?'ag':'äge'} · ${pct.toFixed(0)}%</div>
+      <div data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;min-height:88px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:18px;line-height:1">${catEmoji(c.name)}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
         </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text)">${curr()} ${fmtAmt(c.total)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);margin-bottom:7px">${curr()} ${fmtAmt(c.total)}</div>
+        <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:4px">
+          <div style="height:100%;width:${barPct.toFixed(1)}%;background:${catColor(c.name)};border-radius:2px"></div>
         </div>
-        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        <div style="font-size:10px;color:var(--text3)">${c.count}× · ${pct.toFixed(0)}%</div>
       </div>`;
     }).join('') + `</div>`;
 }
@@ -3889,8 +4001,9 @@ function renderVerlaufL3(){
   const kat = verlaufKat;
   const catDef = DATA.categories.find(c=>c.name===kat);
   const isInc = catDef?.type==='einnahme' || verlaufType==='einnahmen';
-  const allEntries = (isInc ? DATA.incomes : DATA.expenses)
-    .filter(e=>e.cat===kat)
+  let allEntries = (isInc ? DATA.incomes : DATA.expenses)
+    .filter(e=>e.cat===kat);
+  allEntries = verlaufFilterEntries(allEntries)
     .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
     .sort((a,b)=>b.date.localeCompare(a.date));
   const displayedEntries = sucheTransaktionen(verlaufSearch, allEntries);
@@ -3961,6 +4074,9 @@ function renderVerlaufL3(){
 // Navigation-State: verlaufType, verlaufKat, verlaufL3SearchVis, verlaufSearch
 function renderVerlauf(){
   const isL3 = verlaufKat !== null;
+  // Zeitraum-Filter-Label aktualisieren
+  const lbl = document.getElementById('verlauf-filter-label');
+  if(lbl) lbl.textContent = verlaufGetRangeLabel();
   // Header: Type-Switch oder Zurück-Button
   const typBar = document.getElementById('verlauf-type-bar');
   const l3Bar = document.getElementById('verlauf-l3-bar');
@@ -4035,7 +4151,366 @@ function verlaufToggleL3Search(){
 }
 function setDashboardMonths(m){ dashboardChartMonths=m; renderDashboard(); }
 
+// ═══════════════════════════════════════════════════════════════
+// MODULE: VERLAUF ZEITRAUM-FILTER
+// State: verlaufZeitraumMode, verlaufVonCustom, verlaufBisCustom
+// ═══════════════════════════════════════════════════════════════
+let verlaufZeitraumMode = 'monat'; // 'woche'|'monat'|'jahr'|'custom'
+let verlaufVonCustom = '';
+let verlaufBisCustom = '';
+let verlaufFilterOpen = false;
+
+function verlaufGetRange(){
+  const now = new Date();
+  const t = today();
+  if(verlaufZeitraumMode==='woche'){
+    const dow = now.getDay();
+    const off = dow===0 ? -6 : 1-dow;
+    const mon = new Date(now); mon.setDate(now.getDate()+off);
+    return {von:dateStr(mon), bis:t};
+  }
+  if(verlaufZeitraumMode==='monat'){
+    const von = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    return {von, bis:t};
+  }
+  if(verlaufZeitraumMode==='jahr'){
+    return {von:`${now.getFullYear()}-01-01`, bis:t};
+  }
+  if(verlaufZeitraumMode==='custom'){
+    return {von:verlaufVonCustom, bis:verlaufBisCustom};
+  }
+  return {von:'', bis:''};
+}
+
+function verlaufGetRangeLabel(){
+  const {von, bis} = verlaufGetRange();
+  if(verlaufZeitraumMode==='woche') return 'Diese Woche';
+  if(verlaufZeitraumMode==='monat'){
+    const now = new Date();
+    return now.toLocaleDateString('de-CH',{month:'long',year:'numeric'});
+  }
+  if(verlaufZeitraumMode==='jahr') return `Jahr ${new Date().getFullYear()}`;
+  if(verlaufZeitraumMode==='custom'){
+    if(von && bis) return `${fmtDate(von)} – ${fmtDate(bis)}`;
+    if(von) return `Ab ${fmtDate(von)}`;
+    return 'Eigener Zeitraum';
+  }
+  return 'Zeitraum';
+}
+
+function toggleVerlaufFilter(){
+  verlaufFilterOpen = !verlaufFilterOpen;
+  const panel = document.getElementById('verlauf-filter-panel');
+  const chev = document.getElementById('verlauf-filter-chevron');
+  if(panel) panel.style.display = verlaufFilterOpen ? '' : 'none';
+  if(chev) chev.style.transform = verlaufFilterOpen ? 'rotate(180deg)' : '';
+  if(verlaufFilterOpen) renderVerlaufFilterSummary();
+}
+
+function setVerlaufZeitraum(mode){
+  verlaufZeitraumMode = mode;
+  const customDates = document.getElementById('vzm-custom-dates');
+  if(customDates) customDates.style.display = mode==='custom' ? '' : 'none';
+  ['woche','monat','jahr','custom'].forEach(m=>{
+    const btn = document.getElementById('vzm-'+m);
+    if(btn) btn.className = 'type-btn'+(m===mode?' active':'');
+  });
+  const lbl = document.getElementById('verlauf-filter-label');
+  if(lbl) lbl.textContent = verlaufGetRangeLabel();
+  renderVerlaufFilterSummary();
+  renderVerlauf();
+}
+
+function setVerlaufCustomRange(){
+  const von = document.getElementById('verlauf-von-input')?.value||'';
+  const bis = document.getElementById('verlauf-bis-input')?.value||'';
+  verlaufVonCustom = von; verlaufBisCustom = bis;
+  const lbl = document.getElementById('verlauf-filter-label');
+  if(lbl) lbl.textContent = verlaufGetRangeLabel();
+  renderVerlaufFilterSummary();
+  renderVerlauf();
+}
+
+// Baut SVG-Donut (nur äusserer Ring) für Kategorie-Anteile
+// segments: [{name, amt, color}], total: Gesamtbetrag
+function buildDonutSVG(segments, total, size=100){
+  if(!total || !segments.length) return '';
+  const r=42, ir=26, cx=size/2, cy=size/2;
+  let paths='', angle=-Math.PI/2;
+  segments.forEach(seg=>{
+    const frac = seg.amt/total;
+    if(frac<0.001) return;
+    const endA = angle + frac*2*Math.PI;
+    const largeArc = frac>0.5?1:0;
+    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(endA), y2=cy+r*Math.sin(endA);
+    const ix1=cx+ir*Math.cos(endA), iy1=cy+ir*Math.sin(endA);
+    const ix2=cx+ir*Math.cos(angle), iy2=cy+ir*Math.sin(angle);
+    const d=`M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${ix1.toFixed(2)} ${iy1.toFixed(2)} A${ir} ${ir} 0 ${largeArc} 0 ${ix2.toFixed(2)} ${iy2.toFixed(2)}Z`;
+    paths+=`<path d="${d}" fill="${seg.color}" opacity="0.9"/>`;
+    angle=endA;
+  });
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="flex-shrink:0">${paths}</svg>`;
+}
+
+// Berechnet Zeitraum-Summary (Ausgaben/Einnahmen/Netto + Top-Segmente für Donut)
+function verlaufCalcSummary(){
+  const {von, bis} = verlaufGetRange();
+  let ausgaben=0, einnahmen=0;
+  const byKat={};
+  DATA.expenses.forEach(e=>{
+    if((!von||e.date>=von)&&(!bis||e.date<=bis)){
+      ausgaben+=e.amt;
+      if(!byKat[e.cat]) byKat[e.cat]=0;
+      byKat[e.cat]+=e.amt;
+    }
+  });
+  DATA.incomes.forEach(e=>{
+    if((!von||e.date>=von)&&(!bis||e.date<=bis)) einnahmen+=e.amt;
+  });
+  const sorted=Object.entries(byKat).sort((a,b)=>b[1]-a[1]);
+  const top5=sorted.slice(0,5);
+  const weitereAmt=sorted.slice(5).reduce((s,[,a])=>s+a,0);
+  const segments=[
+    ...top5.map(([name,amt])=>({name,amt,color:catColor(name)})),
+    ...(weitereAmt>0?[{name:'Weitere',amt:weitereAmt,color:'#666'}]:[])
+  ];
+  return {ausgaben,einnahmen,netto:einnahmen-ausgaben,segments,top5,weitereAmt};
+}
+
+function renderVerlaufFilterSummary(){
+  const el=document.getElementById('verlauf-filter-summary'); if(!el) return;
+  const {ausgaben,einnahmen,netto,segments,top5,weitereAmt}=verlaufCalcSummary();
+  const donut=buildDonutSVG(segments,ausgaben);
+  el.innerHTML=`
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">
+    ${donut?`<div style="padding-top:4px">${donut}</div>`:''}
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:12px;color:var(--text3)">Ausgaben</span>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)">${curr()} ${fmtAmt(ausgaben)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:12px;color:var(--text3)">Einnahmen</span>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(einnahmen)}</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:5px 0"></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--text3)">Netto</span>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'}${curr()} ${fmtAmt(Math.abs(netto))}</span>
+      </div>
+      ${top5.map(([name,amt])=>{
+        const pct=ausgaben>0?amt/ausgaben*100:0;
+        return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div style="width:8px;height:8px;border-radius:2px;background:${catColor(name)};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0;font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+          <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3)">${pct.toFixed(0)}%</div>
+        </div>`;
+      }).join('')}
+      ${weitereAmt>0?`<div style="font-size:10px;color:var(--text3);margin-top:2px">+ Weitere ${curr()} ${fmtAmt(weitereAmt)}</div>`:''}
+    </div>
+  </div>`;
+}
+
+// Gibt Einträge im aktuellen Verlauf-Zeitraum zurück (mit von/bis-Filter)
+function verlaufFilterEntries(entries){
+  const {von, bis} = verlaufGetRange();
+  if(!von && !bis) return entries;
+  return entries.filter(e=>(!von||e.date>=von)&&(!bis||e.date<=bis));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: AKTIEN-TRADE VIA EINGABE-TAB
+// ═══════════════════════════════════════════════════════════════
+let aktienTradeTyp = 'kauf'; // 'kauf' | 'verkauf'
+
+function setAktienTradeType(t){
+  aktienTradeTyp = t;
+  document.getElementById('at-kauf-btn').className='type-btn'+(t==='kauf'?' active':'');
+  document.getElementById('at-verk-btn').className='type-btn'+(t==='verkauf'?' active':'');
+}
+
+function renderAktienTradeForm(){
+  // Populate stock dropdown
+  const sel = document.getElementById('at-stock'); if(!sel) return;
+  const stocks = SDATA.stocks||[];
+  sel.innerHTML = `<option value="">— Aktie wählen —</option>` +
+    stocks.map(s=>{
+      const pos=calcPosition(s.id);
+      return `<option value="${s.id}">${esc(s.title)}${s.ticker?' ('+esc(s.ticker)+')':''} · ${fmtQty(pos.qty)} Stk.</option>`;
+    }).join('');
+  // Set today as default date
+  const dateEl = document.getElementById('at-date');
+  if(dateEl && !dateEl.value) dateEl.value = today();
+  updateAktienTotal();
+}
+
+function updateAktienTotal(){
+  const qty = parseFloat(document.getElementById('at-qty')?.value)||0;
+  const price = parseFloat(document.getElementById('at-price')?.value)||0;
+  const total = qty * price;
+  const el = document.getElementById('at-total');
+  if(el) el.value = total>0 ? `${curr()} ${fmtAmt(total)}` : '';
+}
+
+function openNewAktieModalFromEingabe(){
+  // Reuse existing new-aktie modal, then return to eingabe
+  openNewAktieModal();
+}
+
+async function saveAktienTradeFromEingabe(){
+  const stockId = document.getElementById('at-stock')?.value;
+  if(!stockId){ toast('Bitte Aktie wählen','err'); return; }
+  const qty = parseFloat(document.getElementById('at-qty')?.value)||0;
+  const price = parseFloat(document.getElementById('at-price')?.value)||0;
+  const date = document.getElementById('at-date')?.value || today();
+  const note = document.getElementById('at-note')?.value.trim()||'';
+  if(qty<=0){ toast('Anzahl erforderlich','err'); return; }
+  if(price<=0){ toast('Preis erforderlich','err'); return; }
+  const id = genId('T');
+  const trade = {id, stockId, type:aktienTradeTyp, qty, price, date, note};
+  SDATA.trades.push(trade);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Trades',[[id, stockId, aktienTradeTyp, qty, price, date, note]]);
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  // Reset form
+  document.getElementById('at-qty').value='';
+  document.getElementById('at-price').value='';
+  document.getElementById('at-note').value='';
+  document.getElementById('at-total').value='';
+  toast('Trade gespeichert');
+  renderAktienTradeForm();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: OBERKATEGORIEN CRUD
+// ═══════════════════════════════════════════════════════════════
+
+// Gibt alle Oberkategorien (parent='') zurück
+function getOberkategorien(typ){
+  return DATA.categories.filter(c=>c.type===typ&&!c.parent&&c.id!=='DELETED'&&c.name!=='DELETED');
+}
+
+// Rendert die Oberkategorien-Listen in tab-kategorien
+function renderOberkategorien(){
+  ['ausgabe','einnahme'].forEach(typ=>{
+    const el = document.getElementById(`okt-${typ}-list`); if(!el) return;
+    const tops = getOberkategorien(typ);
+    if(!tops.length){ el.innerHTML=''; return; }
+    el.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;padding:8px 16px 4px">${typ==='ausgabe'?'Ausgaben':'Einnahmen'}-Oberkategorien</div>
+    <div class="card" style="margin:0 0 8px">` +
+    tops.map((c,i)=>`
+      <div class="card-row" style="${i>0?'border-top:1px solid var(--border)':''}">
+        <div class="card-row-body">
+          <div class="card-row-title">${esc(c.name)}</div>
+          <div class="card-row-sub">${DATA.categories.filter(sub=>sub.parent===c.name&&sub.id!=='DELETED').length} Unterkategorien</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="renameOberkategoriePrompt('${esc(c.id)}')" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--text2);cursor:pointer">Umbenennen</button>
+          <button onclick="deleteOberkategorieModal('${esc(c.id)}')" style="background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--red);cursor:pointer">Löschen</button>
+        </div>
+      </div>`).join('') + `</div>`;
+  });
+}
+
+async function createOberkategorie(){
+  const name = document.getElementById('new-okt-name')?.value.trim();
+  const typ = document.getElementById('new-okt-type')?.value||'ausgabe';
+  if(!name){ toast('Name erforderlich','err'); return; }
+  if(DATA.categories.find(c=>c.name===name)){ toast('Name bereits vergeben','err'); return; }
+  const id=genId('C');
+  const cat={id,name,type:typ,color:randomCatColor(),sort:DATA.categories.length,parent:''};
+  DATA.categories.push(cat);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Kategorien',[[id,name,typ,cat.color,cat.sort,'']]);
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  document.getElementById('new-okt-name').value='';
+  toast(`Oberkategorie «${name}» erstellt`);
+  renderCategories(); renderOberkategorien(); fillAllDropdowns();
+}
+
+async function renameOberkategoriePrompt(id){
+  const cat = DATA.categories.find(c=>c.id===id); if(!cat) return;
+  const newName = prompt(`Oberkategorie umbenennen (aktuell: ${cat.name}):`, cat.name);
+  if(!newName||newName===cat.name) return;
+  if(DATA.categories.find(c=>c.name===newName&&c.id!==id)){ toast('Name bereits vergeben','err'); return; }
+  const oldName = cat.name;
+  cat.name = newName;
+  // Update parent reference in subcategories
+  DATA.categories.filter(c=>c.parent===oldName).forEach(c=>{ c.parent=newName; });
+  // Update parent reference in expenses/incomes
+  DATA.expenses.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
+  DATA.incomes.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Kategorien', id);
+      if(row) await apiUpdate(`Kategorien!A${row}:F${row}`,[[id,newName,cat.type,cat.color,cat.sort,cat.parent]]);
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  toast(`Umbenannt in «${newName}»`);
+  renderCategories(); renderOberkategorien(); fillAllDropdowns();
+}
+
+function deleteOberkategorieModal(id){
+  const cat = DATA.categories.find(c=>c.id===id); if(!cat) return;
+  const subs = DATA.categories.filter(c=>c.parent===cat.name&&c.id!=='DELETED');
+  const other = DATA.categories.filter(c=>c.type===cat.type&&!c.parent&&c.id!==id&&c.id!=='DELETED'&&c.name!=='DELETED');
+  let msg = `Oberkategorie «${cat.name}» löschen?\n`;
+  if(subs.length){
+    msg += `\n${subs.length} Unterkategorie(n) sind ihr zugeordnet.\n`;
+    if(other.length){
+      const target = prompt(`${msg}\nUnterkategorien zuweisen zu (Name einer anderen Oberkategorie eingeben, oder leer lassen für «eigenständig»):\n${other.map(c=>c.name).join(', ')}`);
+      confirmDeleteOberkategorie(id, target?.trim()||'');
+    } else {
+      if(confirm(`${msg}\nUnterkategorien werden eigenständig (ohne Oberkategorie). Fortfahren?`))
+        confirmDeleteOberkategorie(id, '');
+    }
+  } else {
+    if(confirm(`${msg}\nKeine Unterkategorien. Löschen?`)) confirmDeleteOberkategorie(id, '');
+  }
+}
+
+async function confirmDeleteOberkategorie(id, fallbackParent){
+  const cat = DATA.categories.find(c=>c.id===id); if(!cat) return;
+  // Reassign subcategories
+  const subs = DATA.categories.filter(c=>c.parent===cat.name&&c.id!=='DELETED');
+  subs.forEach(c=>{ c.parent=fallbackParent; });
+  // Mark deleted
+  cat.id='DELETED'; cat.name='DELETED';
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Kategorien', id);
+      if(row) await apiUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
+      // Update reassigned subcategories
+      for(const sub of subs){
+        const r2=await apiFindRow('Kategorien',sub.id);
+        if(r2) await apiUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
+      }
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  toast('Oberkategorie gelöscht');
+  renderCategories(); renderOberkategorien(); fillAllDropdowns();
+}
+
+function randomCatColor(){
+  const colors=['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9'];
+  return colors[Math.floor(Math.random()*colors.length)];
+}
+
 function renderCategories(){
+  renderOberkategorien();
   // Also populate new-cat-parent dropdown
   fillParentDropdown('new-cat-parent', document.getElementById('new-cat-type')?.value||'ausgabe');
 
@@ -4123,6 +4598,7 @@ const WIDGET_CATALOG = [
   { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
   { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
   { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
+  { key:'verlaufZeitraum',  label:'Verlauf: Zeitraum',          sub:'Ausgaben, Einnahmen und Netto im gewählten Zeitraum mit Kategorie-Donut' },
   { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
   { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
   { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
@@ -4240,6 +4716,7 @@ function renderWidgetContent(key){
     case 'jahresSparquote':  return renderWidgetJahresSparquote();
     case 'jahresKategorien': return renderWidgetJahresKategorien();
     case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
+    case 'verlaufZeitraum':  return renderWidgetVerlaufZeitraum();
     case 'aktienDashboard':  return renderWidgetAktienDashboard();
     case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
     case 'aktienWert':       return renderWidgetAktienWert();
@@ -4261,6 +4738,35 @@ function renderWidgetGreeting(){
   return `<div style="padding:4px 0">
     <div style="font-size:20px;font-weight:700;letter-spacing:-.3px">${greet}${name}</div>
     <div style="font-size:13px;color:var(--text3);margin-top:4px">${wday}, ${dat}</div>
+  </div>`;
+}
+
+// ── Widget: Verlauf Zeitraum ─────────────────────────────────────────────────
+// Kompakte Version: Donut + 3 Kennzahlen. Klick → Verlauf mit gesetztem Filter.
+function renderWidgetVerlaufZeitraum(){
+  const {ausgaben,einnahmen,netto,segments}=verlaufCalcSummary();
+  const donut=buildDonutSVG(segments,ausgaben,80);
+  const label=verlaufGetRangeLabel();
+  return `<div onclick="goTab('verlauf')" style="cursor:pointer">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${label}</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      ${donut?`<div>${donut}</div>`:''}
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:12px;color:var(--text3)">Ausgaben</span>
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)">${curr()} ${fmtAmt(ausgaben)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:12px;color:var(--text3)">Einnahmen</span>
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(einnahmen)}</span>
+        </div>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:12px;color:var(--text3)">Netto</span>
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'}${curr()} ${fmtAmt(Math.abs(netto))}</span>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -5081,13 +5587,7 @@ function goTab(tab){
     fab.innerHTML = tab==='eingabe'
       ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    if(tab==='eingabe'){
-      fab.onclick = ()=>goTab('home');
-    } else if(CFG.aktienEnabled){
-      fab.onclick = ()=>openFabMenu();
-    } else {
-      fab.onclick = ()=>goTab('eingabe');
-    }
+    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
@@ -5111,15 +5611,9 @@ function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.ge
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
-// ── FAB Speed-Dial (Aktien) ──────────────────────────────────────────────────
-function openFabMenu(){
-  const overlay = document.getElementById('fab-speed-dial');
-  if(overlay) overlay.style.display = '';
-}
-function closeFabMenu(){
-  const overlay = document.getElementById('fab-speed-dial');
-  if(overlay) overlay.style.display = 'none';
-}
+// ── FAB Speed-Dial stubs (kept for backward-compat) ──────────────────────────
+function openFabMenu(){ goTab('eingabe'); }
+function closeFabMenu(){}
 
 // Aktie / Trade erfassen Flow
 function openAddAktieFlow(){
@@ -5891,6 +6385,9 @@ function fillDropdown(elId, type, selected=''){
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
   fillDropdown('r-cat','ausgabe');
+  // Show/hide Aktien tab button based on setting
+  const aktBtn = document.getElementById('type-akt');
+  if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
 }
 
 function fillParentDropdown(elId, type, selected=''){
@@ -7402,6 +7899,10 @@ function toggleAktienEnabled(){
   renderEinstellungen();
   renderNav();
   if(currentTab==='home') renderHome();
+  // Show/hide Aktien tab button in eingabe
+  const aktBtn = document.getElementById('type-akt');
+  if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
+  if(!CFG.aktienEnabled && currentEntryType==='aktien') setType('ausgabe');
 }
 
 // ═══════════════════════════════════════════════════════════════
