@@ -205,6 +205,14 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #setup.hidden{display:none}
 /* Transparent when app background is active */
 body.has-bg-image #setup{background:transparent}
+/* Dark scrim behind setup text for legibility over any background */
+body.has-bg-image #setup::before{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:rgba(0,0,0,0.45);
+}
+[data-theme="light"] body.has-bg-image #setup::before{
+  background:rgba(0,0,0,0.30);
+}
 /* Glass cards on setup screen (matches app card style) */
 body.glass-on .setup-card{
   background:rgba(var(--glass-rgb),0.28) !important;
@@ -215,6 +223,19 @@ body.glass-on .setup-card{
 [data-theme="light"] body.glass-on .setup-card{
   background:rgba(var(--glass-rgb),0.55) !important;
 }
+/* ── Setup contrast for light backgrounds ── */
+body.has-bg-image .setup-title,
+body.has-bg-image .setup-tagline,
+body.has-bg-image .setup-brand{
+  color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);
+}
+body.has-bg-image .setup-sub{
+  color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+body.has-bg-image .setup-hint{color:rgba(255,255,255,.7);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+body.has-bg-image .setup-hint b{color:rgba(255,255,255,.9)}
+[data-theme="light"] .setup-title{color:var(--text)}
+[data-theme="light"] .setup-sub{color:var(--text2)}
 /* Inline error message below form cards */
 .setup-error{
   width:100%;max-width:380px;font-size:13px;color:var(--red);
@@ -7170,21 +7191,27 @@ async function syncKurseSheet(extraTickers=[]){
       `=IFERROR(GOOGLEFINANCE(A${i+2},"currency"),"")`
     ]);
     await apiCall({action:'setFormulas', range:`Kurse!B2:C${1+allTickers.length}`, formulas:JSON.stringify(formulas)});
-    // Read back computed values
-    const res = await apiGet(`Kurse!A2:C${1+allTickers.length}`);
-    (res.values||[]).forEach(r=>{
-      const ticker = String(r[0]||'').toUpperCase();
-      const price = parseFloat(r[1]);
-      const currency = String(r[2]||'').toUpperCase();
-      if(!ticker || isNaN(price) || price<=0) return;
-      if(ticker.startsWith('CURRENCY:')){
-        // Store FX rate: "CURRENCY:USDCHF" → fxRateCache["USDCHF"] = rate
-        fxRateCache[ticker.replace('CURRENCY:','')] = price;
-      } else {
-        stockPriceCache[ticker] = {price, currency: currency||ticker, ts:Date.now()};
-      }
-    });
-  }catch(e){ /* silent — Kurse sheet may not be set up yet (old GAS) */ }
+    // Wait for GOOGLEFINANCE to compute (formulas need time to evaluate)
+    await new Promise(r=>setTimeout(r, 2500));
+    // Read back computed values — retry up to 2 times if empty
+    let gotAny = false;
+    for(let attempt=0; attempt<3 && !gotAny; attempt++){
+      if(attempt>0) await new Promise(r=>setTimeout(r, 2000));
+      const res = await apiGet(`Kurse!A2:C${1+allTickers.length}`);
+      (res.values||[]).forEach(r=>{
+        const ticker = String(r[0]||'').toUpperCase();
+        const price = parseFloat(r[1]);
+        const currency = String(r[2]||'').toUpperCase();
+        if(!ticker || isNaN(price) || price<=0) return;
+        gotAny = true;
+        if(ticker.startsWith('CURRENCY:')){
+          fxRateCache[ticker.replace('CURRENCY:','')] = price;
+        } else {
+          stockPriceCache[ticker] = {price, currency: currency||ticker, ts:Date.now()};
+        }
+      });
+    }
+  }catch(e){ console.warn('syncKurseSheet error:', e); }
 }
 
 // ── Portfolio-Verlauf ─────────────────────────────────────────────────────────
@@ -7352,25 +7379,42 @@ async function fetchStockPrice(ticker){
 
   // Primary: route through Apps Script → GOOGLEFINANCE (no CORS issues)
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
+    // Try the ticker as-is, and if no result try common exchange prefixes
     await syncKurseSheet([key]);
-    const afterSync = stockPriceCache[key];
+    let afterSync = stockPriceCache[key];
     if(afterSync) return afterSync;
+    // If plain ticker failed and no exchange prefix, try common US exchanges
+    if(!key.includes(':')){
+      for(const prefix of ['NASDAQ:','NYSE:','NYSEARCA:']){
+        await syncKurseSheet([prefix+key]);
+        afterSync = stockPriceCache[prefix+key];
+        if(afterSync){
+          // Also cache under the short name for convenience
+          stockPriceCache[key] = afterSync;
+          return afterSync;
+        }
+      }
+    }
   }
 
-  // Fallback: Yahoo Finance direct (blocked by CORS in most browser contexts)
-  try{
-    const r = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(key)}?interval=1d&range=1d`,
-      { signal: AbortSignal.timeout(6000) }
-    );
-    if(!r.ok) return null;
-    const d = await r.json();
-    const meta = d?.chart?.result?.[0]?.meta;
-    if(!meta?.regularMarketPrice) return null;
-    const res = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose??meta.previousClose??null, currency: meta.currency||'', ts: Date.now() };
-    stockPriceCache[key] = res;
-    return res;
-  } catch(e){ return null; }
+  // Fallback: Yahoo Finance via CORS proxy
+  const yahooUrls = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(key)}?interval=1d&range=1d`,
+    `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${key}?interval=1d&range=1d`)}`
+  ];
+  for(const url of yahooUrls){
+    try{
+      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if(!r.ok) continue;
+      const d = await r.json();
+      const meta = d?.chart?.result?.[0]?.meta;
+      if(!meta?.regularMarketPrice) continue;
+      const res = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose??meta.previousClose??null, currency: meta.currency||'', ts: Date.now() };
+      stockPriceCache[key] = res;
+      return res;
+    } catch(e){ continue; }
+  }
+  return null;
 }
 
 // ── Aktien Charts (Point 3) ───────────────────────────────────────────────────
