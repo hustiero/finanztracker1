@@ -102,11 +102,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* Content */
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
 
-/* Bottom Nav */
+/* Bottom Nav — use env() directly (belt-and-suspenders for iOS PWA) */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  height:calc(var(--nav-h) + var(--safe-bot));
-  padding-bottom:var(--safe-bot);
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom:env(safe-area-inset-bottom, 0px);
   background:var(--bg1);
   border-top:1px solid var(--border);
   display:flex;align-items:stretch;
@@ -193,13 +193,43 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* ═══════════════════════════════════════════════════
    SETUP SCREEN
 ═══════════════════════════════════════════════════ */
+/* Login/Setup screen — scrollable so keyboard doesn't cover form */
 #setup{
   position:fixed;inset:0;background:var(--bg0);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:32px 24px;padding-top:calc(32px + var(--safe-top));
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;
+  padding:calc(env(safe-area-inset-top,0px) + max(40px,8vh)) 24px
+          calc(env(safe-area-inset-bottom,0px) + 32px);
   z-index:1000;
 }
 #setup.hidden{display:none}
+/* Transparent when app background is active */
+body.has-bg-image #setup{background:transparent}
+/* Glass cards on setup screen (matches app card style) */
+body.glass-on .setup-card{
+  background:rgba(var(--glass-rgb),0.28) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+[data-theme="light"] body.glass-on .setup-card{
+  background:rgba(var(--glass-rgb),0.55) !important;
+}
+/* Inline error message below form cards */
+.setup-error{
+  width:100%;max-width:380px;font-size:13px;color:var(--red);
+  text-align:center;margin:6px 0 0;display:none;line-height:1.4;
+}
+.setup-error.vis{display:block}
+/* Button loading spinner */
+.btn-primary.loading{position:relative;pointer-events:none;opacity:.75}
+.btn-primary.loading::after{
+  content:'';position:absolute;right:16px;top:50%;
+  width:16px;height:16px;margin-top:-8px;
+  border:2px solid rgba(0,0,0,.25);border-top-color:#0D0D0F;
+  border-radius:50%;animation:btn-spin .7s linear infinite;
+}
+@keyframes btn-spin{to{transform:rotate(360deg)}}
 .setup-logo{
   font-size:48px;margin-bottom:8px;
 }
@@ -1150,6 +1180,7 @@ body.glass-on .widget-card{
       </div>
     </div>
 
+    <div class="setup-error" id="sp2-error"></div>
     <button id="auth-login-btn" class="btn-primary" style="margin-top:12px;width:100%;max-width:380px" onclick="doAuthLogin()">Anmelden →</button>
     <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(3)">Noch kein Konto? Registrieren</button>
     <button class="btn-ghost" style="margin-top:2px;font-size:11px;color:var(--text3)" onclick="document.getElementById('auth-admin-url-wrap').style.display=document.getElementById('auth-admin-url-wrap').style.display==='none'?'block':'none'">⚙ Admin-URL konfigurieren</button>
@@ -1196,6 +1227,7 @@ body.glass-on .widget-card{
       </div>
     </div>
 
+    <div class="setup-error" id="sp3-error"></div>
     <button id="auth-signup-btn" class="btn-primary" style="margin-top:12px;width:100%;max-width:380px" onclick="doAuthSignup()">Konto erstellen →</button>
     <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(2)">Bereits registriert? Anmelden</button>
   </div>
@@ -2858,7 +2890,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   } else if(CFG.adminUrl){
     // Admin-URL bekannt, aber keine Session → Login anzeigen
     gotoSetupStep(2);
-    document.getElementById('su-admin-url').value = CFG.adminUrl;
+    document.getElementById('auth-admin-url').value = CFG.adminUrl;
   } else if(CFG.scriptUrl){
     document.getElementById('cfg-url').value = CFG.scriptUrl;
     launchApp();
@@ -2909,9 +2941,12 @@ function doLogout(){
 
 // ── Setup Wizard ─────────────────────────────────────────
 function gotoSetupStep(n){
-  document.querySelectorAll('.setup-page').forEach((el,i)=>{
-    el.classList.toggle('active', i===n);
+  // Match by element ID (sp-0…sp-3) so DOM order doesn't affect navigation
+  document.querySelectorAll('.setup-page').forEach(el=>{
+    el.classList.toggle('active', el.id==='sp-'+n);
   });
+  // Clear inline errors when switching steps
+  document.querySelectorAll('.setup-error').forEach(e=>{e.textContent='';e.classList.remove('vis')});
   for(let i=0;i<=2;i++){
     const dot = document.getElementById('ssd-'+i);
     if(dot) dot.classList.toggle('active', i<=n);
@@ -2922,6 +2957,15 @@ function gotoSetupStep(n){
   }
   const prog = document.getElementById('setup-progress');
   if(prog) prog.style.display = n===0 ? 'none' : 'flex';
+  // Scroll setup to top when switching pages
+  const el = document.getElementById('setup');
+  if(el) el.scrollTop=0;
+}
+
+function resetLoginForm(){
+  ['auth-user','auth-pw','auth-admin-url','su-user','su-pw','su-pw2','su-admin-url']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.querySelectorAll('.setup-error').forEach(e=>{e.textContent='';e.classList.remove('vis')});
 }
 
 // ── Profile Sync (Google Sheet "Einstellungen") ───────────
@@ -6654,14 +6698,18 @@ function togglePwVis(inputId, btn){
 async function doAuthLogin(){
   const user = (document.getElementById('auth-user').value||'').trim().toLowerCase();
   const pw   = (document.getElementById('auth-pw').value)||'';
-  if(!user||!pw){ toast('Benutzername und Passwort eingeben','err'); return; }
+  const errEl = document.getElementById('sp2-error');
+  const showErr = msg => { errEl.textContent=msg; errEl.classList.add('vis'); };
+  errEl.classList.remove('vis');
+
+  if(!user||!pw){ showErr('Benutzername und Passwort eingeben'); return; }
 
   const adminUrlInput = (document.getElementById('auth-admin-url').value||'').trim();
   const adminUrl = adminUrlInput || CFG.adminUrl;
-  if(!adminUrl){ toast('Admin-Script-URL fehlt → ⚙ konfigurieren','err'); return; }
+  if(!adminUrl){ showErr('Admin-Script-URL fehlt → ⚙ Admin-URL konfigurieren'); return; }
 
   const btn = document.getElementById('auth-login-btn');
-  btn.disabled=true; btn.textContent='Anmelden…';
+  btn.classList.add('loading'); btn.disabled=true; btn.textContent='Anmelden…';
   try{
     const hash = await sha256(pw);
     const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'login',user,hash}));
@@ -6672,8 +6720,8 @@ async function doAuthLogin(){
     cfgSave();
     launchApp();
   }catch(e){
-    toast('Fehler: '+e.message,'err');
-    btn.disabled=false; btn.textContent='Anmelden →';
+    showErr(e.message||'Verbindung fehlgeschlagen');
+    btn.classList.remove('loading'); btn.disabled=false; btn.textContent='Anmelden →';
   }
 }
 
@@ -6682,13 +6730,17 @@ async function doAuthSignup(){
   const pw    = (document.getElementById('su-pw').value)||'';
   const pw2   = (document.getElementById('su-pw2').value)||'';
   const adminUrl = (document.getElementById('su-admin-url').value||'').trim() || CFG.adminUrl;
-  if(!user||!pw||!pw2){ toast('Alle Felder ausfüllen','err'); return; }
-  if(pw!==pw2){ toast('Passwörter stimmen nicht überein','err'); return; }
-  if(pw.length<6){ toast('Passwort: min. 6 Zeichen','err'); return; }
-  if(!adminUrl){ toast('Admin-Script-URL eintragen','err'); return; }
+  const errEl = document.getElementById('sp3-error');
+  const showErr = msg => { errEl.textContent=msg; errEl.classList.add('vis'); };
+  errEl.classList.remove('vis');
+
+  if(!user||!pw||!pw2){ showErr('Alle Felder ausfüllen'); return; }
+  if(pw!==pw2){ showErr('Passwörter stimmen nicht überein'); return; }
+  if(pw.length<6){ showErr('Passwort: mind. 6 Zeichen'); return; }
+  if(!adminUrl){ showErr('Admin-Script-URL eintragen'); return; }
 
   const btn = document.getElementById('auth-signup-btn');
-  btn.disabled=true; btn.textContent='Konto wird erstellt…';
+  btn.classList.add('loading'); btn.disabled=true; btn.textContent='Konto wird erstellt…';
   try{
     const hash = await sha256(pw);
     const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
@@ -6697,11 +6749,11 @@ async function doAuthSignup(){
     CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
     CFG.scriptUrl=''; CFG.demo=false;
     cfgSave();
-    toast('✓ Konto erstellt — willkommen, '+d.username+'!','ok');
+    toast('✓ Willkommen, '+d.username+'!','ok');
     launchApp();
   }catch(e){
-    toast('Fehler: '+e.message,'err');
-    btn.disabled=false; btn.textContent='Konto erstellen →';
+    showErr(e.message||'Verbindung fehlgeschlagen');
+    btn.classList.remove('loading'); btn.disabled=false; btn.textContent='Konto erstellen →';
   }
 }
 

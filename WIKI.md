@@ -2029,4 +2029,107 @@ Der Abschnitt „Erscheinungsbild" in `tab-einstellungen` enthält:
 
 ---
 
+## Kapitel 22 — Safe-Area-Fixes & Login-Screen Redesign
+
+### 22.1 Safe Area: Bottom-Nav-Gap (iPhone PWA)
+
+**Problem**: Unterhalb der Navigationsleiste erscheint auf manchen iPhones (PWA-Modus) ein weisser/leerer Streifen im Home-Indicator-Bereich.
+
+**Ursache**: `env(safe-area-inset-bottom)` innerhalb einer CSS-Variablen (`var(--safe-bot)`) wird von WebKit in bestimmten Kontexten nicht korrekt aufgelöst, wenn sie innerhalb von `calc()` verwendet wird.
+
+**Fix** (`#nav`):
+```css
+/* Direkte env()-Werte statt CSS-Variable (belt-and-suspenders für iOS PWA) */
+#nav{
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+```
+- Voraussetzung: `<meta name="viewport" content="…viewport-fit=cover">` (bereits vorhanden)
+- `env(safe-area-inset-bottom)` ≈ 34px auf iPhone mit Home-Indicator
+
+**Fix** (Top-Bar — vorherige Version):
+- `padding-top` aus `#app` entfernt → in `.top-bar` eingebaut: `calc(env(safe-area-inset-top,0px) + 10px)`
+- Hintergrundfarbe der Top-Bar füllt jetzt hinter die Statusleiste (kein Spalt)
+
+### 22.2 Login-Screen: Visuelles Redesign
+
+**Änderungen an `#setup`**:
+- Scrollbar bei offenem Keyboard (`overflow-y:auto`, `-webkit-overflow-scrolling:touch`)
+- `justify-content:flex-start` + grosszügiges `padding-top: max(40px, 8vh)` statt `justify-content:center` (verhindert, dass Keyboard den Submit-Button verdeckt)
+- Wenn `body.has-bg-image`: `#setup { background: transparent }` → dasselbe Hintergrundbild wie Rest der App
+- Safe-Area-Padding direkt mit `env()` (konsistent mit `#nav`)
+
+**Glass-Kacheln im Login**:
+```css
+body.glass-on .setup-card {
+  background: rgba(var(--glass-rgb), 0.28);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+}
+[data-theme="light"] body.glass-on .setup-card {
+  background: rgba(var(--glass-rgb), 0.55); /* heller im Light-Mode */
+}
+```
+
+### 22.3 Login-Screen: UX-Fixes
+
+**Inline-Fehlermeldungen statt Toast**:
+- `#sp2-error` unter dem Login-Formular (Page sp-2)
+- `#sp3-error` unter dem Signup-Formular (Page sp-3)
+- CSS-Klasse `.setup-error` / `.setup-error.vis`
+- `doAuthLogin()` und `doAuthSignup()` rufen `showErr(msg)` auf statt `toast()`
+
+**Button-Ladezustand**:
+```css
+.btn-primary.loading { position:relative; pointer-events:none; opacity:.75; }
+.btn-primary.loading::after { /* rotating border spinner (CSS only) */ }
+```
+- `btn.classList.add('loading')` beim Start des API-Calls
+- `btn.classList.remove('loading')` bei Fehler; bei Erfolg → `launchApp()`
+
+**Neue Funktion `resetLoginForm()`**:
+```javascript
+function resetLoginForm()
+```
+- Leert alle Eingabefelder (`auth-user`, `auth-pw`, `auth-admin-url`, `su-user`, `su-pw`, `su-pw2`, `su-admin-url`)
+- Entfernt alle `.setup-error.vis`-Klassen
+
+### 22.4 Bug-Fix: `gotoSetupStep` (DOM-Index vs. ID)
+
+**Problem**: `gotoSetupStep(n)` verwendete den DOM-Index der `.setup-page`-Elemente. Da die Pages in der HTML-Reihenfolge `sp-0, sp-2, sp-3, sp-1` stehen (nicht `0,1,2,3`), wies `gotoSetupStep(2)` auf die Signup-Page und `gotoSetupStep(3)` auf die Guide-Page → Navigation war komplett falsch.
+
+**Fix**: Matching jetzt per Element-ID (`el.id === 'sp-'+n`):
+```javascript
+function gotoSetupStep(n){
+  document.querySelectorAll('.setup-page').forEach(el=>{
+    el.classList.toggle('active', el.id==='sp-'+n);
+  });
+  // Fehler-Divs beim Seitenwechsel leeren
+  document.querySelectorAll('.setup-error').forEach(e=>{
+    e.textContent=''; e.classList.remove('vis');
+  });
+  // … Dots/Lines/Progress unverändert
+}
+```
+
+**Korrekte Navigation jetzt**:
+| Aktion | `gotoSetupStep(n)` | Ziel-Page |
+|---|---|---|
+| Landing → Anmelden | 2 | sp-2 (Login-Formular) |
+| Landing → Account erstellen | 3 | sp-3 (Signup-Formular) |
+| Login → Einrichtungsanleitung | 1 | sp-1 (Guide) |
+| Signup → Zurück zum Login | 2 | sp-2 (Login-Formular) |
+| Zurück zur Landing | 0 | sp-0 (Landing) |
+
+**Weiterer Fix (Zeile 2861)**: Nach Auto-Navigation zur Login-Page wurde `su-admin-url` (Signup-Feld) befüllt statt `auth-admin-url` (Login-Feld). Korrigiert.
+
+### 22.5 Smart Glass Kontrast (vorherige Version)
+
+Aus dem vorigen Commit:
+- `body.glass-on`: `--text2:#B8B8C8`, `--text3:#8888A0` (heller im Dunkelmodus)
+- `[data-theme="light"] body.glass-on`: `--text2:#333340`, `--text3:#545462` (dunkler im Hellmodus)
+- `text-shadow` auf `.top-bar-title`, `.top-bar-sub`, `.nav-btn` für Lesbarkeit über Hintergrundbild
+
+---
+
 *Generiert aus `/home/user/finanztracker1/index.html` — Branch `claude/stocks-settings-toggle-pOwg7`*
