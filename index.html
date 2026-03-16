@@ -98,6 +98,13 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:#0D0D0F;
 }
 .top-bar-right{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.top-bar-circle-btn{
+  position:relative;width:34px;height:34px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text2);cursor:pointer;transition:background .12s;
+}
+.top-bar-circle-btn:active{background:var(--border)}
 
 /* Content */
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
@@ -111,6 +118,11 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   border-top:1px solid var(--border);
   display:flex;align-items:stretch;
   z-index:100;
+}
+/* Extend nav background past bottom edge to eliminate PWA gap */
+#nav::after{
+  content:'';position:absolute;left:0;right:0;top:100%;
+  height:20px;background:inherit;pointer-events:none;
 }
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
@@ -223,19 +235,37 @@ body.glass-on .setup-card{
 [data-theme="light"] body.glass-on .setup-card{
   background:rgba(var(--glass-rgb),0.55) !important;
 }
-/* ── Setup contrast for light backgrounds ── */
+/* ── Setup contrast for any background ── */
 body.has-bg-image .setup-title,
+body.has-bg-image .setup-logo,
 body.has-bg-image .setup-tagline,
 body.has-bg-image .setup-brand{
-  color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);
+  color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.7);
 }
 body.has-bg-image .setup-sub{
-  color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.5);
+  color:rgba(255,255,255,.88);text-shadow:0 1px 6px rgba(0,0,0,.6);
 }
-body.has-bg-image .setup-hint{color:rgba(255,255,255,.7);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-body.has-bg-image .setup-hint b{color:rgba(255,255,255,.9)}
-[data-theme="light"] .setup-title{color:var(--text)}
-[data-theme="light"] .setup-sub{color:var(--text2)}
+body.has-bg-image .setup-hint{color:rgba(255,255,255,.75);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+body.has-bg-image .setup-hint b{color:rgba(255,255,255,.92)}
+body.has-bg-image .setup-label{color:rgba(255,255,255,.8);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
+/* Light mode: always ensure readable text on setup */
+[data-theme="light"] .setup-title{color:#18181E}
+[data-theme="light"] .setup-sub{color:#50505E}
+/* Light mode + bg image: dark cards for max contrast */
+[data-theme="light"] body.has-bg-image .setup-title,
+[data-theme="light"] body.has-bg-image .setup-logo{color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+[data-theme="light"] body.has-bg-image .setup-sub{color:rgba(255,255,255,.88)}
+[data-theme="light"] body.has-bg-image .setup-card{
+  background:rgba(0,0,0,.5) !important;
+  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+  border:1px solid rgba(255,255,255,.15) !important;
+}
+[data-theme="light"] body.has-bg-image .setup-card .setup-label{color:rgba(255,255,255,.75)}
+[data-theme="light"] body.has-bg-image .setup-card .setup-input{
+  background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff;
+}
+[data-theme="light"] body.has-bg-image .setup-card .setup-input::placeholder{color:rgba(255,255,255,.4)}
 /* Inline error message below form cards */
 .setup-error{
   width:100%;max-width:380px;font-size:13px;color:var(--red);
@@ -329,7 +359,7 @@ body.has-bg-image .setup-hint b{color:rgba(255,255,255,.9)}
 /* ═══════════════════════════════════════════════════
    SYNC STATUS
 ═══════════════════════════════════════════════════ */
-.sync-dot{width:8px;height:8px;border-radius:50%;transition:background .3s}
+.sync-dot{width:8px;height:8px;border-radius:50%;transition:background .3s, opacity .6s}
 .sync-dot.online{background:var(--green)}
 .sync-dot.syncing{background:var(--yellow);animation:pulse 1s infinite}
 .sync-dot.error{background:var(--red)}
@@ -737,12 +767,12 @@ body.has-bg-image .setup-hint b{color:rgba(255,255,255,.9)}
    TOASTS
 ═══════════════════════════════════════════════════ */
 #toast{
-  position:fixed;bottom:calc(var(--nav-h) + var(--safe-bot) + 12px);
-  left:50%;transform:translateX(-50%) translateY(8px);
+  position:fixed;top:calc(var(--safe-top) + 12px);
+  left:50%;transform:translateX(-50%) translateY(-16px);
   background:var(--bg3);border:1px solid var(--border2);
   color:var(--text);padding:9px 18px;border-radius:99px;
   font-size:13px;font-weight:600;z-index:600;
-  opacity:0;transition:all .2s;pointer-events:none;
+  opacity:0;transition:all .25s cubic-bezier(.4,0,.2,1);pointer-events:none;
   white-space:nowrap;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -816,6 +846,12 @@ body.has-bg-image .setup-hint b{color:rgba(255,255,255,.9)}
 ═══════════════════════════════════════════════════ */
 /* Background image: body + html get background-image via JS */
 body.has-bg-image{background-size:cover;background-position:center;background-attachment:fixed}
+/* Blurred bg image layer (only when bgImgBlur > 0, applied via JS) */
+body.has-bg-image.bg-blurred::after{
+  content:'';position:fixed;inset:-20px;z-index:0;pointer-events:none;
+  background:inherit;background-size:cover;background-position:center;background-attachment:fixed;
+  filter:blur(var(--bg-img-blur,0px));
+}
 /* Dark overlay for legibility – dark mode slightly heavier than light */
 body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
 [data-theme="light"] body.has-bg-image::before{background:rgba(0,0,0,0.20) !important}
@@ -851,12 +887,93 @@ body.glass-on .type-toggle{
   -webkit-backdrop-filter:blur(var(--glass-blur));
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
-/* Modal in light mode: ensure glass tint is opaque enough to be readable */
+/* Modal in glass mode */
+body.glass-on .modal-overlay .modal{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
 [data-theme="light"] body.glass-on .modal-overlay .modal{
   background:rgba(var(--glass-rgb),0.75) !important;
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
 }
+/* Notification overlay — glass */
+body.glass-on .notif-overlay{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Notification bell icon — glass circle */
+body.glass-on .settings-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha));
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha));
+  border-radius:50%;
+}
+/* Menu overlay — glass */
+body.glass-on .menu-overlay-sheet{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border-left:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Toast — glass */
+body.glass-on #toast{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Form inputs, selects in glass */
+body.glass-on .form-input,
+body.glass-on .form-select,
+body.glass-on .amount-input{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Section titles, settings rows in glass */
+body.glass-on .settings-row{border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important}
+/* ── Glass: make remaining opaque elements transparent ── */
+body.glass-on .section-title{text-shadow:0 1px 3px rgba(0,0,0,.3)}
+body.glass-on .divider{background:rgba(var(--glass-rgb),var(--glass-border-alpha))}
+body.glass-on .save-btn,
+body.glass-on .btn-save{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha));
+}
+body.glass-on .btn-delete{
+  background:rgba(255,77,109,.15) !important;
+  border:1px solid rgba(255,77,109,.25);
+}
+body.glass-on .verlauf-search-wrap{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .home-edit-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .toggle-switch{
+  background:rgba(var(--glass-rgb),0.25) !important;
+}
+body.glass-on .chart-period-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .notif-overlay-close{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on .notif-item{border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important}
+body.glass-on .notif-item-icon{background:rgba(255,209,102,.08)}
+body.glass-on .mv-bar{
+  background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+}
+body.glass-on .month-view{background:transparent !important}
 /* Reduced motion: no blur, keep tint for legibility */
 @media (prefers-reduced-motion:reduce){
   body.glass-on .card,body.glass-on .widget-card,
@@ -898,6 +1015,17 @@ body.glass-on .widget-card{
   --text2:#333340;
   --text3:#545462;
 }
+/* ── Contrast boost for standalone text over bg image (no card behind) ── */
+body.has-bg-image .section-title{
+  color:var(--text);text-shadow:0 1px 6px rgba(0,0,0,.5);font-weight:700;
+}
+body.has-bg-image .empty-text{text-shadow:0 1px 4px rgba(0,0,0,.4)}
+body.has-bg-image .form-label{text-shadow:0 1px 3px rgba(0,0,0,.3)}
+[data-theme="light"] body.has-bg-image .section-title{
+  color:#18181E;text-shadow:0 1px 4px rgba(255,255,255,.6);
+}
+/* Standalone info paragraphs */
+body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 
 /* ═══════════════════════════════════════════════════
    MENU OVERLAY (right-side frosted glass)
@@ -1317,7 +1445,10 @@ body.glass-on .widget-card{
   <!-- Top Bar -->
   <div class="top-bar">
     <div class="top-bar-left">
-      <div class="logo-circle">₣</div>
+      <button class="top-bar-circle-btn" id="notif-btn" onclick="toggleNotifOverlay()" aria-label="Benachrichtigungen">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-badge" id="notif-badge" style="display:none">0</div>
+      </button>
     </div>
     <div class="top-bar-logo">
       <div class="top-bar-title" id="page-title">Eingabe</div>
@@ -1328,9 +1459,8 @@ body.glass-on .widget-card{
         <div class="sync-label" id="sync-label">Demo</div>
         <div class="sync-dot demo" id="sync-dot"></div>
       </div>
-      <button class="settings-btn" id="notif-btn" onclick="toggleNotifOverlay()" aria-label="Benachrichtigungen">
-        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <div class="notif-badge" id="notif-badge" style="display:none">0</div>
+      <button class="top-bar-circle-btn" onclick="openMenuOverlay()" aria-label="Mehr">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
     </div>
   </div>
@@ -1478,9 +1608,28 @@ body.glass-on .widget-card{
 
     <!-- TAB: Verlauf -->
     <div id="tab-verlauf" class="tab-page" style="display:none">
-      <!-- Verlauf-Header: Type-Switch (L1/L2) oder Zurück-Button (L3) -->
+      <!-- Verlauf-Header: Type-Switch → Search → Zeitraum -->
       <div style="padding:12px 16px 0">
-        <!-- Zeitraum-Filter -->
+        <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
+        <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
+          <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
+          <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
+          <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+        </div>
+        <!-- L3: Zurück-Button + Kategoriename + Suche-Icon -->
+        <div id="verlauf-l3-bar" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
+          <button onclick="verlaufGoBack()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
+          <span id="verlauf-l3-title" style="flex:1;font-size:16px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></span>
+          <button onclick="verlaufToggleL3Search()" id="verlauf-l3-search-btn" style="background:none;border:none;color:var(--text3);padding:4px 6px;flex-shrink:0;line-height:0">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
+        <!-- Suchfeld: immer sichtbar L1/L2, per Icon ein-/ausblendbar L3 -->
+        <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="margin:0 0 8px">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
+        </div>
+        <!-- Zeitraum-Filter (below type toggle and search) -->
         <div id="verlauf-filter-bar" style="margin-bottom:8px">
           <button id="verlauf-filter-toggle" onclick="toggleVerlaufFilter()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:13px;cursor:pointer">
             <span style="display:flex;align-items:center;gap:6px">
@@ -1510,25 +1659,6 @@ body.glass-on .widget-card{
             </div>
             <div id="verlauf-filter-summary"></div>
           </div>
-        </div>
-        <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
-        <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
-          <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
-          <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
-          <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
-        </div>
-        <!-- L3: Zurück-Button + Kategoriename + Suche-Icon -->
-        <div id="verlauf-l3-bar" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
-          <button onclick="verlaufGoBack()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
-          <span id="verlauf-l3-title" style="flex:1;font-size:16px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></span>
-          <button onclick="verlaufToggleL3Search()" id="verlauf-l3-search-btn" style="background:none;border:none;color:var(--text3);padding:4px 6px;flex-shrink:0;line-height:0">
-            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-        </div>
-        <!-- Suchfeld: immer sichtbar L1/L2, per Icon ein-/ausblendbar L3 -->
-        <div class="verlauf-search-wrap" id="verlauf-search-wrap" style="margin:0 0 8px">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input class="verlauf-search" id="verlauf-search" placeholder="Suchen…" oninput="setVerlaufSearch(this.value)">
         </div>
       </div>
       <!-- L1: Alle Buchungen (chronologisch) -->
@@ -1882,6 +2012,13 @@ body.glass-on .widget-card{
             <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
           </div>
           <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
+          <div id="bg-blur-section" style="display:none;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:12px;color:var(--text2)">Hintergrund-Unschärfe</span>
+              <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="bg-blur-val">0px</span>
+            </div>
+            <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
+          </div>
           <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
           <div class="settings-row" style="padding:0 0 10px">
             <div>
@@ -1930,7 +2067,7 @@ body.glass-on .widget-card{
       <div class="section" style="padding-top:0">
         <div class="section-title">Navigation</div>
         <div class="card" style="padding:14px">
-          <p style="font-size:13px;color:var(--text2);line-height:1.5">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 2 Tabs erscheinen neben «Übersicht» in der unteren Navigation.</p>
+          <p style="font-size:13px;color:var(--text2);line-height:1.5">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 3 Tabs erscheinen neben «Home» in der unteren Navigation.</p>
         </div>
       </div>
       <div class="section" style="padding-top:0">
@@ -1974,12 +2111,12 @@ body.glass-on .widget-card{
     </button>
     <div class="nav-fab-space"></div>
     <button class="nav-btn" id="nav-slot2-btn" style="display:none" onclick="">
-      <svg viewBox="0 0 24 24" id="nav-slot2-icon"></svg>
+      <svg viewBox="0 0 24 24"></svg>
       <span id="nav-slot2-lbl"></span>
     </button>
-    <button class="nav-btn" id="nav-menu" onclick="openMenuOverlay()">
-      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      Mehr
+    <button class="nav-btn" id="nav-slot3-btn" style="display:none" onclick="">
+      <svg viewBox="0 0 24 24"></svg>
+      <span id="nav-slot3-lbl"></span>
     </button>
   </nav>
   <!-- Floating Action Button -->
@@ -2455,7 +2592,7 @@ body.glass-on .widget-card{
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12 };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, bgImgBlur:0 };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -3875,22 +4012,75 @@ function renderMonthView(){
   `;
 }
 
-// Swipe-back gesture for month view
+// ── Swipe gestures ───────────────────────────────────────────────────────────
+// Main tabs: swipe left/right to switch between adjacent tabs
+// Sub-pages (month-view, modals, detail views): swipe right to go back
 (function(){
-  let sx=0, moving=false;
-  const mv=()=>document.getElementById('month-view');
-  document.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;moving=false;},{passive:true});
-  document.addEventListener('touchmove',e=>{
-    if(!mv()?.classList.contains('open')) return;
-    const dx=e.touches[0].clientX-sx;
-    if(sx<40&&dx>0){moving=true;mv().style.transform=`translateX(${Math.min(dx,window.innerWidth)}px)`;}
+  let sx=0, sy=0, sTime=0, handled=false;
+  const MAIN_TABS = ['home','eingabe','verlauf'];
+  // Dynamically build the ordered tab list from pinned + fixed tabs
+  function getTabOrder(){
+    const pinned = (typeof CFG!=='undefined' && CFG.pinnedTabs) ? CFG.pinnedTabs : [];
+    const tabs = ['home'];
+    if(pinned[0]) tabs.push(pinned[0]);
+    tabs.push('eingabe'); // FAB/center
+    if(pinned[1]) tabs.push(pinned[1]);
+    // Add remaining from PINNABLE_TABS that are not already included
+    if(typeof PINNABLE_TABS!=='undefined'){
+      PINNABLE_TABS.forEach(t=>{
+        if(!tabs.includes(t.key) && (t.key!=='aktien'||CFG.aktienEnabled)) tabs.push(t.key);
+      });
+    }
+    return tabs;
+  }
+
+  const content = ()=>document.getElementById('content');
+  const mv = ()=>document.getElementById('month-view');
+
+  document.addEventListener('touchstart',e=>{
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY; sTime=Date.now(); handled=false;
   },{passive:true});
+
   document.addEventListener('touchend',e=>{
-    if(!moving){return;}
+    if(handled) return;
     const dx=e.changedTouches[0].clientX-sx;
-    mv().style.transform='';
-    if(dx>80) closeMonthView(); else mv().style.transform='';
-    moving=false;
+    const dy=e.changedTouches[0].clientY-sy;
+    const dt=Date.now()-sTime;
+    // Must be a horizontal swipe: >60px horizontal, <100px vertical, <400ms
+    if(Math.abs(dx)<60 || Math.abs(dy)>100 || dt>400) return;
+
+    // 1. Month-view open: swipe right to close
+    if(mv()?.classList.contains('open')){
+      if(dx>0){ closeMonthView(); handled=true; return; }
+    }
+
+    // 2. Any open modal: swipe right to close
+    const openModal = document.querySelector('.modal-overlay.show');
+    if(openModal && dx>0){
+      openModal.classList.remove('show'); handled=true; return;
+    }
+
+    // 3. Menu overlay open: swipe right to close
+    const menuOv = document.getElementById('menu-overlay');
+    if(menuOv?.classList.contains('open') && dx>0){
+      closeMenuOverlay(); handled=true; return;
+    }
+
+    // 4. Notif overlay open: swipe up (already natural) — skip
+
+    // 5. Main tabs: swipe to switch tabs
+    if(typeof currentTab!=='undefined'){
+      const order = getTabOrder();
+      const curIdx = order.indexOf(currentTab);
+      if(curIdx<0) return;
+      if(dx>0 && curIdx>0){
+        // Swipe right → previous tab
+        goTab(order[curIdx-1]); handled=true;
+      } else if(dx<0 && curIdx<order.length-1){
+        // Swipe left → next tab
+        goTab(order[curIdx+1]); handled=true;
+      }
+    }
   },{passive:true});
 })();
 
@@ -4892,6 +5082,17 @@ function moveWidget(key, dir){
   renderHome();
 }
 
+// Widget → target tab mapping for clickable widgets
+const WIDGET_TAB_MAP = {
+  lohnzyklus:'lohn', tagesavg:'verlauf', topKategorien:'kategorien',
+  monatsverlauf:'dashboard', heuteAusgaben:'verlauf', sparquote:'lohn',
+  monatSummary:'monat', monatKategorien:'kategorien', kontostand:'dashboard',
+  jahresSparquote:'dashboard', jahresKategorien:'kategorien',
+  monatsverlaufJahr:'dashboard', verlaufZeitraum:'verlauf',
+  aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
+  aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
+};
+
 function renderHome(){
   const el = document.getElementById('tab-home');
   if(!el) return;
@@ -4906,7 +5107,9 @@ function renderHome(){
   widgets.forEach((key,idx)=>{
     const def = visibleCatalog.find(c=>c.key===key);
     if(!def) return;
-    html += `<div class="widget-card" id="widget-card-${key}">`;
+    const targetTab = WIDGET_TAB_MAP[key];
+    const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
+    html += `<div class="widget-card" id="widget-card-${key}"${clickAttr}>`;
     if(homeEditMode){
       html += `<div class="home-edit-row">
         <span class="home-edit-drag">⠿</span>
@@ -4993,7 +5196,7 @@ function renderWidgetVerlaufZeitraum(){
   const {ausgaben,einnahmen,netto,segments}=verlaufCalcSummary();
   const donut=buildDonutSVG(segments,ausgaben,80);
   const label=verlaufGetRangeLabel();
-  return `<div onclick="goTab('verlauf')" style="cursor:pointer">
+  return `<div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${label}</div>
     <div style="display:flex;gap:10px;align-items:center">
       ${donut?`<div>${donut}</div>`:''}
@@ -5469,7 +5672,6 @@ function renderWidgetAktienPortfolio(){
       <div style="text-align:right"><div style="font-size:11px;color:var(--text3)">Gesamt P&amp;L</div><div style="font-family:'DM Mono',monospace;font-size:14px;color:${pnlColor}">${totalPnl>=0?'+':''}${fmtPrice(totalPnl)}</div></div>
     </div>`:''}
     ${rows.join('')}
-    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Alle Aktien →</button></div>
   </div>`;
 }
 
@@ -5490,7 +5692,6 @@ function renderWidgetAktienWert(){
       <span>Einstand: <span style="font-family:'DM Mono',monospace;color:var(--text)">${fmtPrice(totalCost)}</span></span>
       ${hasLive?`<span style="color:${gv.amt>=0?'var(--green)':'var(--red)'}">P&L: ${gv.amt>=0?'+':''}${fmtPrice(gv.amt)}</span>`:''}
     </div>
-    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Depot →</button></div>
   </div>`;
 }
 
@@ -5642,7 +5843,6 @@ function renderWidgetAktienDashboard(){
   if(!posCount) return `<div>
     <div class="widget-title">Aktien-Dashboard</div>
     <div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div>
-    <div style="margin-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Aktien →</button></div>
   </div>`;
   const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
   const gvSign = gv.amt>=0?'+':'';
@@ -5669,7 +5869,6 @@ function renderWidgetAktienDashboard(){
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
       </div>
     </div>
-    <div style="padding-top:8px;text-align:right"><button onclick="goTab('aktien');event.stopPropagation()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:3px 10px">Depot →</button></div>
   </div>`;
 }
 
@@ -5826,7 +6025,7 @@ function goTab(tab){
     const pinned = CFG.pinnedTabs||[];
     if(pinned[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
     else if(pinned[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
-    else document.getElementById('nav-menu')?.classList.add('active');
+    else if(pinned[2]===tab) document.getElementById('nav-slot3-btn')?.classList.add('active');
   }
   // FAB: active (X) state when on eingabe
   const fab = document.getElementById('fab-add');
@@ -5947,7 +6146,7 @@ function renderMenuOverlay(){
     const unpinnedTabs = visibleTabs.filter(t=>!pinned.includes(t.key));
     if(unpinnedTabs.length > 0){
       html += '<span class="menu-section-label">Weitere Ansichten</span>';
-      const canPin = pinned.length < 2;
+      const canPin = pinned.length < 3;
       unpinnedTabs.forEach(tab=>{
         html += `<div class="menu-item-row">
           <button class="menu-item-nav" onclick="goTab('${tab.key}');closeMenuOverlay()">
@@ -6002,7 +6201,7 @@ function renderMenuOverlay(){
 function pinTab(key){
   if(!CFG.pinnedTabs) CFG.pinnedTabs = [];
   if(CFG.pinnedTabs.includes(key)) return;
-  if(CFG.pinnedTabs.length >= 2){ toast('Maximal 2 Tabs anheftbar',''); return; }
+  if(CFG.pinnedTabs.length >= 3){ toast('Maximal 3 Tabs anheftbar',''); return; }
   CFG.pinnedTabs.push(key);
   cfgSave(); autoSyncProfile();
   renderNav();
@@ -6618,15 +6817,19 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('show'); });
 });
 
-let _syncSettleTimer;
+let _syncSettleTimer, _syncDotHideTimer;
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot'), label=document.getElementById('sync-label');
   clearTimeout(_syncSettleTimer);
+  clearTimeout(_syncDotHideTimer);
   dot.className='sync-dot '+s;
+  dot.style.opacity='1';
   if(s==='online'){
     label.style.display='';
     label.textContent='Verbunden';
     _syncSettleTimer=setTimeout(()=>{ label.style.display='none'; },2000);
+    // Hide green dot after 4 seconds — reappears on next status change
+    _syncDotHideTimer=setTimeout(()=>{ dot.style.opacity='0'; dot.style.transition='opacity .6s'; },4000);
   } else {
     label.style.display='';
     label.textContent={syncing:'Sync…',error:'Fehler',demo:'Demo'}[s]||s;
@@ -8078,7 +8281,7 @@ const NAV_LABELS = {
 
 function renderNav(){
   const pinned = CFG.pinnedTabs || [];
-  [1,2].forEach(i=>{
+  [1,2,3].forEach(i=>{
     const key = pinned[i-1];
     const btn = document.getElementById('nav-slot'+i+'-btn');
     if(!btn) return;
@@ -8163,6 +8366,7 @@ function applyAppBackground(){
   const glassOn = CFG.glassEnabled && GLASS_SUPPORTED && hasBg;
   body.classList.toggle('glass-on', glassOn);
   _updateGlassCssVars();
+  _applyBgBlur();
 }
 
 // Set CSS variables from CFG
@@ -8243,6 +8447,20 @@ function updateGlassAlpha(val){
   if(lbl) lbl.textContent = val+'%';
 }
 
+// Update background image blur from slider
+function updateBgBlur(val){
+  CFG.bgImgBlur = +val;
+  cfgSave();
+  _applyBgBlur();
+  const lbl = document.getElementById('bg-blur-val');
+  if(lbl) lbl.textContent = val+'px';
+}
+function _applyBgBlur(){
+  const blur = CFG.bgImgBlur||0;
+  document.documentElement.style.setProperty('--bg-img-blur', blur+'px');
+  document.body.classList.toggle('bg-blurred', blur>0);
+}
+
 // Render the Erscheinungsbild section in settings
 function renderErscheinungsbild(){
   const grid = document.getElementById('bg-preset-grid'); if(!grid) return;
@@ -8280,6 +8498,14 @@ function renderErscheinungsbild(){
   if(!GLASS_SUPPORTED){
     if(sw) sw.style.opacity='0.4';
   }
+
+  // Background image blur slider (only visible when custom image is set)
+  const bgBlurSection = document.getElementById('bg-blur-section');
+  if(bgBlurSection) bgBlurSection.style.display = hasCustom ? '' : 'none';
+  const bgBlurSlider = document.getElementById('bg-blur-slider');
+  if(bgBlurSlider) bgBlurSlider.value = CFG.bgImgBlur||0;
+  const bgBlurVal = document.getElementById('bg-blur-val');
+  if(bgBlurVal) bgBlurVal.textContent = (CFG.bgImgBlur||0)+'px';
 }
 
 function renderEinstellungen(){
