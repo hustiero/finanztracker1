@@ -7585,6 +7585,22 @@ function _handle(p) {
     ss.getRange(p.range).setFormulas(JSON.parse(p.formulas));
     return _json({ ok: true });
   }
+  if (p.action === 'fetchPrices') {
+    var tickers = JSON.parse(p.tickers || '[]');
+    var results = {};
+    tickers.forEach(function(t) {
+      try {
+        var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(t) + '?interval=1d&range=1d';
+        var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
+        var d = JSON.parse(resp.getContentText());
+        var meta = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
+        if (meta && meta.regularMarketPrice) {
+          results[t] = { price: meta.regularMarketPrice, currency: meta.currency || '', prevClose: meta.chartPreviousClose || meta.previousClose || null };
+        }
+      } catch(e) {}
+    });
+    return _json({ prices: results });
+  }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
 }
 
@@ -7647,6 +7663,22 @@ function _handle(p) {
   if (p.action === 'meta')         return _proxyMeta(user.sheetId);
   if (p.action === 'ensureSheet')  return _proxyEnsureSheet(user.sheetId, p);
   if (p.action === 'setFormulas')  return _proxySetFormulas(user.sheetId, p);
+  if (p.action === 'fetchPrices') {
+    var tickers = JSON.parse(p.tickers || '[]');
+    var results = {};
+    tickers.forEach(function(t) {
+      try {
+        var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(t) + '?interval=1d&range=1d';
+        var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
+        var d = JSON.parse(resp.getContentText());
+        var meta = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
+        if (meta && meta.regularMarketPrice) {
+          results[t] = { price: meta.regularMarketPrice, currency: meta.currency || '', prevClose: meta.chartPreviousClose || meta.previousClose || null };
+        }
+      } catch(e) {}
+    });
+    return { prices: results };
+  }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
@@ -7858,30 +7890,48 @@ async function syncKurseSheet(extraTickers=[]){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>s.ticker.toUpperCase());
   const userCurr = curr().toUpperCase();
-  // Build FX pairs needed: e.g. USD→CHF = "CURRENCY:USDCHF"
   const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
-  const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
-  const allTickers = [...new Set([...tickers, ...fxTickers, ...extraTickers.map(t=>t.toUpperCase())])];
-  if(!allTickers.length) return;
+  const fxPairs = stockCurrencies.map(c=>c+userCurr+'=X'); // Yahoo FX format: USDCHF=X
+  const allTickers = [...new Set([...tickers, ...extraTickers.map(t=>t.toUpperCase())])];
+  const yahooTickers = [...allTickers, ...fxPairs];
+  if(!yahooTickers.length) return;
+
   try{
-    // Ensure Kurse sheet exists
+    // Primary: server-side Yahoo Finance via UrlFetchApp (fast, reliable)
+    const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify(yahooTickers)});
+    if(res.prices){
+      let gotAny = false;
+      for(const [ticker, data] of Object.entries(res.prices)){
+        if(!data.price || data.price<=0) continue;
+        gotAny = true;
+        if(ticker.endsWith('=X')){
+          // FX rate: "USDCHF=X" → key "USDCHF"
+          const pair = ticker.replace('=X','');
+          fxRateCache[pair] = data.price;
+        } else {
+          stockPriceCache[ticker] = {price:data.price, prevClose:data.prevClose, currency:data.currency||'', ts:Date.now()};
+        }
+      }
+      if(gotAny) return; // Success — done
+    }
+  }catch(e){ console.warn('fetchPrices failed, trying GOOGLEFINANCE fallback:', e); }
+
+  // Fallback: GOOGLEFINANCE formulas (slower, less reliable)
+  try{
+    const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
+    const gfTickers = [...allTickers, ...fxTickers];
     await apiCall({action:'ensureSheet', sheet:'Kurse', headers:JSON.stringify(['Ticker','Kurs','Währung'])});
-    // Write ticker column
-    const tickerRows = allTickers.map(t=>[t]);
-    await apiUpdate(`Kurse!A2:A${1+allTickers.length}`, tickerRows);
-    // Set GOOGLEFINANCE formulas in B + C (idempotent)
-    const formulas = allTickers.map((_,i)=>[
+    await apiUpdate(`Kurse!A2:A${1+gfTickers.length}`, gfTickers.map(t=>[t]));
+    const formulas = gfTickers.map((_,i)=>[
       `=IFERROR(GOOGLEFINANCE(A${i+2},"price"),"")`,
       `=IFERROR(GOOGLEFINANCE(A${i+2},"currency"),"")`
     ]);
-    await apiCall({action:'setFormulas', range:`Kurse!B2:C${1+allTickers.length}`, formulas:JSON.stringify(formulas)});
-    // Wait for GOOGLEFINANCE to compute (formulas need time to evaluate)
-    await new Promise(r=>setTimeout(r, 2500));
-    // Read back computed values — retry up to 2 times if empty
-    let gotAny = false;
-    for(let attempt=0; attempt<3 && !gotAny; attempt++){
-      if(attempt>0) await new Promise(r=>setTimeout(r, 2000));
-      const res = await apiGet(`Kurse!A2:C${1+allTickers.length}`);
+    await apiCall({action:'setFormulas', range:`Kurse!B2:C${1+gfTickers.length}`, formulas:JSON.stringify(formulas)});
+    await new Promise(r=>setTimeout(r,3000));
+    for(let attempt=0; attempt<3; attempt++){
+      if(attempt>0) await new Promise(r=>setTimeout(r,2500));
+      const res = await apiGet(`Kurse!A2:C${1+gfTickers.length}`);
+      let gotAny = false;
       (res.values||[]).forEach(r=>{
         const ticker = String(r[0]||'').toUpperCase();
         const price = parseFloat(r[1]);
@@ -7894,8 +7944,9 @@ async function syncKurseSheet(extraTickers=[]){
           stockPriceCache[ticker] = {price, currency: currency||ticker, ts:Date.now()};
         }
       });
+      if(gotAny) break;
     }
-  }catch(e){ console.warn('syncKurseSheet error:', e); }
+  }catch(e){ console.warn('GOOGLEFINANCE fallback error:', e); }
 }
 
 // ── Portfolio-Verlauf ─────────────────────────────────────────────────────────
@@ -8061,29 +8112,26 @@ async function fetchStockPrice(ticker){
   const cached = stockPriceCache[key];
   if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
 
-  // Primary: route through Apps Script → GOOGLEFINANCE (no CORS issues)
+  // Primary: server-side Yahoo Finance via Apps Script (no CORS, fast)
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    // Try the ticker as-is, and if no result try common exchange prefixes
+    try{
+      const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify([key])});
+      if(res.prices && res.prices[key]){
+        const d = res.prices[key];
+        const result = {price:d.price, prevClose:d.prevClose||null, currency:d.currency||'', ts:Date.now()};
+        stockPriceCache[key] = result;
+        return result;
+      }
+    }catch(e){ console.warn('fetchPrices single failed:', e); }
+
+    // Try GOOGLEFINANCE fallback via syncKurseSheet
     await syncKurseSheet([key]);
     let afterSync = stockPriceCache[key];
     if(afterSync) return afterSync;
-    // If plain ticker failed and no exchange prefix, try common US exchanges
-    if(!key.includes(':')){
-      for(const prefix of ['NASDAQ:','NYSE:','NYSEARCA:']){
-        await syncKurseSheet([prefix+key]);
-        afterSync = stockPriceCache[prefix+key];
-        if(afterSync){
-          // Also cache under the short name for convenience
-          stockPriceCache[key] = afterSync;
-          return afterSync;
-        }
-      }
-    }
   }
 
-  // Fallback: Yahoo Finance via CORS proxy
+  // Last resort: Yahoo Finance via CORS proxy (usually blocked by browsers)
   const yahooUrls = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(key)}?interval=1d&range=1d`,
     `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${key}?interval=1d&range=1d`)}`
   ];
   for(const url of yahooUrls){
