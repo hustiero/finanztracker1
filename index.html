@@ -856,7 +856,17 @@ body.has-bg-image.bg-blurred::after{
 body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
 [data-theme="light"] body.has-bg-image::before{background:rgba(0,0,0,0.20) !important}
 
-/* ── Glass surfaces (only meaningful with a background) ── */
+/* ══ Glass surface hierarchy ══════════════════════════════
+   Level 1 – Primary cards: .card, .widget-card
+   Level 2 – Stat/tile cards: .stat-card, .aktie-card, .aktie-summary-card,
+             .spar-goal-card, .verlauf-tile, .sparen-explainer
+   Level 3 – Navigation/bars: #nav, .top-bar, .mv-bar (use glass-nav-alpha)
+   Level 4 – Overlays/modals: .modal, .notif-overlay, .menu-overlay-sheet
+   Level 5 – Small elements: buttons, inputs, toggles (glass-alpha)
+   All levels can be disabled with body.glass-clean to show a flat look.
+═══════════════════════════════════════════════════════════ */
+
+/* ── Level 1: Primary cards ── */
 body.glass-on .card,
 body.glass-on .widget-card{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
@@ -864,6 +874,56 @@ body.glass-on .widget-card{
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
   box-shadow:0 4px 30px rgba(0,0,0,0.12);
+}
+/* ── Level 2: Stat & tile cards ── */
+body.glass-on .stat-card,
+body.glass-on .aktie-card,
+body.glass-on .aktie-summary-card,
+body.glass-on .spar-goal-card,
+body.glass-on .sparen-explainer,
+body.glass-on .verlauf-tile{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+  box-shadow:0 4px 30px rgba(0,0,0,0.12);
+}
+/* Top-bar circle buttons (bell, mehr) */
+body.glass-on .top-bar-circle-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Monatsübersicht / Jahresübersicht nav buttons (< >) */
+body.glass-on .btn-cancel{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+/* Spar add buttons */
+body.glass-on .spar-add-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(200,245,60,.25) !important;
+}
+/* ── Clean mode: flat glass without per-tile blur ── */
+body.glass-clean .card,
+body.glass-clean .widget-card,
+body.glass-clean .stat-card,
+body.glass-clean .aktie-card,
+body.glass-clean .aktie-summary-card,
+body.glass-clean .spar-goal-card,
+body.glass-clean .sparen-explainer,
+body.glass-clean .verlauf-tile,
+body.glass-clean .top-bar-circle-btn,
+body.glass-clean .btn-cancel,
+body.glass-clean .spar-add-btn{
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 /* Nav — override light-mode solid bg */
 body.glass-on #nav,
@@ -2078,10 +2138,10 @@ body.glass-on .spar-add-btn{
                 <div class="settings-row-label">Design</div>
                 <div class="settings-row-sub" id="theme-mode-sub">Dunkles oder helles Design</div>
               </div>
-              <div id="theme-seg" style="display:flex;background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-                <button onclick="setThemeMode('')" id="theme-btn-dark" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Dunkel</button>
-                <button onclick="setThemeMode('auto')" id="theme-btn-auto" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Auto</button>
-                <button onclick="setThemeMode('light')" id="theme-btn-light" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Hell</button>
+              <div id="theme-seg" style="display:flex;background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--border);flex-shrink:0">
+                <button onclick="setThemeMode('')" id="theme-btn-dark" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Dunkel</button>
+                <button onclick="setThemeMode('auto')" id="theme-btn-auto" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Auto</button>
+                <button onclick="setThemeMode('light')" id="theme-btn-light" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Hell</button>
               </div>
             </div>
           </div>
@@ -2120,12 +2180,19 @@ body.glass-on .spar-add-btn{
                 </div>
                 <input id="glass-blur-slider" type="range" min="2" max="30" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
               </div>
-              <div>
+              <div style="margin-bottom:12px">
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                   <span style="font-size:12px;color:var(--text2)">Transparenz</span>
                   <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
                 </div>
                 <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+              </div>
+              <div class="settings-row" style="padding:0">
+                <div>
+                  <div class="settings-row-label" style="font-size:12px">Clean Look</div>
+                  <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
+                </div>
+                <div class="toggle-switch" id="glass-clean-sw" onclick="toggleGlassClean()"></div>
               </div>
             </div>
           </div>
@@ -2691,7 +2758,7 @@ body.glass-on .spar-add-btn{
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, bgImgBlur:0, themeMode:'' };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{} };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -3045,19 +3112,19 @@ function avgDailyVarSpend(mo, yr, daysElapsed){
   return daysElapsed>0?total/daysElapsed:0;
 }
 // Smart prev-month avg: categories marked isFixkosten in currMo/currYr are also excluded from prev month
+// Includes recurring occurrences for prev month (same as avgDailyVarSpend does for current)
 function avgDailyVarSpendPrevComp(currMo, currYr){
   const prevMo = currMo===0?11:currMo-1;
   const prevYr = currMo===0?currYr-1:currYr;
   const daysInPrev = new Date(prevYr,prevMo+1,0).getDate();
-  const dauerCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
-  const currFixCats = new Set(DATA.expenses
-    .filter(e=>e.isFixkosten && new Date(e.date+'T12:00:00').getMonth()===currMo && new Date(e.date+'T12:00:00').getFullYear()===currYr)
-    .map(e=>e.cat));
-  const exclCats = new Set([...dauerCats,...currFixCats]);
-  const total = DATA.expenses.filter(e=>{
+  const ps=`${prevYr}-${String(prevMo+1).padStart(2,'0')}-01`;
+  const pe=`${prevYr}-${String(prevMo+1).padStart(2,'0')}-${String(daysInPrev).padStart(2,'0')}`;
+  const recur=getRecurringOccurrences(ps,pe,true,true).filter(r=>!isFixkostenEntry(r));
+  const expEntries = DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
-    return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!exclCats.has(e.cat)&&!e.excludeAvg&&!e.isFixkosten;
-  }).reduce((s,e)=>s+e.amt,0);
+    return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!isFixkostenEntry(e)&&!e.excludeAvg;
+  });
+  const total = [...expEntries,...recur].reduce((s,e)=>s+e.amt,0);
   return {avg:daysInPrev>0?total/daysInPrev:0, prevMo, prevYr};
 }
 // Avg daily variable spend for a full year
@@ -3236,6 +3303,9 @@ function _profileExportable(){
     glassEnabled:      !!CFG.glassEnabled,
     glassBlur:         CFG.glassBlur||12,
     glassAlpha:        CFG.glassAlpha||12,
+    glassClean:        !!CFG.glassClean,
+    fontColor:         CFG.fontColor||'',
+    fontColors:        CFG.fontColors||{},
   };
 }
 function _profileApply(prof){
@@ -3258,8 +3328,12 @@ function _profileApply(prof){
   if(prof.glassEnabled      !== undefined) CFG.glassEnabled      = !!prof.glassEnabled;
   if(prof.glassBlur         !== undefined) CFG.glassBlur         = +prof.glassBlur||12;
   if(prof.glassAlpha        !== undefined) CFG.glassAlpha        = +prof.glassAlpha||12;
+  if(prof.glassClean        !== undefined) CFG.glassClean        = !!prof.glassClean;
+  if(prof.fontColor         !== undefined) CFG.fontColor         = prof.fontColor||'';
+  if(prof.fontColors        !== undefined) CFG.fontColors        = prof.fontColors||{};
   cfgSave();
   applyAppBackground();
+  applyFontColors();
 }
 
 async function syncProfileToSheet(){
@@ -4157,14 +4231,16 @@ function renderMonthView(){
 (function(){
   let sx=0, sy=0, sTime=0, handled=false;
   const MAIN_TABS = ['home','eingabe','verlauf'];
-  // Dynamically build the ordered tab list from pinned + fixed tabs
+  // Dynamically build the ordered tab list matching the bottom nav bar exactly:
+  // Home, pinned[0], eingabe (FAB), pinned[1], pinned[2], then remaining from Mehr menu
   function getTabOrder(){
     const pinned = (typeof CFG!=='undefined' && CFG.pinnedTabs) ? CFG.pinnedTabs : [];
     const tabs = ['home'];
     if(pinned[0]) tabs.push(pinned[0]);
     tabs.push('eingabe'); // FAB/center
     if(pinned[1]) tabs.push(pinned[1]);
-    // Add remaining from PINNABLE_TABS that are not already included
+    if(pinned[2]) tabs.push(pinned[2]);
+    // Add remaining from PINNABLE_TABS (Mehr menu order) that are not already included
     if(typeof PINNABLE_TABS!=='undefined'){
       PINNABLE_TABS.forEach(t=>{
         if(!tabs.includes(t.key) && (t.key!=='aktien'||CFG.aktienEnabled)) tabs.push(t.key);
@@ -4187,6 +4263,13 @@ function renderMonthView(){
     const dt=Date.now()-sTime;
     // Must be a horizontal swipe: >60px horizontal, <100px vertical, <400ms
     if(Math.abs(dx)<60 || Math.abs(dy)>100 || dt>400) return;
+
+    // 0. Edge swipe from right edge → open Mehr menu
+    const screenW = window.innerWidth;
+    if(sx > screenW - 30 && dx < -60){
+      if(typeof openMenuOverlay==='function') openMenuOverlay();
+      handled=true; return;
+    }
 
     // 1. Month-view open: swipe right to close
     if(mv()?.classList.contains('open')){
@@ -4540,7 +4623,7 @@ function renderVerlaufL2(){
       const pct = grandTotal>0 ? c.total/grandTotal*100 : 0;
       const barPct = maxTotal>0 ? c.total/maxTotal*100 : 0;
       return `
-      <div data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;min-height:88px">
+      <div class="verlauf-tile" data-kat="${esc(c.name)}" onclick="verlaufOpenKatFromEl(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;min-height:88px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
           <span style="font-size:18px;line-height:1">${catEmoji(c.name)}</span>
           <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
@@ -6110,7 +6193,7 @@ function renderWidgetMonatsverlaufJahr(yr){
   const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
   return `<div>
     <div class="widget-title">Monatsverlauf ${yr}</div>
-    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="openMonthViewAt(${m.mo},${yr})">
+    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="mvMonth=${m.mo};mvYear=${yr};goTab('monat');renderMonat()">
       <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
       <div style="flex:1;display:flex;flex-direction:column;gap:2px">
         <div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${m.out?Math.max(m.out/maxT*100,2).toFixed(1):0}%;background:${m.cur?'var(--accent)':'var(--red)'};border-radius:2px;opacity:${m.cur?1:.7}"></div></div>
@@ -6133,7 +6216,7 @@ function renderWidgetAktienPortfolio(){
   let totalCost=0, totalPnl=0, hasPnl=false;
   const rows = active.map(s=>{
     const pos = calcPosition(s.id);
-    const live = s.ticker ? stockPriceCache[s.ticker] : null;
+    const live = s.ticker ? getCachedStock(s.ticker) : null;
     const lp = live?.price;
     totalCost += pos.totalCost;
     let pnlAmt=null, pnlPct=null;
@@ -6311,7 +6394,7 @@ function getPortfolioTodayChange(){
   let totalChange = 0, hasData = false;
   SDATA.stocks.forEach(s => {
     const pos = calcPosition(s.id); if(pos.qty < 0.0001) return;
-    const cached = s.ticker ? stockPriceCache[s.ticker] : null;
+    const cached = s.ticker ? getCachedStock(s.ticker) : null;
     if(!cached?.price || !cached?.prevClose) return;
     const fxRate = getFxRate(cached.currency || s.currency);
     totalChange += (cached.price - cached.prevClose) * pos.qty * fxRate;
@@ -7935,9 +8018,27 @@ function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
 // Writes tickers to Kurse sheet, sets GOOGLEFINANCE formulas, reads back prices + FX rates.
 // Falls back to Yahoo Finance if sheet unavailable.
 // extraTickers: optional additional tickers to fetch (e.g. ticker being tested before save)
+// Normalize ticker from Yahoo format to GOOGLEFINANCE format
+function normalizeTickerForGF(t){
+  t = t.trim().toUpperCase();
+  // Yahoo ".SW" → GOOGLEFINANCE "VTX:" (Swiss Exchange)
+  if(t.endsWith('.SW')){ return 'VTX:'+t.replace('.SW',''); }
+  // Yahoo ".DE" → GOOGLEFINANCE "FRA:"
+  if(t.endsWith('.DE')){ return 'FRA:'+t.replace('.DE',''); }
+  // Yahoo ".L" → GOOGLEFINANCE "LON:"
+  if(t.endsWith('.L')){ return 'LON:'+t.replace('.L',''); }
+  // Yahoo ".PA" → GOOGLEFINANCE "EPA:"
+  if(t.endsWith('.PA')){ return 'EPA:'+t.replace('.PA',''); }
+  // Yahoo ".TO" → GOOGLEFINANCE "TSE:"
+  if(t.endsWith('.TO')){ return 'TSE:'+t.replace('.TO',''); }
+  // Yahoo ".AS" → GOOGLEFINANCE "AMS:"
+  if(t.endsWith('.AS')){ return 'AMS:'+t.replace('.AS',''); }
+  // Already has colon (GOOGLEFINANCE format) or plain US ticker → keep as-is
+  return t;
+}
 async function syncKurseSheet(extraTickers=[]){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
-  const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>s.ticker.toUpperCase());
+  const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>normalizeTickerForGF(s.ticker));
   const userCurr = curr().toUpperCase();
   const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
   const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
@@ -8009,7 +8110,16 @@ function aktieColor(stockId){
 function getDurchschnittsPreis(stockId){ return calcPosition(stockId).avgPrice; }
 
 // Aktueller Live-Kurs aus Cache (null wenn nicht verfügbar)
-function getAktuellerKurs(ticker){ return ticker ? (stockPriceCache[ticker]?.price ?? null) : null; }
+function getAktuellerKurs(ticker){
+  if(!ticker) return null;
+  // Try original key first, then normalized GOOGLEFINANCE key
+  const p = stockPriceCache[ticker.toUpperCase()] || stockPriceCache[normalizeTickerForGF(ticker)];
+  return p?.price ?? null;
+}
+function getCachedStock(ticker){
+  if(!ticker) return null;
+  return stockPriceCache[ticker.toUpperCase()] || stockPriceCache[normalizeTickerForGF(ticker)] || null;
+}
 
 // FX conversion helpers
 // Returns exchange rate for fromCurrency → curr() (user's currency), or 1 if same/unknown
@@ -8036,7 +8146,7 @@ function getPositionsWert(stockId){
   const s = SDATA.stocks.find(s=>s.id===stockId);
   const lp = s?.ticker ? getAktuellerKurs(s.ticker) : null;
   if(lp!=null && pos.qty>0.0001){
-    const inUserCurr = toUserCurrency(lp, stockPriceCache[s.ticker]?.currency || s.currency);
+    const inUserCurr = toUserCurrency(lp, getCachedStock(s.ticker)?.currency || s.currency);
     return pos.qty * inUserCurr;
   }
   return toUserCurrency(pos.totalCost, s?.currency);
@@ -8054,7 +8164,7 @@ function getGewinnVerlust(stockId){
   if(!s || pos.qty<0.0001) return {amt:0,pct:0,hasLive:false};
   const lp = s.ticker ? getAktuellerKurs(s.ticker) : null;
   if(lp==null) return {amt:0,pct:0,hasLive:false};
-  const stockCurr = stockPriceCache[s.ticker]?.currency || s.currency;
+  const stockCurr = getCachedStock(s.ticker)?.currency || s.currency;
   const fxRate = getFxRate(stockCurr);
   const lpConverted = lp * fxRate;
   const avgConverted = pos.avgPrice * fxRate;
@@ -8069,7 +8179,7 @@ function getGesamtGewinnVerlust(){
   SDATA.stocks.forEach(s=>{
     const pos=calcPosition(s.id); if(pos.qty<0.0001) return;
     const lp=s.ticker?getAktuellerKurs(s.ticker):null; if(!lp) return;
-    const stockCurr = stockPriceCache[s.ticker]?.currency || s.currency;
+    const stockCurr = getCachedStock(s.ticker)?.currency || s.currency;
     const fxRate = getFxRate(stockCurr);
     amt+=(lp-pos.avgPrice)*pos.qty*fxRate; cost+=pos.totalCost*fxRate; hasAny=true;
   });
@@ -8120,13 +8230,14 @@ function setAktienView(v){
 async function fetchStockPrice(ticker){
   if(!ticker) return null;
   const key = ticker.toUpperCase();
-  const cached = stockPriceCache[key];
+  const gfKey = normalizeTickerForGF(key);
+  const cached = stockPriceCache[key] || stockPriceCache[gfKey];
   if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
 
   // Primary: server-side GOOGLEFINANCE via Apps Script (flush + read in one call)
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    await syncKurseSheet([key]);
-    const afterSync = stockPriceCache[key];
+    await syncKurseSheet([gfKey]);
+    const afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
     if(afterSync) return afterSync;
   }
 
@@ -8189,7 +8300,7 @@ function buildPortfolioPieChart(stocks){
 // Bar chart: Ø Kaufpreis vs. Aktueller Kurs per stock (in user currency)
 function buildPreisVergleichChart(stocks){
   const items = stocks.filter(s=>s.pos.qty>0.0001).map(s=>{
-    const live=s.ticker?stockPriceCache[s.ticker]:null;
+    const live=s.ticker?getCachedStock(s.ticker):null;
     const lp=live?.price;
     const stockCurr=(live?.currency||s.currency||'').toUpperCase();
     const fxRate=getFxRate(stockCurr);
@@ -8349,7 +8460,7 @@ function renderAktienTabelle(stocks){
         <th>Ticker</th><th>Anzahl</th><th>Ø Kauf</th><th>Kurs live</th><th>+/- %</th><th>Wert (${curr()})</th>
       </tr></thead>
       <tbody>${active.map(s=>{
-        const live=s.ticker?stockPriceCache[s.ticker]:null;
+        const live=s.ticker?getCachedStock(s.ticker):null;
         const lp=live?.price;
         const stockCurr=(live?.currency||s.currency||'').toUpperCase();
         const userCurrUC=curr().toUpperCase();
@@ -8455,7 +8566,7 @@ async function renderAktien(){
 
   // Fetch live prices in background
   if(aktienView==='aktiv'){
-    const toFetch = activeStocks.filter(s=>s.ticker&&!stockPriceCache[s.ticker]);
+    const toFetch = activeStocks.filter(s=>s.ticker&&!getCachedStock(s.ticker)&&!stockPriceCache[normalizeTickerForGF(s.ticker)]);
     if(toFetch.length){
       await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
       if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
@@ -8469,7 +8580,7 @@ function renderAktienList(stocks, listEl, summaryEl){
   let totalPnl=0, hasPnl=false, totalWert=0;
 
   listEl.innerHTML = stocks.map(s=>{
-    const live = s.ticker ? stockPriceCache[s.ticker] : null;
+    const live = s.ticker ? getCachedStock(s.ticker) : null;
     const livePrice = live?.price;
     const stockCurr = (live?.currency || s.currency || '').toUpperCase();
     const userCurrUC = curr().toUpperCase();
@@ -8550,7 +8661,7 @@ function renderAktieDetail(stockId){
   if(!s) return;
   const trades = SDATA.trades.filter(t=>t.stockId===stockId).sort((a,b)=>b.date.localeCompare(a.date));
   const pos = calcPosition(stockId);
-  const live = s.ticker ? stockPriceCache[s.ticker] : null;
+  const live = s.ticker ? getCachedStock(s.ticker) : null;
   const lp = live?.price;
   const stockCurr = (live?.currency || s.currency || '').toUpperCase();
   const userCurrUC = curr().toUpperCase();
@@ -8620,7 +8731,7 @@ function renderAktieDetail(stockId){
 async function refreshStockPrice(stockId){
   const s = SDATA.stocks.find(s=>s.id===stockId);
   if(!s?.ticker) return;
-  delete stockPriceCache[s.ticker];
+  delete getCachedStock(s.ticker);
   await fetchStockPrice(s.ticker);
   renderAktieDetail(stockId);
 }
@@ -8861,14 +8972,18 @@ function applyThemeMode(){
 
 function updateThemeSegUI(){
   const mode = CFG.themeMode || '';
-  ['dark','auto','light'].forEach(m=>{
+  const order = ['dark','auto','light'];
+  order.forEach((m,i)=>{
     const btn = document.getElementById('theme-btn-'+m);
     if(!btn) return;
     const isActive = (m==='dark' && mode==='') || (m==='auto' && mode==='auto') || (m==='light' && mode==='light');
     btn.style.background = isActive ? 'var(--accent)' : 'transparent';
     btn.style.color = isActive ? 'var(--bg0)' : 'var(--text2)';
     btn.style.fontWeight = isActive ? '600' : '400';
-    btn.style.borderRadius = '6px';
+    // Only round corners on the edge buttons, not middle
+    if(i===0) btn.style.borderRadius = '6px 0 0 6px';
+    else if(i===order.length-1) btn.style.borderRadius = '0 6px 6px 0';
+    else btn.style.borderRadius = '0';
   });
   const sub = document.getElementById('theme-mode-sub');
   if(sub) sub.textContent = mode==='auto' ? 'Wechselt automatisch je nach System/Tageszeit' : mode==='light' ? 'Helles Design' : 'Dunkles Design';
@@ -8940,6 +9055,7 @@ function applyAppBackground(){
   // Glass requires both glassEnabled AND a background to show through
   const glassOn = CFG.glassEnabled && GLASS_SUPPORTED && hasBg;
   body.classList.toggle('glass-on', glassOn);
+  body.classList.toggle('glass-clean', glassOn && !!CFG.glassClean);
   _updateGlassCssVars();
   _applyBgBlur();
 }
@@ -9054,8 +9170,15 @@ function loadBgFile(input){
 function toggleGlass(){
   if(!GLASS_SUPPORTED){ toast('Gerät unterstützt backdrop-filter nicht','err'); return; }
   CFG.glassEnabled = !CFG.glassEnabled;
+  if(!CFG.glassEnabled) CFG.glassClean = false;
   cfgSave(); autoSyncProfile();
   applyAppBackground();
+  renderErscheinungsbild();
+}
+function toggleGlassClean(){
+  CFG.glassClean = !CFG.glassClean;
+  document.body.classList.toggle('glass-clean', CFG.glassClean && CFG.glassEnabled);
+  cfgSave(); autoSyncProfile();
   renderErscheinungsbild();
 }
 
@@ -9123,6 +9246,9 @@ function renderErscheinungsbild(){
   if(alphaSlider) alphaSlider.value = CFG.glassAlpha||12;
   const alphaVal = document.getElementById('glass-alpha-val');
   if(alphaVal) alphaVal.textContent = (CFG.glassAlpha||12)+'%';
+
+  const cleanSw = document.getElementById('glass-clean-sw');
+  if(cleanSw) cleanSw.classList.toggle('on', !!CFG.glassClean);
 
   // Hint if glass not supported
   if(!GLASS_SUPPORTED){
