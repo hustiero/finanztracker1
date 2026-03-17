@@ -110,19 +110,20 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* Content */
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + 24px)}
 
-/* Bottom Nav — sits flush at absolute bottom edge of screen.
-   Buttons extend INTO the safe area (like native iOS tab bars).
-   A small padding-bottom ensures background covers below home indicator. */
+/* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  padding-bottom:8px;
+  padding:0;
   height:auto;
   background:var(--bg1);
   border-top:1px solid var(--border);
   display:flex;align-items:flex-start;
   z-index:100;
 }
-/* Nav buttons — shorter height, sit in the safe area zone */
+#nav::after{
+  content:'';position:absolute;left:0;right:0;top:100%;
+  height:50px;background:inherit;pointer-events:none;
+}
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   height:var(--nav-h);
@@ -932,6 +933,12 @@ body.glass-on #nav,
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on #nav::after,
+[data-theme="light"] body.glass-on #nav::after{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
 }
 /* Top-bar — override light-mode solid bg */
 body.glass-on .top-bar,
@@ -2019,10 +2026,43 @@ body.glass-on .spar-add-btn{
         </div>
       </div>
       <div class="section" style="padding-top:0">
+        <div class="section-title">Standarddesign</div>
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+            Lege das Standard-Erscheinungsbild für neue Benutzer fest. Es wird im Einladungslink mitgegeben.
+          </div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">Hintergrund</div>
+          <div id="admin-design-presets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
+          <div class="settings-row" style="padding:4px 0 8px">
+            <div>
+              <div class="settings-row-label" style="font-size:12px">Glassmorphism</div>
+            </div>
+            <div class="toggle-switch" id="admin-glass-sw" onclick="toggleAdminDefaultGlass()"></div>
+          </div>
+          <div id="admin-glass-detail" style="display:none">
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                <span style="font-size:11px;color:var(--text2)">Unschärfe</span>
+                <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text2)" id="admin-glass-blur-val">14px</span>
+              </div>
+              <input id="admin-glass-blur-slider" type="range" min="2" max="30" value="14" style="width:100%;accent-color:var(--accent)" oninput="updateAdminDefaultDesign()">
+            </div>
+            <div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                <span style="font-size:11px;color:var(--text2)">Transparenz</span>
+                <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text2)" id="admin-glass-alpha-val">45%</span>
+              </div>
+              <input id="admin-glass-alpha-slider" type="range" min="2" max="80" value="45" style="width:100%;accent-color:var(--accent)" oninput="updateAdminDefaultDesign()">
+            </div>
+          </div>
+          <button class="save-btn" onclick="saveAdminDefaultDesign()" style="width:100%;margin-top:6px;font-size:12px">Aktuelles Design als Standard setzen</button>
+        </div>
+      </div>
+      <div class="section" style="padding-top:0">
         <div class="section-title">Einladungslink</div>
         <div class="card" style="padding:14px">
           <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-            Dieser Link enthält die Admin-URL. Teile ihn mit neuen Benutzern — sie können sich direkt registrieren.
+            Dieser Link enthält die Admin-URL und das Standarddesign. Teile ihn mit neuen Benutzern — sie können sich direkt registrieren.
           </div>
           <div id="admin-invite-link" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px 10px;word-break:break-all;margin-bottom:8px"></div>
           <button class="btn-outline-setup" onclick="copyInviteLink()" style="font-size:11px">
@@ -2145,71 +2185,87 @@ body.glass-on .spar-add-btn{
               </div>
             </div>
           </div>
-          <!-- Erscheinungsbild -->
+          <!-- Design summary + Anpassen toggle -->
           <div class="card" style="padding:14px;margin-bottom:10px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Hintergrund</div>
-            <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
-              <button onclick="triggerBgUpload()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
-                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                Eigenes Bild
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="min-width:0">
+                <div style="font-size:13px;font-weight:600;color:var(--text)">Erscheinungsbild</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px" id="design-summary"></div>
+              </div>
+              <button onclick="toggleCustomizeSection()" id="customize-toggle-btn" style="flex-shrink:0;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Anpassen
               </button>
-              <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
-            </div>
-            <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
-            <div id="bg-blur-section" style="display:none;margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:12px;color:var(--text2)">Hintergrund-Unschärfe</span>
-                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="bg-blur-val">0px</span>
-              </div>
-              <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
-            </div>
-            <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
-            <div class="settings-row" style="padding:0 0 10px">
-              <div>
-                <div class="settings-row-label">Glassmorphism</div>
-                <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
-              </div>
-              <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
-            </div>
-            <div id="glass-sliders" style="display:none;margin-top:4px">
-              <div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
-                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
-                </div>
-                <input id="glass-blur-slider" type="range" min="2" max="30" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
-              </div>
-              <div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-size:12px;color:var(--text2)">Transparenz</span>
-                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
-                </div>
-                <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
-              </div>
-              <div class="settings-row" style="padding:0">
-                <div>
-                  <div class="settings-row-label" style="font-size:12px">Clean Look</div>
-                  <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
-                </div>
-                <div class="toggle-switch" id="glass-clean-sw" onclick="toggleGlassClean()"></div>
-              </div>
             </div>
           </div>
-          <div class="card" style="padding:14px;margin-bottom:10px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Schriftfarben</div>
-            <div id="font-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
-            <div id="font-color-custom" style="margin-bottom:6px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Hauptfarbe</span>
-                <input id="fc-primary" type="color" value="#F0F0F5" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('primary',this.value)">
-                <span style="font-size:12px;color:var(--text2);flex-shrink:0;margin-left:8px">Sekundär</span>
-                <input id="fc-secondary" type="color" value="#9090A0" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('secondary',this.value)">
+          <!-- Collapsible customize section -->
+          <div id="customize-section" style="display:none">
+            <!-- Erscheinungsbild -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Hintergrund</div>
+              <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+                <button onclick="triggerBgUpload()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer">
+                  <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  Eigenes Bild
+                </button>
+                <button onclick="clearBgImage()" style="padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:12px;cursor:pointer">Kein Bild</button>
               </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Tertiär</span>
-                <input id="fc-tertiary" type="color" value="#5A5A6A" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('tertiary',this.value)">
-                <button onclick="resetFontColors()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Zurücksetzen</button>
+              <input id="bg-file-input" type="file" accept="image/*" style="display:none" onchange="loadBgFile(this)">
+              <div id="bg-blur-section" style="display:none;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text2)">Hintergrund-Unschärfe</span>
+                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="bg-blur-val">0px</span>
+                </div>
+                <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
+              </div>
+              <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+              <div class="settings-row" style="padding:0 0 10px">
+                <div>
+                  <div class="settings-row-label">Glassmorphism</div>
+                  <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
+                </div>
+                <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
+              </div>
+              <div id="glass-sliders" style="display:none;margin-top:4px">
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
+                    <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
+                  </div>
+                  <input id="glass-blur-slider" type="range" min="2" max="30" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
+                </div>
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="font-size:12px;color:var(--text2)">Transparenz</span>
+                    <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
+                  </div>
+                  <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+                </div>
+                <div class="settings-row" style="padding:0">
+                  <div>
+                    <div class="settings-row-label" style="font-size:12px">Clean Look</div>
+                    <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
+                  </div>
+                  <div class="toggle-switch" id="glass-clean-sw" onclick="toggleGlassClean()"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Schriftfarben</div>
+              <div id="font-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
+              <div id="font-color-custom" style="margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:12px;color:var(--text2);flex-shrink:0">Hauptfarbe</span>
+                  <input id="fc-primary" type="color" value="#F0F0F5" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('primary',this.value)">
+                  <span style="font-size:12px;color:var(--text2);flex-shrink:0;margin-left:8px">Sekundär</span>
+                  <input id="fc-secondary" type="color" value="#9090A0" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('secondary',this.value)">
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:var(--text2);flex-shrink:0">Tertiär</span>
+                  <input id="fc-tertiary" type="color" value="#5A5A6A" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('tertiary',this.value)">
+                  <button onclick="resetFontColors()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Zurücksetzen</button>
+                </div>
               </div>
             </div>
           </div>
@@ -2775,12 +2831,25 @@ body.glass-on .spar-add-btn{
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{} };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
+// Default design preset — applied to new users (no prior config)
+const DEFAULT_DESIGN = {
+  bgPreset:'aurora', glassEnabled:true, glassBlur:14, glassAlpha:45,
+  glassClean:false, fontColor:'cool',
+  fontColors:{primary:'#E8F0FF',secondary:'#8AA0C0',tertiary:'#5A6A88'}
+};
+
 function cfgLoad(){
   const s = localStorage.getItem(CFG_KEY);
+  const isNew = !s;
   if(s) CFG = JSON.parse(s);
+  // Apply default design for brand-new installs
+  if(isNew){
+    Object.assign(CFG, DEFAULT_DESIGN);
+    cfgSave();
+  }
   // Migrate from old navSlots to pinnedTabs
   if(!CFG.pinnedTabs){
     CFG.pinnedTabs = Array.isArray(CFG.navSlots) ? CFG.navSlots.filter(k=>!!k) : [];
@@ -3204,11 +3273,27 @@ window.addEventListener('DOMContentLoaded', ()=>{
   applyAppBackground(); // Apply background + glass immediately after CFG load
   applyFontColors();
 
-  // Read adminUrl from sharing link: ?adminUrl=https://...
+  // Read adminUrl + optional design from sharing/invite link
   const urlParams = new URLSearchParams(window.location.search);
   const adminUrlParam = urlParams.get('adminUrl');
   if(adminUrlParam && adminUrlParam.includes('script.google.com')){
     CFG.adminUrl = adminUrlParam;
+    // Apply admin-defined default design for new users (no session yet = first visit)
+    const designParam = urlParams.get('design');
+    if(designParam && !CFG.sessionToken){
+      try{
+        const dd = JSON.parse(designParam);
+        if(dd.bgPreset) CFG.bgPreset = dd.bgPreset;
+        if(dd.glassEnabled !== undefined) CFG.glassEnabled = !!dd.glassEnabled;
+        if(dd.glassBlur) CFG.glassBlur = +dd.glassBlur;
+        if(dd.glassAlpha) CFG.glassAlpha = +dd.glassAlpha;
+        if(dd.glassClean !== undefined) CFG.glassClean = !!dd.glassClean;
+        if(dd.fontColor) CFG.fontColor = dd.fontColor;
+        if(dd.fontColors) CFG.fontColors = dd.fontColors;
+        applyAppBackground();
+        applyFontColors();
+      }catch(e){}
+    }
     cfgSave();
     window.history.replaceState({}, '', window.location.pathname);
   }
@@ -7605,12 +7690,10 @@ async function doChangePw(){
 
 async function renderAdmin(){
   if(CFG.authRole!=='admin'){ document.getElementById('admin-users-list').innerHTML='<div style="color:var(--text3);font-size:13px">Kein Zugriff.</div>'; return; }
-  // Invite link
+  // Invite link (with design params)
   const invEl = document.getElementById('admin-invite-link');
-  if(invEl){
-    const invUrl = window.location.origin + window.location.pathname + '?adminUrl=' + encodeURIComponent(CFG.adminUrl);
-    invEl.textContent = invUrl;
-  }
+  if(invEl) invEl.textContent = _buildInviteUrl();
+  renderAdminDesignPresets();
   document.getElementById('admin-users-list').innerHTML = '<div style="color:var(--text3);font-size:13px">Lade Benutzerliste…</div>';
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_list',token:CFG.sessionToken}));
@@ -7662,10 +7745,89 @@ async function adminDeleteUser(target){
   }catch(e){ toast('Fehler: '+e.message,'err'); }
 }
 
+function _buildInviteUrl(){
+  let invUrl = window.location.origin + window.location.pathname + '?adminUrl=' + encodeURIComponent(CFG.adminUrl);
+  const dd = CFG.adminDefaultDesign;
+  if(dd) invUrl += '&design=' + encodeURIComponent(JSON.stringify(dd));
+  return invUrl;
+}
 function copyInviteLink(){
-  const invUrl = window.location.origin + window.location.pathname + '?adminUrl=' + encodeURIComponent(CFG.adminUrl);
+  const invUrl = _buildInviteUrl();
   if(navigator.clipboard) navigator.clipboard.writeText(invUrl).then(()=>toast('✓ Einladungslink kopiert','ok')).catch(()=>toast('Clipboard n/a','err'));
   else{ const ta=document.createElement('textarea');ta.value=invUrl;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('✓ Einladungslink kopiert','ok'); }
+}
+
+// Admin: set default design for new users (embedded in invite link)
+function renderAdminDesignPresets(){
+  const grid = document.getElementById('admin-design-presets'); if(!grid) return;
+  const dd = CFG.adminDefaultDesign || DEFAULT_DESIGN;
+  grid.innerHTML = Object.entries(BG_PRESETS).map(([key, p])=>{
+    const isActive = dd.bgPreset===key;
+    return `<div onclick="setAdminDefaultBg('${key}')" style="
+      height:44px;border-radius:var(--r2);cursor:pointer;
+      background:${p.gradient};
+      border:2px solid ${isActive?'var(--accent)':'transparent'};
+      transition:border .15s;position:relative;overflow:hidden">
+      <div style="position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:9px;font-weight:600;color:rgba(255,255,255,0.75);text-shadow:0 1px 3px rgba(0,0,0,.8)">${p.label}</div>
+    </div>`;
+  }).join('');
+  const glassSw = document.getElementById('admin-glass-sw');
+  if(glassSw) glassSw.classList.toggle('on', !!dd.glassEnabled);
+  const detail = document.getElementById('admin-glass-detail');
+  if(detail) detail.style.display = dd.glassEnabled ? '' : 'none';
+  const blurSlider = document.getElementById('admin-glass-blur-slider');
+  if(blurSlider) blurSlider.value = dd.glassBlur||14;
+  const blurVal = document.getElementById('admin-glass-blur-val');
+  if(blurVal) blurVal.textContent = (dd.glassBlur||14)+'px';
+  const alphaSlider = document.getElementById('admin-glass-alpha-slider');
+  if(alphaSlider) alphaSlider.value = dd.glassAlpha||45;
+  const alphaVal = document.getElementById('admin-glass-alpha-val');
+  if(alphaVal) alphaVal.textContent = (dd.glassAlpha||45)+'%';
+}
+function setAdminDefaultBg(key){
+  if(!CFG.adminDefaultDesign) CFG.adminDefaultDesign = {...DEFAULT_DESIGN};
+  CFG.adminDefaultDesign.bgPreset = key;
+  const fcKey = BG_FONT_MAP[key];
+  if(fcKey && FONT_COLOR_PRESETS[fcKey]){
+    const p = FONT_COLOR_PRESETS[fcKey];
+    CFG.adminDefaultDesign.fontColor = fcKey;
+    CFG.adminDefaultDesign.fontColors = {primary:p.primary,secondary:p.secondary,tertiary:p.tertiary};
+  }
+  cfgSave(); renderAdminDesignPresets(); _updateAdminInviteLink();
+}
+function toggleAdminDefaultGlass(){
+  if(!CFG.adminDefaultDesign) CFG.adminDefaultDesign = {...DEFAULT_DESIGN};
+  CFG.adminDefaultDesign.glassEnabled = !CFG.adminDefaultDesign.glassEnabled;
+  cfgSave(); renderAdminDesignPresets(); _updateAdminInviteLink();
+}
+function updateAdminDefaultDesign(){
+  if(!CFG.adminDefaultDesign) CFG.adminDefaultDesign = {...DEFAULT_DESIGN};
+  const blurSlider = document.getElementById('admin-glass-blur-slider');
+  const alphaSlider = document.getElementById('admin-glass-alpha-slider');
+  if(blurSlider) CFG.adminDefaultDesign.glassBlur = +blurSlider.value;
+  if(alphaSlider) CFG.adminDefaultDesign.glassAlpha = +alphaSlider.value;
+  const blurVal = document.getElementById('admin-glass-blur-val');
+  if(blurVal) blurVal.textContent = CFG.adminDefaultDesign.glassBlur+'px';
+  const alphaVal = document.getElementById('admin-glass-alpha-val');
+  if(alphaVal) alphaVal.textContent = CFG.adminDefaultDesign.glassAlpha+'%';
+  cfgSave(); _updateAdminInviteLink();
+}
+function saveAdminDefaultDesign(){
+  CFG.adminDefaultDesign = {
+    bgPreset: CFG.bgPreset||'aurora',
+    glassEnabled: !!CFG.glassEnabled,
+    glassBlur: CFG.glassBlur||14,
+    glassAlpha: CFG.glassAlpha||45,
+    glassClean: !!CFG.glassClean,
+    fontColor: CFG.fontColor||'',
+    fontColors: CFG.fontColors||{}
+  };
+  cfgSave(); renderAdminDesignPresets(); _updateAdminInviteLink();
+  toast('Aktuelles Design als Standard gespeichert','ok');
+}
+function _updateAdminInviteLink(){
+  const invEl = document.getElementById('admin-invite-link');
+  if(invEl) invEl.textContent = _buildInviteUrl();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -9039,6 +9201,33 @@ function toggleSettingsGroup(id){
   if(btn) btn.classList.toggle('open', !isOpen);
 }
 
+// Toggle the "Anpassen" customize section in settings
+function toggleCustomizeSection(){
+  const sec = document.getElementById('customize-section');
+  if(!sec) return;
+  const isOpen = sec.style.display !== 'none';
+  sec.style.display = isOpen ? 'none' : '';
+  const btn = document.getElementById('customize-toggle-btn');
+  if(btn) btn.innerHTML = isOpen
+    ? '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Anpassen'
+    : '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="6 9 12 15 18 9"/></svg> Schliessen';
+}
+
+// Update the design summary text shown above the Anpassen button
+function updateDesignSummary(){
+  const el = document.getElementById('design-summary');
+  if(!el) return;
+  const parts = [];
+  const hasImg = !!localStorage.getItem('ft_bg_image');
+  if(hasImg) parts.push('Eigenes Bild');
+  else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]) parts.push(BG_PRESETS[CFG.bgPreset].label);
+  else parts.push('Standard');
+  if(CFG.glassEnabled) parts.push('Glass');
+  if(CFG.fontColor && CFG.fontColor!=='standard' && FONT_COLOR_PRESETS[CFG.fontColor])
+    parts.push(FONT_COLOR_PRESETS[CFG.fontColor].label);
+  el.textContent = parts.join(' · ');
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MODULE: HINTERGRUNDBILD + GLASSMORPHISM
 // CFG keys: bgPreset, glassEnabled, glassBlur, glassAlpha
@@ -9379,6 +9568,7 @@ function renderErscheinungsbild(){
   const bgBlurVal = document.getElementById('bg-blur-val');
   if(bgBlurVal) bgBlurVal.textContent = (CFG.bgImgBlur||0)+'px';
   renderFontColorUI();
+  updateDesignSummary();
 }
 
 function renderEinstellungen(){
