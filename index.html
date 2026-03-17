@@ -48,7 +48,7 @@
   --glass-border-alpha: 0.150;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0)}
+html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0);overflow:hidden}
 body{
   height:100%;min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh;
   background:var(--bg0);color:var(--text);
@@ -108,30 +108,24 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .top-bar-circle-btn:active{background:var(--border)}
 
 /* Content */
-#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + 24px)}
 
-/* Bottom Nav — use env() directly (belt-and-suspenders for iOS PWA) */
+/* Bottom Nav — sits flush at absolute bottom edge of screen.
+   Buttons extend INTO the safe area (like native iOS tab bars).
+   A small padding-bottom ensures background covers below home indicator. */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom:env(safe-area-inset-bottom, 0px);
+  padding-bottom:8px;
+  height:auto;
   background:var(--bg1);
   border-top:1px solid var(--border);
-  display:flex;align-items:stretch;
+  display:flex;align-items:flex-start;
   z-index:100;
 }
-/* Extend nav background past bottom edge to eliminate PWA gap */
-#nav::after{
-  content:'';position:absolute;left:0;right:0;top:100%;
-  height:env(safe-area-inset-bottom, 40px);min-height:40px;
-  background:inherit;pointer-events:none;
-}
-/* Ensure body fills past safe-area on iPhone — standalone PWA */
-@media all and (display-mode: standalone){
-  html,body{height:100vh;height:100dvh;min-height:-webkit-fill-available}
-}
+/* Nav buttons — shorter height, sit in the safe area zone */
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  height:var(--nav-h);
   background:none;color:var(--text3);font-size:10px;font-weight:500;letter-spacing:.3px;
   transition:color .15s;padding:0;
 }
@@ -142,7 +136,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* FAB */
 .fab{
   position:fixed;
-  bottom:calc(var(--safe-bot) + var(--nav-h) - 28px);
+  bottom:calc(var(--nav-h) + 8px - 28px);
   left:50%;transform:translateX(-50%);
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);border:none;
@@ -837,7 +831,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 [data-theme="light"] .chart-period-btn.active{color:#fff}
 [data-theme="light"] .nav-btn.active{color:var(--accent)}
 [data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
-[data-theme="light"] html{background:var(--bg1)}
+[data-theme="light"] html{background:var(--bg0)}
 [data-theme="light"] body{background:var(--bg0)}
 [data-theme="light"] #nav{background:var(--bg1)}
 [data-theme="light"] .top-bar{background:var(--bg0)}
@@ -1050,12 +1044,12 @@ body.glass-on .month-view{background:transparent !important}
 }
 /* ── Smart contrast: boost muted text in glass mode ── */
 /* Dark mode: secondary/tertiary text is too dark against bright backgrounds */
-body.glass-on{
+body.glass-on:not(.has-custom-font){
   --text2:#B8B8C8;
   --text3:#8888A0;
 }
 /* Light mode: secondary/tertiary text stays dark enough against light glass */
-[data-theme="light"] body.glass-on{
+[data-theme="light"] body.glass-on:not(.has-custom-font){
   --text2:#333340;
   --text3:#545462;
 }
@@ -1071,13 +1065,13 @@ body.glass-on .nav-btn{
   text-shadow:0 1px 3px rgba(255,255,255,0.8);
 }
 /* Cards over busy backgrounds: subtle shadow lifts text off the blur */
-body.glass-on .card,
-body.glass-on .widget-card{
+body.glass-on:not(.has-custom-font) .card,
+body.glass-on:not(.has-custom-font) .widget-card{
   --text2:#B8B8C8;
   --text3:#8888A0;
 }
-[data-theme="light"] body.glass-on .card,
-[data-theme="light"] body.glass-on .widget-card{
+[data-theme="light"] body.glass-on:not(.has-custom-font) .card,
+[data-theme="light"] body.glass-on:not(.has-custom-font) .widget-card{
   --text2:#333340;
   --text3:#545462;
 }
@@ -1226,7 +1220,7 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 /* Tab nav badge (for dynamic tabs) */
 .nav-icon-float{
   position:fixed;
-  bottom:calc(var(--safe-bot) + var(--nav-h) + 4px);
+  bottom:calc(var(--nav-h) + 8px + 4px);
   right:0;
   width:40px;display:flex;justify-content:center;
   z-index:200;pointer-events:none;transition:opacity .2s;
@@ -9082,14 +9076,16 @@ const BG_FONT_MAP = {
 };
 
 function applyFontColors(){
-  const r = document.documentElement;
+  const b = document.body;
   const c = CFG.fontColors || {};
-  if(c.primary)   r.style.setProperty('--text',  c.primary);
-  else r.style.removeProperty('--text');
-  if(c.secondary) r.style.setProperty('--text2', c.secondary);
-  else r.style.removeProperty('--text2');
-  if(c.tertiary)  r.style.setProperty('--text3', c.tertiary);
-  else r.style.removeProperty('--text3');
+  const hasCustom = !!(c.primary || c.secondary || c.tertiary);
+  b.classList.toggle('has-custom-font', hasCustom);
+  if(c.primary)   b.style.setProperty('--text',  c.primary);
+  else b.style.removeProperty('--text');
+  if(c.secondary) b.style.setProperty('--text2', c.secondary);
+  else b.style.removeProperty('--text2');
+  if(c.tertiary)  b.style.setProperty('--text3', c.tertiary);
+  else b.style.removeProperty('--text3');
 }
 function setFontColorPreset(key){
   const p = FONT_COLOR_PRESETS[key];
