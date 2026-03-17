@@ -48,7 +48,7 @@
   --glass-border-alpha: 0.150;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0)}
+html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0);overflow:hidden}
 body{
   height:100%;min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh;
   background:var(--bg0);color:var(--text);
@@ -124,7 +124,12 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #nav::after{
   content:'';position:absolute;left:0;right:0;top:100%;
   height:env(safe-area-inset-bottom, 40px);min-height:40px;
-  background:inherit;pointer-events:none;
+  background:var(--bg0);pointer-events:none;
+}
+/* In glass mode, nav::after must also be glass */
+body.glass-on #nav::after{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha));
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
 }
 /* Ensure body fills past safe-area on iPhone — standalone PWA */
 @media all and (display-mode: standalone){
@@ -837,7 +842,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 [data-theme="light"] .chart-period-btn.active{color:#fff}
 [data-theme="light"] .nav-btn.active{color:var(--accent)}
 [data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
-[data-theme="light"] html{background:var(--bg1)}
+[data-theme="light"] html{background:var(--bg0)}
 [data-theme="light"] body{background:var(--bg0)}
 [data-theme="light"] #nav{background:var(--bg1)}
 [data-theme="light"] .top-bar{background:var(--bg0)}
@@ -1050,12 +1055,12 @@ body.glass-on .month-view{background:transparent !important}
 }
 /* ── Smart contrast: boost muted text in glass mode ── */
 /* Dark mode: secondary/tertiary text is too dark against bright backgrounds */
-body.glass-on{
+body.glass-on:not(.has-custom-font){
   --text2:#B8B8C8;
   --text3:#8888A0;
 }
 /* Light mode: secondary/tertiary text stays dark enough against light glass */
-[data-theme="light"] body.glass-on{
+[data-theme="light"] body.glass-on:not(.has-custom-font){
   --text2:#333340;
   --text3:#545462;
 }
@@ -1071,13 +1076,13 @@ body.glass-on .nav-btn{
   text-shadow:0 1px 3px rgba(255,255,255,0.8);
 }
 /* Cards over busy backgrounds: subtle shadow lifts text off the blur */
-body.glass-on .card,
-body.glass-on .widget-card{
+body.glass-on:not(.has-custom-font) .card,
+body.glass-on:not(.has-custom-font) .widget-card{
   --text2:#B8B8C8;
   --text3:#8888A0;
 }
-[data-theme="light"] body.glass-on .card,
-[data-theme="light"] body.glass-on .widget-card{
+[data-theme="light"] body.glass-on:not(.has-custom-font) .card,
+[data-theme="light"] body.glass-on:not(.has-custom-font) .widget-card{
   --text2:#333340;
   --text3:#545462;
 }
@@ -9082,14 +9087,16 @@ const BG_FONT_MAP = {
 };
 
 function applyFontColors(){
-  const r = document.documentElement;
+  const b = document.body;
   const c = CFG.fontColors || {};
-  if(c.primary)   r.style.setProperty('--text',  c.primary);
-  else r.style.removeProperty('--text');
-  if(c.secondary) r.style.setProperty('--text2', c.secondary);
-  else r.style.removeProperty('--text2');
-  if(c.tertiary)  r.style.setProperty('--text3', c.tertiary);
-  else r.style.removeProperty('--text3');
+  const hasCustom = !!(c.primary || c.secondary || c.tertiary);
+  b.classList.toggle('has-custom-font', hasCustom);
+  if(c.primary)   b.style.setProperty('--text',  c.primary);
+  else b.style.removeProperty('--text');
+  if(c.secondary) b.style.setProperty('--text2', c.secondary);
+  else b.style.removeProperty('--text2');
+  if(c.tertiary)  b.style.setProperty('--text3', c.tertiary);
+  else b.style.removeProperty('--text3');
 }
 function setFontColorPreset(key){
   const p = FONT_COLOR_PRESETS[key];
