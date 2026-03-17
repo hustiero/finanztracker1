@@ -2075,10 +2075,14 @@ body.glass-on .spar-add-btn{
           <div class="card" style="padding:0 14px;margin-bottom:10px">
             <div class="settings-row">
               <div>
-                <div class="settings-row-label">Dunkel-Modus</div>
-                <div class="settings-row-sub">Dunkles oder helles Design</div>
+                <div class="settings-row-label">Design</div>
+                <div class="settings-row-sub" id="theme-mode-sub">Dunkles oder helles Design</div>
               </div>
-              <div class="toggle-switch" id="theme-toggle-sw" onclick="toggleThemeSwitch()"></div>
+              <div id="theme-seg" style="display:flex;background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+                <button onclick="setThemeMode('')" id="theme-btn-dark" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Dunkel</button>
+                <button onclick="setThemeMode('auto')" id="theme-btn-auto" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Auto</button>
+                <button onclick="setThemeMode('light')" id="theme-btn-light" style="padding:6px 10px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2)">Hell</button>
+              </div>
             </div>
           </div>
           <!-- Erscheinungsbild -->
@@ -2687,7 +2691,7 @@ body.glass-on .spar-add-btn{
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, bgImgBlur:0 };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, bgImgBlur:0, themeMode:'' };
 
 function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
 function cfgLoad(){
@@ -2697,7 +2701,9 @@ function cfgLoad(){
   if(!CFG.pinnedTabs){
     CFG.pinnedTabs = Array.isArray(CFG.navSlots) ? CFG.navSlots.filter(k=>!!k) : [];
   }
-  document.documentElement.dataset.theme = CFG.theme||'';
+  // Migrate old theme toggle to themeMode
+  if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';
+  applyThemeMode();
 }
 
 // Returns user's configured display currency (default CHF)
@@ -3214,6 +3220,7 @@ function _profileExportable(){
     ft_profile_v1:     true,
     userName:          CFG.userName||'',
     theme:             CFG.theme||'',
+    themeMode:         CFG.themeMode||'',
     lohnTag:           CFG.lohnTag||25,
     sparziel:          CFG.sparziel||0,
     mSparziel:         CFG.mSparziel||0,
@@ -3234,7 +3241,8 @@ function _profileExportable(){
 function _profileApply(prof){
   if(!prof || !prof.ft_profile_v1) return;
   if(prof.userName          !== undefined) CFG.userName          = prof.userName;
-  if(prof.theme             !== undefined){ CFG.theme = prof.theme; document.documentElement.dataset.theme = prof.theme||''; }
+  if(prof.themeMode         !== undefined){ CFG.themeMode = prof.themeMode; applyThemeMode(); }
+  else if(prof.theme        !== undefined){ CFG.theme = prof.theme; document.documentElement.dataset.theme = prof.theme||''; }
   if(prof.lohnTag           !== undefined) CFG.lohnTag           = prof.lohnTag;
   if(prof.sparziel          !== undefined) CFG.sparziel          = prof.sparziel;
   if(prof.mSparziel         !== undefined) CFG.mSparziel         = prof.mSparziel;
@@ -8827,14 +8835,50 @@ function applySettings2(){
   location.reload();
 }
 
-function toggleThemeSwitch(){
-  const isLight = document.documentElement.dataset.theme==='light';
-  const newTheme = isLight ? '' : 'light';
-  document.documentElement.dataset.theme = newTheme;
-  CFG.theme = newTheme;
+function setThemeMode(mode){
+  CFG.themeMode = mode; // '' = dark, 'light' = light, 'auto' = auto
   cfgSave();
-  const sw = document.getElementById('theme-toggle-sw');
-  if(sw) sw.classList.toggle('on', newTheme!=='light');
+  applyThemeMode();
+  updateThemeSegUI();
+}
+
+function applyThemeMode(){
+  let effective = CFG.themeMode || '';
+  if(effective === 'auto'){
+    // Use system preference, fallback to time-based (6–20 = light)
+    if(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches){
+      effective = 'light';
+    } else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+      effective = '';
+    } else {
+      const h = new Date().getHours();
+      effective = (h >= 6 && h < 20) ? 'light' : '';
+    }
+  }
+  document.documentElement.dataset.theme = effective;
+  CFG.theme = effective;
+}
+
+function updateThemeSegUI(){
+  const mode = CFG.themeMode || '';
+  ['dark','auto','light'].forEach(m=>{
+    const btn = document.getElementById('theme-btn-'+m);
+    if(!btn) return;
+    const isActive = (m==='dark' && mode==='') || (m==='auto' && mode==='auto') || (m==='light' && mode==='light');
+    btn.style.background = isActive ? 'var(--accent)' : 'transparent';
+    btn.style.color = isActive ? 'var(--bg0)' : 'var(--text2)';
+    btn.style.fontWeight = isActive ? '600' : '400';
+    btn.style.borderRadius = '6px';
+  });
+  const sub = document.getElementById('theme-mode-sub');
+  if(sub) sub.textContent = mode==='auto' ? 'Wechselt automatisch je nach System/Tageszeit' : mode==='light' ? 'Helles Design' : 'Dunkles Design';
+}
+
+// Listen for system theme changes when in auto mode
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{
+    if(CFG.themeMode==='auto') applyThemeMode();
+  });
 }
 
 function toggleSettingsGroup(id){
@@ -8882,7 +8926,7 @@ function applyAppBackground(){
   const hasBg = !!(imgData || CFG.bgPreset);
   let bgValue = '';
   if(imgData){
-    bgValue = `url(${imgData})`;
+    bgValue = `url("${imgData.replace(/"/g,'')}")`;
   } else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]){
     bgValue = BG_PRESETS[CFG.bgPreset].gradient;
   }
@@ -8971,20 +9015,39 @@ function triggerBgUpload(){
   document.getElementById('bg-file-input')?.click();
 }
 
-// Load selected image file as base64
+// Load selected image file — resize to max 1200px to stay within localStorage limits
 function loadBgFile(input){
   const file = input.files?.[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const data = e.target.result;
-    _saveBgImageData(data);
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 1200;
+    let w = img.width, h = img.height;
+    if(w > MAX || h > MAX){
+      const scale = MAX / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    const data = canvas.toDataURL('image/jpeg', 0.8);
+    try{
+      _saveBgImageData(data);
+    }catch(e){
+      toast('Bild zu gross für lokalen Speicher','err');
+      input.value = '';
+      URL.revokeObjectURL(img.src);
+      return;
+    }
     CFG.bgPreset = '';
     cfgSave(); autoSyncProfile();
     applyAppBackground();
     renderErscheinungsbild();
     input.value = '';
+    URL.revokeObjectURL(img.src);
   };
-  reader.readAsDataURL(file);
+  img.onerror = () => { toast('Bild konnte nicht geladen werden','err'); input.value = ''; };
+  img.src = URL.createObjectURL(file);
 }
 
 // Toggle glass effect
@@ -9081,8 +9144,7 @@ function renderEinstellungen(){
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
   const nameEl = document.getElementById('s-username');
   if(nameEl) nameEl.value = CFG.userName||'';
-  const sw = document.getElementById('theme-toggle-sw');
-  if(sw) sw.classList.toggle('on', document.documentElement.dataset.theme!=='light');
+  updateThemeSegUI();
   const aktEnabledSw = document.getElementById('aktien-enabled-sw');
   if(aktEnabledSw) aktEnabledSw.classList.toggle('on', !!CFG.aktienEnabled);
   const aktBilanzRow = document.getElementById('aktien-bilanz-row');
