@@ -108,35 +108,24 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .top-bar-circle-btn:active{background:var(--border)}
 
 /* Content */
-#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 16px)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + max(var(--safe-bot), 34px) + 16px)}
 
-/* Bottom Nav — use env() directly (belt-and-suspenders for iOS PWA) */
+/* Bottom Nav — extends below screen edge to cover home indicator / safe area gap.
+   Uses a generous padding-bottom so the nav background always fills to the absolute
+   bottom of the screen, even when env(safe-area-inset-bottom) returns 0. */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom:env(safe-area-inset-bottom, 0px);
+  padding-bottom:max(env(safe-area-inset-bottom, 0px), 34px);
+  height:auto;
   background:var(--bg1);
   border-top:1px solid var(--border);
-  display:flex;align-items:stretch;
+  display:flex;align-items:flex-start;
   z-index:100;
 }
-/* Extend nav background past bottom edge to eliminate PWA gap */
-#nav::after{
-  content:'';position:absolute;left:0;right:0;top:100%;
-  height:env(safe-area-inset-bottom, 40px);min-height:40px;
-  background:var(--bg0);pointer-events:none;
-}
-/* In glass mode, nav::after must also be glass */
-body.glass-on #nav::after{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha));
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-}
-/* Ensure body fills past safe-area on iPhone — standalone PWA */
-@media all and (display-mode: standalone){
-  html,body{height:100vh;height:100dvh;min-height:-webkit-fill-available}
-}
+/* Nav buttons sit in a fixed-height strip */
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  height:var(--nav-h);
   background:none;color:var(--text3);font-size:10px;font-weight:500;letter-spacing:.3px;
   transition:color .15s;padding:0;
 }
@@ -147,7 +136,7 @@ body.glass-on #nav::after{
 /* FAB */
 .fab{
   position:fixed;
-  bottom:calc(var(--safe-bot) + var(--nav-h) - 28px);
+  bottom:calc(max(var(--safe-bot), 34px) + var(--nav-h) - 28px);
   left:50%;transform:translateX(-50%);
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);border:none;
@@ -1231,7 +1220,7 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 /* Tab nav badge (for dynamic tabs) */
 .nav-icon-float{
   position:fixed;
-  bottom:calc(var(--safe-bot) + var(--nav-h) + 4px);
+  bottom:calc(max(var(--safe-bot), 34px) + var(--nav-h) + 4px);
   right:0;
   width:40px;display:flex;justify-content:center;
   z-index:200;pointer-events:none;transition:opacity .2s;
