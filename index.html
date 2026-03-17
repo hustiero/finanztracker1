@@ -48,9 +48,10 @@
   --glass-border-alpha: 0.150;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html{height:100%;overscroll-behavior:none;background:var(--bg1)}
+html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0)}
 body{
-  height:100%;background:var(--bg0);color:var(--text);
+  height:100%;min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh;
+  background:var(--bg0);color:var(--text);
   font-family:'DM Sans',sans-serif;font-size:15px;
   overflow:hidden;overscroll-behavior:none;
   -webkit-user-select:none;user-select:none;
@@ -122,7 +123,12 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* Extend nav background past bottom edge to eliminate PWA gap */
 #nav::after{
   content:'';position:absolute;left:0;right:0;top:100%;
-  height:40px;background:inherit;pointer-events:none;
+  height:env(safe-area-inset-bottom, 40px);min-height:40px;
+  background:inherit;pointer-events:none;
+}
+/* Ensure body fills past safe-area on iPhone — standalone PWA */
+@media all and (display-mode: standalone){
+  html,body{height:100vh;height:100dvh;min-height:-webkit-fill-available}
 }
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
@@ -2196,6 +2202,23 @@ body.glass-on .spar-add-btn{
               </div>
             </div>
           </div>
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Schriftfarben</div>
+            <div id="font-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
+            <div id="font-color-custom" style="margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Hauptfarbe</span>
+                <input id="fc-primary" type="color" value="#F0F0F5" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('primary',this.value)">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0;margin-left:8px">Sekundär</span>
+                <input id="fc-secondary" type="color" value="#9090A0" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('secondary',this.value)">
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Tertiär</span>
+                <input id="fc-tertiary" type="color" value="#5A5A6A" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('tertiary',this.value)">
+                <button onclick="resetFontColors()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Zurücksetzen</button>
+              </div>
+            </div>
+          </div>
           <div class="card" style="padding:14px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Navigation</div>
             <p style="font-size:13px;color:var(--text2);line-height:1.5;margin:0">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 3 Tabs erscheinen neben «Home» in der unteren Navigation.</p>
@@ -3185,6 +3208,7 @@ function catEmoji(name){
 window.addEventListener('DOMContentLoaded', ()=>{
   cfgLoad();
   applyAppBackground(); // Apply background + glass immediately after CFG load
+  applyFontColors();
 
   // Read adminUrl from sharing link: ?adminUrl=https://...
   const urlParams = new URLSearchParams(window.location.search);
@@ -4351,6 +4375,7 @@ function exportExcel(){
 let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen'
 let verlaufKat = null;            // null | string — gewählte Kategorie für L3
 let verlaufL3SearchVis = false;   // Suchfeld auf L3 sichtbar?
+let verlaufCatSort = 'amount';    // 'amount' | 'count' — sort for L2 tiles
 let dashboardChartMonths = 3;
 
 function renderAll(){
@@ -4604,6 +4629,10 @@ function renderVerlaufL1(){
 // 2-Spalten-Kachelraster, sortiert nach Gesamtbetrag absteigend.
 // Suche filtert Kategorienamen. Klick → L3.
 // Datenquelle: DATA.expenses (ausgaben) oder DATA.incomes (einnahmen)
+function toggleVerlaufCatSort(){
+  verlaufCatSort = verlaufCatSort==='amount' ? 'count' : 'amount';
+  renderVerlaufL2();
+}
 function renderVerlaufL2(){
   const container = document.getElementById('verlauf-l2-content');
   if(!container) return;
@@ -4616,9 +4645,19 @@ function renderVerlaufL2(){
     container.innerHTML = `<div class="empty"><div class="empty-text">Keine Kategorien</div></div>`;
     return;
   }
+  // Sort by amount or transaction count
+  if(verlaufCatSort==='count'){
+    cats.sort((a,b)=>b.count-a.count || b.total-a.total);
+  } else {
+    cats.sort((a,b)=>b.total-a.total);
+  }
   const grandTotal = cats.reduce((s,c)=>s+c.total, 0);
   const maxTotal = cats[0]?.total||1;
-  container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 16px 16px">` +
+  const sortLabel = verlaufCatSort==='amount' ? 'Betrag ↓' : 'Anzahl ↓';
+  container.innerHTML = `<div style="display:flex;justify-content:flex-end;padding:0 16px 6px">
+    <button onclick="toggleVerlaufCatSort()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">${sortLabel}</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 16px 16px">` +
     cats.map(c=>{
       const pct = grandTotal>0 ? c.total/grandTotal*100 : 0;
       const barPct = maxTotal>0 ? c.total/maxTotal*100 : 0;
@@ -6115,7 +6154,7 @@ function renderWidgetJahresSparquote(yr){
   const doneM=yMonths.filter(m=>!m.cur);
   const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
   const proj=avgM*12;
-  return `<div>
+  return `<div onclick="goTab('sparen')" style="cursor:pointer">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="widget-title" style="margin-bottom:0">Jahres-Sparquote ${yr}</div>
       ${isCurrentYear?`<button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
@@ -6542,9 +6581,9 @@ function renderDashboard(){
       </div>
     </div>
 
-    <!-- Jahres-Sparquote (shared widget) -->
+    <!-- Jahres-Sparquote (shared widget) — click navigates to Sparen tab -->
     <div class="section" style="padding-top:0">
-      <div class="card" style="padding:14px">${renderWidgetJahresSparquote(dashYear)}</div>
+      <div class="card" style="padding:14px;cursor:pointer" onclick="goTab('sparen')">${renderWidgetJahresSparquote(dashYear)}</div>
     </div>
 
     <!-- Top Kategorien (shared widget) -->
@@ -9027,6 +9066,78 @@ const BG_PRESETS = {
   sand:     { label:'Sand',     color:'#f0e8d0', gradient:'radial-gradient(ellipse 70% 50% at 40% 30%, #e8d8b8 0%, transparent 55%), linear-gradient(160deg, #f4ece0 0%, #ede4d4 100%)' },
 };
 
+// Font color presets — auto-applied with background presets
+const FONT_COLOR_PRESETS = {
+  standard:{ label:'Standard', primary:'#F0F0F5', secondary:'#9090A0', tertiary:'#5A5A6A' },
+  warm:    { label:'Warm',     primary:'#FFF5E6', secondary:'#C8A882', tertiary:'#8A7060' },
+  cool:    { label:'Kühl',     primary:'#E8F0FF', secondary:'#8AA0C0', tertiary:'#5A6A88' },
+  mint:    { label:'Mint',     primary:'#E8FFF0', secondary:'#80C8A0', tertiary:'#507060' },
+  light:   { label:'Hell',     primary:'#1A1A22', secondary:'#404050', tertiary:'#606070' },
+};
+// Map background presets to recommended font colors
+const BG_FONT_MAP = {
+  aurora:'cool', midnight:'cool', forest:'mint', sunset:'warm',
+  ocean:'cool', slate:'standard',
+  sky:'light', blossom:'light', sand:'light',
+};
+
+function applyFontColors(){
+  const r = document.documentElement;
+  const c = CFG.fontColors || {};
+  if(c.primary)   r.style.setProperty('--text',  c.primary);
+  else r.style.removeProperty('--text');
+  if(c.secondary) r.style.setProperty('--text2', c.secondary);
+  else r.style.removeProperty('--text2');
+  if(c.tertiary)  r.style.setProperty('--text3', c.tertiary);
+  else r.style.removeProperty('--text3');
+}
+function setFontColorPreset(key){
+  const p = FONT_COLOR_PRESETS[key];
+  if(!p) return;
+  CFG.fontColor = key;
+  CFG.fontColors = {primary:p.primary, secondary:p.secondary, tertiary:p.tertiary};
+  cfgSave(); autoSyncProfile();
+  applyFontColors();
+  renderFontColorUI();
+}
+function setFontColorCustom(which, val){
+  if(!CFG.fontColors) CFG.fontColors = {};
+  CFG.fontColors[which] = val;
+  CFG.fontColor = 'custom';
+  cfgSave(); autoSyncProfile();
+  applyFontColors();
+}
+function resetFontColors(){
+  CFG.fontColor = '';
+  CFG.fontColors = {};
+  cfgSave(); autoSyncProfile();
+  applyFontColors();
+  renderFontColorUI();
+}
+function renderFontColorUI(){
+  const grid = document.getElementById('font-color-presets');
+  if(!grid) return;
+  const cur = CFG.fontColor || '';
+  grid.innerHTML = Object.entries(FONT_COLOR_PRESETS).map(([key,p])=>{
+    const isActive = cur===key;
+    return `<div onclick="setFontColorPreset('${key}')" style="
+      height:32px;border-radius:6px;cursor:pointer;
+      background:${key==='light'?'#f0f0f5':'#1a1a22'};
+      border:2px solid ${isActive?'var(--accent)':'transparent'};
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:600;color:${p.primary};
+      transition:border .15s">${p.label}</div>`;
+  }).join('');
+  // Update custom pickers
+  const fc = CFG.fontColors || {};
+  const fp = document.getElementById('fc-primary');
+  if(fp) fp.value = fc.primary || '#F0F0F5';
+  const fs = document.getElementById('fc-secondary');
+  if(fs) fs.value = fc.secondary || '#9090A0';
+  const ft = document.getElementById('fc-tertiary');
+  if(ft) ft.value = fc.tertiary || '#5A5A6A';
+}
+
 // Check if backdrop-filter is supported
 const GLASS_SUPPORTED = CSS.supports('backdrop-filter','blur(1px)') || CSS.supports('-webkit-backdrop-filter','blur(1px)');
 
@@ -9112,9 +9223,18 @@ function _updateGlassCssVars(){
 function setBgPreset(key){
   CFG.bgPreset = key;
   _saveBgImageData(''); // clear custom image when choosing preset
+  // Auto-apply matching font color preset
+  const fcKey = BG_FONT_MAP[key];
+  if(fcKey && FONT_COLOR_PRESETS[fcKey]){
+    const p = FONT_COLOR_PRESETS[fcKey];
+    CFG.fontColor = fcKey;
+    CFG.fontColors = {primary:p.primary, secondary:p.secondary, tertiary:p.tertiary};
+    applyFontColors();
+  }
   cfgSave(); autoSyncProfile();
   applyAppBackground();
   renderErscheinungsbild();
+  renderFontColorUI();
 }
 
 // Clear all backgrounds
@@ -9262,6 +9382,7 @@ function renderErscheinungsbild(){
   if(bgBlurSlider) bgBlurSlider.value = CFG.bgImgBlur||0;
   const bgBlurVal = document.getElementById('bg-blur-val');
   if(bgBlurVal) bgBlurVal.textContent = (CFG.bgImgBlur||0)+'px';
+  renderFontColorUI();
 }
 
 function renderEinstellungen(){
