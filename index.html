@@ -7588,17 +7588,39 @@ function _handle(p) {
   if (p.action === 'fetchPrices') {
     var tickers = JSON.parse(p.tickers || '[]');
     var results = {};
-    tickers.forEach(function(t) {
-      try {
-        var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(t) + '?interval=1d&range=1d';
-        var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
-        var d = JSON.parse(resp.getContentText());
-        var meta = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
-        if (meta && meta.regularMarketPrice) {
-          results[t] = { price: meta.regularMarketPrice, currency: meta.currency || '', prevClose: meta.chartPreviousClose || meta.previousClose || null };
+    // Use GOOGLEFINANCE server-side: set formulas, flush, read back
+    var sh = ss.getSheetByName('Kurse');
+    if (!sh) {
+      sh = ss.insertSheet('Kurse');
+      sh.getRange(1,1,1,3).setValues([['Ticker','Kurs','Währung']]);
+    }
+    if (tickers.length > 0) {
+      // Clear old data and write tickers
+      var dataRange = sh.getRange(2, 1, Math.max(sh.getLastRow(), tickers.length + 1), 3);
+      dataRange.clearContent();
+      sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
+      // Set GOOGLEFINANCE formulas
+      var formulas = tickers.map(function(t, i) {
+        return [
+          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
+          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","currency"),"")'
+        ];
+      });
+      sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
+      SpreadsheetApp.flush();
+      Utilities.sleep(2000);
+      SpreadsheetApp.flush();
+      // Read back computed values
+      var vals = sh.getRange(2, 1, tickers.length, 3).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        var ticker = String(vals[i][0] || '').toUpperCase();
+        var price = parseFloat(vals[i][1]);
+        var currency = String(vals[i][2] || '');
+        if (ticker && !isNaN(price) && price > 0) {
+          results[ticker] = { price: price, currency: currency, prevClose: null };
         }
-      } catch(e) {}
-    });
+      }
+    }
     return _json({ prices: results });
   }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
@@ -7666,17 +7688,36 @@ function _handle(p) {
   if (p.action === 'fetchPrices') {
     var tickers = JSON.parse(p.tickers || '[]');
     var results = {};
-    tickers.forEach(function(t) {
-      try {
-        var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(t) + '?interval=1d&range=1d';
-        var resp = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
-        var d = JSON.parse(resp.getContentText());
-        var meta = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
-        if (meta && meta.regularMarketPrice) {
-          results[t] = { price: meta.regularMarketPrice, currency: meta.currency || '', prevClose: meta.chartPreviousClose || meta.previousClose || null };
+    var userSs = SpreadsheetApp.openById(user.sheetId);
+    var sh = userSs.getSheetByName('Kurse');
+    if (!sh) {
+      sh = userSs.insertSheet('Kurse');
+      sh.getRange(1,1,1,3).setValues([['Ticker','Kurs','Währung']]);
+    }
+    if (tickers.length > 0) {
+      var dataRange = sh.getRange(2, 1, Math.max(sh.getLastRow(), tickers.length + 1), 3);
+      dataRange.clearContent();
+      sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
+      var formulas = tickers.map(function(t, i) {
+        return [
+          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
+          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","currency"),"")'
+        ];
+      });
+      sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
+      SpreadsheetApp.flush();
+      Utilities.sleep(2000);
+      SpreadsheetApp.flush();
+      var vals = sh.getRange(2, 1, tickers.length, 3).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        var ticker = String(vals[i][0] || '').toUpperCase();
+        var price = parseFloat(vals[i][1]);
+        var currency = String(vals[i][2] || '');
+        if (ticker && !isNaN(price) && price > 0) {
+          results[ticker] = { price: price, currency: currency, prevClose: null };
         }
-      } catch(e) {}
-    });
+      }
+    }
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
@@ -7891,62 +7932,24 @@ async function syncKurseSheet(extraTickers=[]){
   const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>s.ticker.toUpperCase());
   const userCurr = curr().toUpperCase();
   const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
-  const fxPairs = stockCurrencies.map(c=>c+userCurr+'=X'); // Yahoo FX format: USDCHF=X
-  const allTickers = [...new Set([...tickers, ...extraTickers.map(t=>t.toUpperCase())])];
-  const yahooTickers = [...allTickers, ...fxPairs];
-  if(!yahooTickers.length) return;
+  const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
+  const allTickers = [...new Set([...tickers, ...fxTickers, ...extraTickers.map(t=>t.toUpperCase())])];
+  if(!allTickers.length) return;
 
   try{
-    // Primary: server-side Yahoo Finance via UrlFetchApp (fast, reliable)
-    const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify(yahooTickers)});
+    // Server-side: sets GOOGLEFINANCE formulas, flush(), reads back — all in one call
+    const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify(allTickers)});
     if(res.prices){
-      let gotAny = false;
       for(const [ticker, data] of Object.entries(res.prices)){
         if(!data.price || data.price<=0) continue;
-        gotAny = true;
-        if(ticker.endsWith('=X')){
-          // FX rate: "USDCHF=X" → key "USDCHF"
-          const pair = ticker.replace('=X','');
-          fxRateCache[pair] = data.price;
+        if(ticker.startsWith('CURRENCY:')){
+          fxRateCache[ticker.replace('CURRENCY:','')] = data.price;
         } else {
-          stockPriceCache[ticker] = {price:data.price, prevClose:data.prevClose, currency:data.currency||'', ts:Date.now()};
+          stockPriceCache[ticker] = {price:data.price, prevClose:data.prevClose||null, currency:data.currency||'', ts:Date.now()};
         }
       }
-      if(gotAny) return; // Success — done
     }
-  }catch(e){ console.warn('fetchPrices failed, trying GOOGLEFINANCE fallback:', e); }
-
-  // Fallback: GOOGLEFINANCE formulas (slower, less reliable)
-  try{
-    const fxTickers = stockCurrencies.map(c=>`CURRENCY:${c}${userCurr}`);
-    const gfTickers = [...allTickers, ...fxTickers];
-    await apiCall({action:'ensureSheet', sheet:'Kurse', headers:JSON.stringify(['Ticker','Kurs','Währung'])});
-    await apiUpdate(`Kurse!A2:A${1+gfTickers.length}`, gfTickers.map(t=>[t]));
-    const formulas = gfTickers.map((_,i)=>[
-      `=IFERROR(GOOGLEFINANCE(A${i+2},"price"),"")`,
-      `=IFERROR(GOOGLEFINANCE(A${i+2},"currency"),"")`
-    ]);
-    await apiCall({action:'setFormulas', range:`Kurse!B2:C${1+gfTickers.length}`, formulas:JSON.stringify(formulas)});
-    await new Promise(r=>setTimeout(r,3000));
-    for(let attempt=0; attempt<3; attempt++){
-      if(attempt>0) await new Promise(r=>setTimeout(r,2500));
-      const res = await apiGet(`Kurse!A2:C${1+gfTickers.length}`);
-      let gotAny = false;
-      (res.values||[]).forEach(r=>{
-        const ticker = String(r[0]||'').toUpperCase();
-        const price = parseFloat(r[1]);
-        const currency = String(r[2]||'').toUpperCase();
-        if(!ticker || isNaN(price) || price<=0) return;
-        gotAny = true;
-        if(ticker.startsWith('CURRENCY:')){
-          fxRateCache[ticker.replace('CURRENCY:','')] = price;
-        } else {
-          stockPriceCache[ticker] = {price, currency: currency||ticker, ts:Date.now()};
-        }
-      });
-      if(gotAny) break;
-    }
-  }catch(e){ console.warn('GOOGLEFINANCE fallback error:', e); }
+  }catch(e){ console.warn('syncKurseSheet error:', e); }
 }
 
 // ── Portfolio-Verlauf ─────────────────────────────────────────────────────────
@@ -8112,21 +8115,10 @@ async function fetchStockPrice(ticker){
   const cached = stockPriceCache[key];
   if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
 
-  // Primary: server-side Yahoo Finance via Apps Script (no CORS, fast)
+  // Primary: server-side GOOGLEFINANCE via Apps Script (flush + read in one call)
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    try{
-      const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify([key])});
-      if(res.prices && res.prices[key]){
-        const d = res.prices[key];
-        const result = {price:d.price, prevClose:d.prevClose||null, currency:d.currency||'', ts:Date.now()};
-        stockPriceCache[key] = result;
-        return result;
-      }
-    }catch(e){ console.warn('fetchPrices single failed:', e); }
-
-    // Try GOOGLEFINANCE fallback via syncKurseSheet
     await syncKurseSheet([key]);
-    let afterSync = stockPriceCache[key];
+    const afterSync = stockPriceCache[key];
     if(afterSync) return afterSync;
   }
 
