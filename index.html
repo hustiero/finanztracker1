@@ -1316,6 +1316,11 @@ body.glass-on .spar-goal-card{
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
   border-color:rgba(255,255,255,.08);
 }
+body.glass-on .spar-add-btn{
+  background:rgba(var(--glass-rgb),var(--glass-alpha));
+  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border-color:rgba(200,245,60,.15);
+}
 
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -1788,6 +1793,14 @@ body.glass-on .spar-goal-card{
             </div>
           </div>
           <div class="form-group">
+            <label class="form-label">Emoji</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input id="new-cat-emoji" class="form-input" style="width:60px;text-align:center;font-size:20px" maxlength="4" placeholder="💰">
+              <button type="button" class="btn-outline-setup" style="font-size:11px;padding:6px 10px" onclick="document.getElementById('new-cat-emoji-grid').style.display=document.getElementById('new-cat-emoji-grid').style.display==='none'?'grid':'none'">Auswahl</button>
+            </div>
+            <div id="new-cat-emoji-grid" style="display:none;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:8px"></div>
+          </div>
+          <div class="form-group">
             <label class="form-label">Überkategorie <span style="color:var(--text3)">(optional)</span></label>
             <select id="new-cat-parent" class="form-select"><option value="">— keine —</option></select>
           </div>
@@ -1998,7 +2011,7 @@ body.glass-on .spar-goal-card{
       </div>
 
       <!-- ── 1. Persönliche Info ──────────────────────────────── -->
-      <div class="section" style="padding-top:16px">
+      <div class="section" style="padding-top:24px">
         <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-personal')">
           <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Persönliche Info</span>
@@ -2404,6 +2417,15 @@ body.glass-on .spar-goal-card{
       <div class="form-group">
         <label class="form-label">Überkategorie <span style="color:var(--text3)">(optional)</span></label>
         <select id="cat-edit-parent" class="form-select"><option value="">— keine —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="cat-edit-emoji-preview" style="font-size:24px;line-height:1">💰</span>
+          <input id="cat-edit-emoji" class="form-input" style="width:60px;text-align:center;font-size:20px" maxlength="4" placeholder="💰">
+          <button type="button" class="btn-outline-setup" style="font-size:11px;padding:6px 10px" onclick="document.getElementById('cat-emoji-grid').style.display=document.getElementById('cat-emoji-grid').style.display==='none'?'grid':'none'">Auswahl</button>
+        </div>
+        <div id="cat-emoji-grid" style="display:none;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:8px"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Farbe</label>
@@ -3078,6 +3100,8 @@ function normalizeAmt(s){
 }
 function catColor(name){ const c=DATA.categories.find(c=>c.name===name); return c?c.color:'#888'; }
 function catEmoji(name){
+  const cat = DATA.categories.find(c=>c.name===name);
+  if(cat && cat.emoji) return cat.emoji;
   const map={'Zmittag':'🍱','Snack':'🍫','Ferien':'✈️','Poschte':'🛒','Znacht':'🍽️','Gschänk':'🎁','Chleider':'👕','Technik':'💻','Mieti':'🏠','Gsundheit':'💊','Internet':'📡','Handy':'📱','Alkohol':'🍺','Essen in Reschti':'🍷','Rudern':'🚣','Bildung':'📚','Verlochet':'🎉','SBB':'🚆','Möbel o.Ä.':'🪑','Gipfeli':'🥐','Buch':'📖','Sport':'⚽','Freiziit':'🎮','Diverses':'📦','Siemens':'💼','Twint':'📲','Schenkung':'🎀','Übertrag':'🔄'};
   return map[name]||'💰';
 }
@@ -3387,7 +3411,7 @@ async function loadAll(){
 
   try{
     const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] = await Promise.allSettled([
-      apiGet('Kategorien!A2:F500'),
+      apiGet('Kategorien!A2:G500'),
       apiGet('Ausgaben!A2:H5000'),
       apiGet('Einnahmen!A2:H5000'),
       apiGet('Daueraufträge!A2:K200'),
@@ -3400,7 +3424,7 @@ async function loadAll(){
     if(katRes.status==='fulfilled'){
       DATA.categories = (katRes.value.values||[])
         .filter(r=>r[0])
-        .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||''}))
+        .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||'',emoji:r[6]||''}))
         .sort((a,b)=>a.sort-b.sort);
     } else { if(!hadCache) DATA.categories=[]; }
 
@@ -3852,22 +3876,24 @@ async function addCategory(){
   const name = document.getElementById('new-cat-name').value.trim();
   const type = document.getElementById('new-cat-type').value;
   const parent = document.getElementById('new-cat-parent').value||'';
+  const emoji = document.getElementById('new-cat-emoji')?.value.trim()||'';
   if(!name){ toast('Name eingeben','err'); return; }
   if(DATA.categories.find(c=>c.name===name&&c.type===type)){ toast('Kategorie existiert bereits','err'); return; }
 
   const id = genId('K');
   const color = PRESET_COLORS[DATA.categories.length % PRESET_COLORS.length];
   const sort = DATA.categories.length+1;
-  const cat = {id,name,type,color,sort,parent};
+  const cat = {id,name,type,color,sort,parent,emoji};
   DATA.categories.push(cat);
 
   document.getElementById('new-cat-name').value='';
   document.getElementById('new-cat-parent').value='';
+  if(document.getElementById('new-cat-emoji')) document.getElementById('new-cat-emoji').value='';
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Kategorien',[[id,name,type,color,sort,parent]]);
+      await apiAppend('Kategorien',[[id,name,type,color,sort,parent,emoji]]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); return; }
   }
@@ -3876,12 +3902,29 @@ async function addCategory(){
   renderCategories(); fillAllDropdowns();
 }
 
+const CAT_EMOJI_LIST = ['🛒','🍱','🍽️','🍫','🍺','🥐','✈️','🎁','👕','💻','🏠','💊','📡','📱','🍷','🚣','📚','🎉','🚆','🪑','📖','⚽','🎮','📦','💼','📲','🎀','🔄','💰','🚗','🎬','🎵','💇','🏋️','🐕','👶','💍','🏥','🧹','🔧','☕','🍕','🎂','📝','🏦','💳','📊','🌍'];
+
+function buildEmojiGrid(gridId, inputId){
+  const grid = document.getElementById(gridId);
+  if(!grid) return;
+  grid.innerHTML = CAT_EMOJI_LIST.map(e=>
+    `<button type="button" style="font-size:20px;padding:6px;background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;line-height:1" onclick="document.getElementById('${inputId}').value='${e}';${gridId.includes('edit')?`document.getElementById('cat-edit-emoji-preview').textContent='${e}';`:''}this.parentElement.style.display='none'">${e}</button>`
+  ).join('');
+}
+
 function openCatModal(id){
   const cat = DATA.categories.find(c=>c.id===id);
   if(!cat) return;
   document.getElementById('cat-edit-id').value = id;
   document.getElementById('cat-edit-name').value = cat.name;
   document.getElementById('cat-edit-type').value = cat.type;
+
+  // Emoji
+  const currentEmoji = cat.emoji || catEmoji(cat.name);
+  document.getElementById('cat-edit-emoji').value = cat.emoji||'';
+  document.getElementById('cat-edit-emoji-preview').textContent = currentEmoji;
+  document.getElementById('cat-emoji-grid').style.display = 'none';
+  buildEmojiGrid('cat-emoji-grid','cat-edit-emoji');
 
   // Parent dropdown: top-level categories of same type (no parent themselves)
   const parentOpts = DATA.categories.filter(c=>c.id!==id&&c.type===cat.type&&!c.parent&&c.name!==cat.name);
@@ -3910,6 +3953,7 @@ async function updateCategory(){
   const name = document.getElementById('cat-edit-name').value.trim();
   const type = document.getElementById('cat-edit-type').value;
   const parent = document.getElementById('cat-edit-parent').value||'';
+  const emoji = document.getElementById('cat-edit-emoji').value.trim()||'';
   const selected = document.querySelector('#cat-color-grid .color-swatch.selected');
   const color = selected?selected.style.background:PRESET_COLORS[0];
 
@@ -3918,7 +3962,7 @@ async function updateCategory(){
   if(idx===-1) return;
 
   const oldName = DATA.categories[idx].name;
-  DATA.categories[idx] = {...DATA.categories[idx],name,type,color,parent};
+  DATA.categories[idx] = {...DATA.categories[idx],name,type,color,parent,emoji};
 
   if(oldName!==name){
     DATA.expenses.forEach(e=>{ if(e.cat===oldName) e.cat=name; });
@@ -3932,7 +3976,7 @@ async function updateCategory(){
   if(!CFG.demo){
     try{
       const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}:F${row}`,[[id,name,type,color,DATA.categories[idx].sort,parent]]);
+      if(row) await apiUpdate(`Kategorien!A${row}:G${row}`,[[id,name,type,color,DATA.categories[idx].sort,parent,emoji]]);
       setSyncStatus('online'); toast('✓ Kategorie aktualisiert','ok');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   } else toast('✓ Aktualisiert (Demo)','ok');
@@ -5095,6 +5139,8 @@ async function saveSparGoal(editId, isTax){
 
   // Sync to Sheet
   try{
+    // Ensure the Sparziele sheet exists
+    await apiCall({action:'ensureSheet', sheet:'Sparziele', headers:JSON.stringify(['ID','Name','Zielbetrag','Startbetrag','Gespart','Deadline','Typ','Priorität','SteuerPct','SteuerBetrag','Deleted'])});
     const row = [goal.id,goal.name,goal.target,goal.start,goal.saved,goal.deadline,
       goal.isTax?'tax':(goal.open?'1':'0'),goal.priority,goal.taxPct,goal.taxAmt,''];
     if(editId){
@@ -5144,9 +5190,11 @@ function openGenericModal(title, bodyHtml, actionsHtml){
     modal.className = 'modal-overlay';
     modal.innerHTML = `<div class="modal">
       <div class="modal-handle"></div>
-      <div class="modal-title" id="generic-modal-title"></div>
-      <div id="generic-modal-body" style="padding:0 20px"></div>
-      <div id="generic-modal-actions" style="padding:16px 20px 24px"></div>
+      <div class="modal-header">
+        <div class="modal-title" id="generic-modal-title"></div>
+      </div>
+      <div id="generic-modal-body" style="padding:16px 20px"></div>
+      <div id="generic-modal-actions" style="padding:0 20px 24px"></div>
     </div>`;
     modal.addEventListener('click', e=>{ if(e.target===modal) closeGenericModal(); });
     document.body.appendChild(modal);
@@ -5374,6 +5422,8 @@ function renderCategories(){
   renderOberkategorien();
   // Also populate new-cat-parent dropdown
   fillParentDropdown('new-cat-parent', document.getElementById('new-cat-type')?.value||'ausgabe');
+  // Build emoji grid for new category form
+  buildEmojiGrid('new-cat-emoji-grid','new-cat-emoji');
 
   ['ausgabe','einnahme'].forEach(type=>{
     const cats = DATA.categories.filter(c=>c.type===type&&c.id!=='DELETED'&&c.name!=='DELETED');
@@ -6925,10 +6975,10 @@ function renderLohn(){
           <div class="card-row-amount ${e._type==='inc'?'income':''}" style="min-width:60px;text-align:right">
             ${e._type==='inc'?'+':'−'} ${fmtAmt(e.amt)}
           </div>
-          ${e._type==='exp' ? `
+          ${e._type==='exp' && e.recurringId ? `
           <button onclick="toggleFixkosten('${e.id}')" style="margin-left:6px;padding:5px 8px;font-size:11px;font-weight:600;border:1px solid ${e.isFixkosten?'var(--red)':'var(--border)'};border-radius:6px;background:${e.isFixkosten?'rgba(255,77,109,.1)':'var(--bg3)'};color:${e.isFixkosten?'var(--red)':'var(--text3)'};white-space:nowrap;flex-shrink:0">
             ${e.isFixkosten?'Fix ✓':'Fix?'}
-          </button>` : `<div style="width:54px"></div>`}
+          </button>` : `<div style="width:${e._type==='exp'?'0':'54'}px"></div>`}
         </div>`).join('')}
       </div>
     </div>
@@ -8820,6 +8870,42 @@ function _updateGlassCssVars(){
   root.style.setProperty('--glass-nav-alpha', Math.min(alpha*1.5, 0.92).toFixed(3));
   root.style.setProperty('--glass-bar-alpha', Math.min(alpha*1.3, 0.92).toFixed(3));
   root.style.setProperty('--glass-border-alpha', Math.min(alpha*0.8, 0.35).toFixed(3));
+  // Boost text contrast when glass opacity is high
+  if(document.body.classList.contains('glass-on')){
+    const isLight = root.dataset.theme==='light';
+    // As alpha increases, text needs more contrast against the glass background
+    // Dark mode: glass-rgb is dark → push text lighter
+    // Light mode: glass-rgb is light → push text darker
+    if(alpha > 0.20){
+      const boost = Math.min((alpha - 0.20) * 2.5, 1); // 0→1 as alpha 20%→60%
+      if(isLight){
+        // Darken text
+        const t1 = Math.round(24 - boost * 20);
+        const t2 = Math.round(80 - boost * 50);
+        const t3 = Math.round(144 - boost * 60);
+        root.style.setProperty('--text', `rgb(${t1},${t1},${t1+6})`);
+        root.style.setProperty('--text2', `rgb(${t2},${t2},${t2+14})`);
+        root.style.setProperty('--text3', `rgb(${t3},${t3},${t3+12})`);
+      } else {
+        // Lighten text
+        const t1 = Math.round(240 + boost * 15);
+        const t2 = Math.round(144 + boost * 80);
+        const t3 = Math.round(90 + boost * 100);
+        root.style.setProperty('--text', `rgb(${Math.min(t1,255)},${Math.min(t1,255)},${Math.min(t1+5,255)})`);
+        root.style.setProperty('--text2', `rgb(${Math.min(t2,240)},${Math.min(t2,240)},${Math.min(t2+16,255)})`);
+        root.style.setProperty('--text3', `rgb(${Math.min(t3,200)},${Math.min(t3,200)},${Math.min(t3+16,216)})`);
+      }
+    } else {
+      // Reset to default
+      root.style.removeProperty('--text');
+      root.style.removeProperty('--text2');
+      root.style.removeProperty('--text3');
+    }
+  } else {
+    root.style.removeProperty('--text');
+    root.style.removeProperty('--text2');
+    root.style.removeProperty('--text3');
+  }
 }
 
 // Select a preset (or '' to clear)
