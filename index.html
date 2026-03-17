@@ -108,21 +108,21 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .top-bar-circle-btn:active{background:var(--border)}
 
 /* Content */
-#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + max(var(--safe-bot), 34px) + 16px)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + 24px)}
 
-/* Bottom Nav — extends below screen edge to cover home indicator / safe area gap.
-   Uses a generous padding-bottom so the nav background always fills to the absolute
-   bottom of the screen, even when env(safe-area-inset-bottom) returns 0. */
+/* Bottom Nav — sits flush at absolute bottom edge of screen.
+   Buttons extend INTO the safe area (like native iOS tab bars).
+   A small padding-bottom ensures background covers below home indicator. */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  padding-bottom:max(env(safe-area-inset-bottom, 0px), 34px);
+  padding-bottom:8px;
   height:auto;
   background:var(--bg1);
   border-top:1px solid var(--border);
   display:flex;align-items:flex-start;
   z-index:100;
 }
-/* Nav buttons sit in a fixed-height strip */
+/* Nav buttons — shorter height, sit in the safe area zone */
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   height:var(--nav-h);
@@ -136,7 +136,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* FAB */
 .fab{
   position:fixed;
-  bottom:calc(max(var(--safe-bot), 34px) + var(--nav-h) - 28px);
+  bottom:calc(var(--nav-h) + 8px - 28px);
   left:50%;transform:translateX(-50%);
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);border:none;
@@ -1220,7 +1220,7 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 /* Tab nav badge (for dynamic tabs) */
 .nav-icon-float{
   position:fixed;
-  bottom:calc(max(var(--safe-bot), 34px) + var(--nav-h) + 4px);
+  bottom:calc(var(--nav-h) + 8px + 4px);
   right:0;
   width:40px;display:flex;justify-content:center;
   z-index:200;pointer-events:none;transition:opacity .2s;
