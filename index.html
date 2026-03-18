@@ -111,6 +111,17 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + 24px)}
 
 /* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
+/*#nav{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:0;
+  height:auto;
+  background:var(--bg1);
+  border-top:1px solid var(--border);
+  display:flex;align-items:flex-start;
+  z-index:100;
+}*/
+
+/* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
   padding:0;
@@ -119,7 +130,10 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   border-top:1px solid var(--border);
   display:flex;align-items:flex-start;
   z-index:100;
+  /* transform:translateY(30px); */
 }
+
+
 #nav::after{
   content:'';position:absolute;left:0;right:0;top:100%;
   height:50px;background:inherit;pointer-events:none;
