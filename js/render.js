@@ -870,6 +870,7 @@ function verlaufFilterEntries(entries){
   return entries.filter(e=>(!von||e.date>=von)&&(!bis||e.date<=bis));
 }
 
+function renderCategories(){
   renderOberkategorien();
   // Also populate new-cat-parent dropdown
   fillParentDropdown('new-cat-parent', document.getElementById('new-cat-type')?.value||'ausgabe');
