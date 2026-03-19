@@ -46,6 +46,7 @@
   --glass-nav-alpha: 0.220;
   --glass-bar-alpha: 0.160;
   --glass-border-alpha: 0.150;
+  --glass-bd: var(--glass-bd);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html{height:100%;height:-webkit-fill-available;overscroll-behavior:none;background:var(--bg0);overflow:hidden}
@@ -111,17 +112,6 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + 24px)}
 
 /* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
-/*#nav{
-  position:fixed;bottom:0;left:0;right:0;
-  padding:0;
-  height:auto;
-  background:var(--bg1);
-  border-top:1px solid var(--border);
-  display:flex;align-items:flex-start;
-  z-index:100;
-}*/
-
-/* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
   padding:0;
@@ -131,8 +121,6 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   display:flex;align-items:flex-start;
   z-index:100;
 }
-
-
 #nav::after{
   content:'';position:absolute;left:0;right:0;top:100%;
   height:var(--safe-bot);background:inherit;pointer-events:none;
@@ -242,8 +230,8 @@ body.has-bg-image #setup::before{
 /* Glass cards on setup screen (matches app card style) */
 body.glass-on .setup-card{
   background:rgba(var(--glass-rgb),0.28) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 [data-theme="light"] body.glass-on .setup-card{
@@ -853,7 +841,6 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 [data-theme="light"] .month-view{background:var(--bg0)}
 [data-theme="light"] .mv-bar{background:var(--bg0)}
 [data-theme="light"] #setup{background:var(--bg0)}
-[data-theme="light"] meta[name="theme-color"]{content:#F4F4F7}
 
 /* ═══════════════════════════════════════════════════
    GLASSMORPHISM + HINTERGRUNDBILD
@@ -884,8 +871,8 @@ body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
 body.glass-on .card,
 body.glass-on .widget-card{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
   box-shadow:0 4px 30px rgba(0,0,0,0.12);
 }
@@ -897,8 +884,8 @@ body.glass-on .spar-goal-card,
 body.glass-on .sparen-explainer,
 body.glass-on .verlauf-tile{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
   box-shadow:0 4px 30px rgba(0,0,0,0.12);
 }
@@ -917,8 +904,8 @@ body.glass-on .btn-cancel{
 /* Spar add buttons */
 body.glass-on .spar-add-btn{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(200,245,60,.25) !important;
 }
 /* ── Clean mode: flat glass without per-tile blur ── */
@@ -943,22 +930,22 @@ body.glass-clean .spar-add-btn{
 body.glass-on #nav,
 [data-theme="light"] body.glass-on #nav{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 body.glass-on #nav::after,
 [data-theme="light"] body.glass-on #nav::after{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
 }
 /* Top-bar — override light-mode solid bg */
 body.glass-on .top-bar,
 [data-theme="light"] body.glass-on .top-bar{
   background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 body.glass-on .type-toggle{
@@ -970,20 +957,20 @@ body.glass-on .type-toggle{
 /* Modal in glass mode */
 body.glass-on .modal-overlay .modal{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 [data-theme="light"] body.glass-on .modal-overlay .modal{
   background:rgba(var(--glass-rgb),0.75) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
 }
 /* Notification overlay — glass */
 body.glass-on .notif-overlay{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 /* Notification bell icon — glass circle */
@@ -996,8 +983,8 @@ body.glass-on .settings-btn{
 /* Menu overlay — glass */
 body.glass-on .menu-overlay-sheet{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
   border-left:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 /* Toast — glass */
@@ -1083,17 +1070,6 @@ body.glass-on .nav-btn{
 [data-theme="light"] body.glass-on .top-bar-sub,
 [data-theme="light"] body.glass-on .nav-btn{
   text-shadow:0 1px 3px rgba(255,255,255,0.8);
-}
-/* Cards over busy backgrounds: subtle shadow lifts text off the blur */
-body.glass-on:not(.has-custom-font) .card,
-body.glass-on:not(.has-custom-font) .widget-card{
-  --text2:#B8B8C8;
-  --text3:#8888A0;
-}
-[data-theme="light"] body.glass-on:not(.has-custom-font) .card,
-[data-theme="light"] body.glass-on:not(.has-custom-font) .widget-card{
-  --text2:#333340;
-  --text3:#545462;
 }
 /* ── Contrast boost for standalone text over bg image (no card behind) ── */
 body.has-bg-image .section-title{
@@ -1357,7 +1333,7 @@ body.has-bg-image p{text-shadow:0 1px 3px rgba(0,0,0,.3)}
 .settings-group-body.open{max-height:3000px;opacity:1}
 body.glass-on .settings-group-toggle{
   background:rgba(var(--glass-rgb),var(--glass-alpha));
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
   border-color:rgba(255,255,255,.08);
 }
 
@@ -1391,16 +1367,6 @@ body.glass-on .settings-group-toggle{
   color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;
 }
 .spar-add-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
-body.glass-on .spar-goal-card{
-  background:rgba(var(--glass-rgb),var(--glass-alpha));
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-  border-color:rgba(255,255,255,.08);
-}
-body.glass-on .spar-add-btn{
-  background:rgba(var(--glass-rgb),var(--glass-alpha));
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-  border-color:rgba(200,245,60,.15);
-}
 
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
