@@ -51,6 +51,7 @@ function setFontColorPreset(key){
   if(!p) return;
   CFG.fontColor = key;
   CFG.fontColors = {primary:p.primary, secondary:p.secondary, tertiary:p.tertiary};
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
   cfgSave(); autoSyncProfile();
   applyFontColors();
   renderFontColorUI();
@@ -177,6 +178,7 @@ function _updateGlassCssVars(){
 // Select a preset (or '' to clear)
 function setBgPreset(key){
   CFG.bgPreset = key;
+  CFG.designPackageId = '_custom'; CFG.designPackage = null; // manual override
   _saveBgImageData(''); // clear custom image when choosing preset
   // Auto-apply matching font color preset
   const fcKey = BG_FONT_MAP[key];
@@ -195,6 +197,7 @@ function setBgPreset(key){
 // Clear all backgrounds
 function clearBgImage(){
   CFG.bgPreset = '';
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
   _saveBgImageData('');
   cfgSave(); autoSyncProfile();
   applyAppBackground();
@@ -231,6 +234,7 @@ function loadBgFile(input){
       return;
     }
     CFG.bgPreset = '';
+    CFG.designPackageId = '_custom'; CFG.designPackage = null;
     cfgSave(); autoSyncProfile();
     applyAppBackground();
     renderErscheinungsbild();
@@ -246,6 +250,7 @@ function toggleGlass(){
   if(!GLASS_SUPPORTED){ toast('Gerät unterstützt backdrop-filter nicht','err'); return; }
   CFG.glassEnabled = !CFG.glassEnabled;
   if(!CFG.glassEnabled) CFG.glassClean = false;
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
   cfgSave(); autoSyncProfile();
   applyAppBackground();
   renderErscheinungsbild();
@@ -338,6 +343,7 @@ function renderErscheinungsbild(){
   const bgBlurVal = document.getElementById('bg-blur-val');
   if(bgBlurVal) bgBlurVal.textContent = (CFG.bgImgBlur||0)+'px';
   renderFontColorUI();
+  renderDesignPackages();
   updateDesignSummary();
 }
 
@@ -371,6 +377,106 @@ function renderEinstellungen(){
     const adminLink = document.getElementById('settings-admin-link');
     if(adminLink) adminLink.style.display = CFG.authRole==='admin' ? '' : 'none';
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN PACKAGES — bundled presets (bg + glass + fonts + theme)
+// ═══════════════════════════════════════════════════════════════
+const DESIGN_PACKAGES = {
+  aurora:    { label:'Aurora',    theme:'dark',  bg:'aurora',   glass:true, blur:12, alpha:12, clean:false, font:'cool'    },
+  midnight:  { label:'Midnight',  theme:'dark',  bg:'midnight', glass:true, blur:14, alpha:15, clean:false, font:'cool'    },
+  forest:    { label:'Wald',      theme:'dark',  bg:'forest',   glass:true, blur:12, alpha:12, clean:false, font:'mint'    },
+  sunset:    { label:'Sunset',    theme:'dark',  bg:'sunset',   glass:true, blur:12, alpha:14, clean:false, font:'warm'    },
+  ocean:     { label:'Ozean',     theme:'dark',  bg:'ocean',    glass:true, blur:14, alpha:12, clean:false, font:'cool'    },
+  slate:     { label:'Slate',     theme:'dark',  bg:'slate',    glass:true, blur:10, alpha:10, clean:false, font:'standard'},
+  sky:       { label:'Sky',       theme:'light', bg:'sky',      glass:true, blur:12, alpha:12, clean:false, font:'light'   },
+  blossom:   { label:'Blossom',   theme:'light', bg:'blossom',  glass:true, blur:12, alpha:14, clean:false, font:'light'   },
+  sand:      { label:'Sand',      theme:'light', bg:'sand',     glass:true, blur:10, alpha:10, clean:false, font:'light'   },
+  minimal:   { label:'Minimal',   theme:'dark',  bg:'',         glass:false,blur:12, alpha:12, clean:false, font:'standard'},
+  hell:      { label:'Hell',      theme:'light', bg:'',         glass:false,blur:12, alpha:12, clean:false, font:'light'   },
+};
+
+function applyDesignPackage(pkgId){
+  const pkg = DESIGN_PACKAGES[pkgId];
+  if(!pkg) return;
+  CFG.designPackageId = pkgId;
+  CFG.designPackage = null; // not a custom package
+  // Apply theme
+  CFG.themeMode = pkg.theme;
+  applyThemeMode();
+  updateThemeSegUI();
+  // Apply background
+  CFG.bgPreset = pkg.bg;
+  localStorage.removeItem('ft_bg_image'); // clear custom image
+  // Apply glass
+  CFG.glassEnabled = pkg.glass;
+  CFG.glassBlur = pkg.blur;
+  CFG.glassAlpha = pkg.alpha;
+  CFG.glassClean = pkg.clean;
+  // Apply font colors
+  const fc = FONT_COLOR_PRESETS[pkg.font];
+  if(fc){
+    CFG.fontColor = pkg.font;
+    CFG.fontColors = {primary:fc.primary, secondary:fc.secondary, tertiary:fc.tertiary};
+  }
+  cfgSave(); autoSyncProfile();
+  applyFontColors();
+  applyAppBackground();
+  renderDesignPackages();
+  renderErscheinungsbild();
+}
+
+function renderDesignPackages(){
+  const grid = document.getElementById('design-pkg-grid');
+  if(!grid) return;
+  const cur = CFG.designPackageId || '';
+  grid.innerHTML = Object.entries(DESIGN_PACKAGES).map(([id, pkg])=>{
+    const isActive = cur === id;
+    const preset = BG_PRESETS[pkg.bg];
+    const bgStyle = preset
+      ? `background:${preset.gradient}`
+      : (pkg.theme==='light' ? 'background:#e8e8f0' : 'background:#1a1a22');
+    const fc = FONT_COLOR_PRESETS[pkg.font] || FONT_COLOR_PRESETS.standard;
+    return `<div class="design-pkg-card${isActive?' active':''}" onclick="applyDesignPackage('${id}')">
+      <div class="design-pkg-preview" style="${bgStyle}">
+        <div class="design-pkg-check"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="design-pkg-accent">
+          <span style="background:${fc.primary}"></span>
+          <span style="background:${fc.secondary}"></span>
+        </div>
+        <div class="design-pkg-name">${pkg.label}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Migrate old flat design fields into a custom design package object
+function migrateOldDesignToPkg(){
+  // Only called if no designPackageId/designPackage set — check if user had custom settings
+  const hasBg = !!(CFG.bgPreset || localStorage.getItem('ft_bg_image'));
+  const hasGlass = !!CFG.glassEnabled;
+  const hasFont = !!(CFG.fontColor && CFG.fontColor !== 'standard');
+  if(!hasBg && !hasGlass && !hasFont) return null;
+  // Check if settings match a known package
+  for(const [id, pkg] of Object.entries(DESIGN_PACKAGES)){
+    if(pkg.bg === (CFG.bgPreset||'') && pkg.glass === !!CFG.glassEnabled &&
+       pkg.font === (CFG.fontColor||'standard') && !localStorage.getItem('ft_bg_image')){
+      CFG.designPackageId = id;
+      cfgSave();
+      return null; // matched a known package, no custom needed
+    }
+  }
+  // Return a custom snapshot
+  return {
+    bg: CFG.bgPreset||'',
+    glass: !!CFG.glassEnabled,
+    blur: CFG.glassBlur||12,
+    alpha: CFG.glassAlpha||12,
+    clean: !!CFG.glassClean,
+    font: CFG.fontColor||'standard',
+    fontColors: CFG.fontColors||{},
+    theme: CFG.themeMode||'dark',
+  };
 }
 
 function toggleAktienEnabled(){

@@ -170,6 +170,7 @@ Object.assign(App.Design, {
   applyAppBackground, setBgPreset, clearBgImage, triggerBgUpload, loadBgFile,
   toggleGlass, toggleGlassClean, updateGlassBlur, updateGlassAlpha, updateBgBlur,
   applyFontColors, setFontColorPreset, setFontColorCustom, resetFontColors,
+  applyDesignPackage, renderDesignPackages, migrateOldDesignToPkg,
 });
 
 // ── Render scheduler map (Step 8) ─────────────────────────────
