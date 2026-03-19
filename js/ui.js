@@ -20,23 +20,15 @@ function goTab(tab){
     void tabEl.offsetWidth; // force reflow
     tabEl.classList.add('animating');
   }
-  // Nav active state: home (fixed) + pinned slots + mehr
+  // Nav active state: home (fixed) + pinned slots + add + mehr
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(tab==='home'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
+  else if(tab==='eingabe'){ document.getElementById('nav-add-btn')?.classList.add('active'); }
   else {
     const pinned = CFG.pinnedTabs||[];
     if(pinned[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
     else if(pinned[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
     else if(pinned[2]===tab) document.getElementById('nav-slot3-btn')?.classList.add('active');
-  }
-  // FAB: active (X) state when on eingabe
-  const fab = document.getElementById('fab-add');
-  if(fab){
-    fab.classList.toggle('fab-active', tab==='eingabe');
-    fab.innerHTML = tab==='eingabe'
-      ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-      : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
@@ -1082,7 +1074,12 @@ function renderGroups(){
     if(g.type==='split'){
       const balances = calcSplitBalances(g.id);
       const me = CFG.userName||'Ich';
-      const myBal = balances[me]||0;
+      // Find balance by exact name or case-insensitive match
+      let myBal = balances[me];
+      if(myBal===undefined){
+        const key = Object.keys(balances).find(k=>k.toLowerCase()===me.toLowerCase());
+        myBal = key ? balances[key] : 0;
+      }
       const balClass = myBal>0.01?'grp-bal-pos':myBal<-0.01?'grp-bal-neg':'grp-bal-zero';
       const balText = myBal>0.01?'Du bekommst '+fmtAmt(myBal):myBal<-0.01?'Du schuldest '+fmtAmt(Math.abs(myBal)):'Ausgeglichen';
       return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${g.id}')">
@@ -1282,6 +1279,7 @@ function openNewGroupModal(){
     </div>`;
   const actions = `<button class="save-btn" onclick="confirmNewGroup()" style="width:100%">Gruppe erstellen</button>`;
   openGenericModal('Neue Gruppe', body, actions);
+  onGrpTypeChange(); // Hide members field if default type is 'event'
 }
 
 function onGrpTypeChange(){

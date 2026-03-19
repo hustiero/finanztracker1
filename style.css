@@ -120,24 +120,22 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 .nav-btn svg{width:22px;height:22px;stroke-width:1.8;fill:none;stroke:currentColor;transition:stroke .15s}
 .nav-btn.active{color:var(--accent)}
 .nav-btn.active svg{stroke:var(--accent)}
-.nav-fab-space{flex:1;pointer-events:none}
-/* FAB */
-.fab{
-  position:fixed;
-  bottom:calc(var(--nav-h) + 8px - 28px);
-  left:50%;transform:translateX(-50%);
-  width:56px;height:56px;border-radius:50%;
-  background:var(--accent);border:none;
+/* + button in tab bar */
+.nav-btn-add{position:relative}
+.nav-add-circle{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--accent);
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 22px rgba(255,209,102,.55);
-  z-index:650;cursor:pointer;
-  transition:transform .3s cubic-bezier(.34,1.2,.64,1), box-shadow .3s, background .4s;
+  box-shadow:0 2px 12px rgba(200,245,60,.35);
+  transition:transform .15s,box-shadow .15s;
 }
-[data-theme="light"] .fab{box-shadow:0 4px 22px rgba(96,165,250,.55)}
-.fab:active{transform:translateX(-50%) scale(.92)}
-.fab svg{width:26px;height:26px;stroke:var(--bg0);stroke-width:2.5;fill:none;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
-.fab.fab-active{background:var(--bg3);box-shadow:0 4px 18px rgba(0,0,0,.4)}
-.fab.fab-active svg{stroke:var(--accent);transform:rotate(45deg)}
+[data-theme="light"] .nav-add-circle{box-shadow:0 2px 12px rgba(96,165,250,.4)}
+.nav-btn-add:active .nav-add-circle{transform:scale(.9)}
+.nav-btn-add.active .nav-add-circle{background:var(--bg3);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.nav-btn-add.active .nav-add-circle svg{stroke:var(--accent)}
+.nav-add-circle svg{width:20px;height:20px;stroke:var(--bg0);stroke-width:2.5;fill:none}
+/* Legacy FAB (hidden, kept for compatibility) */
+.fab{display:none !important}
 
 /* ═══════════════════════════════════════════════════
    MONATSÜBERSICHT (slide-in view)

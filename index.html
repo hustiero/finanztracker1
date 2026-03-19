@@ -1039,7 +1039,11 @@
       <svg viewBox="0 0 24 24"></svg>
       <span id="nav-slot1-lbl"></span>
     </button>
-    <div class="nav-fab-space"></div>
+    <button class="nav-btn nav-btn-add" id="nav-add-btn" onclick="goTab('eingabe')">
+      <div class="nav-add-circle">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+    </button>
     <button class="nav-btn" id="nav-slot2-btn" style="display:none" onclick="">
       <svg viewBox="0 0 24 24"></svg>
       <span id="nav-slot2-lbl"></span>
@@ -1048,11 +1052,11 @@
       <svg viewBox="0 0 24 24"></svg>
       <span id="nav-slot3-lbl"></span>
     </button>
+    <button class="nav-btn" id="nav-mehr-btn" onclick="openMenuOverlay()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
+      Mehr
+    </button>
   </nav>
-  <!-- Floating Action Button -->
-  <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
 </div>
 
 <!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->

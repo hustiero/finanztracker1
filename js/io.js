@@ -569,7 +569,9 @@ async function saveEntry(){
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
+        const row = [id,date,what,cat,amt,note,'','0'];
+        if(groupId){ row.push(groupId); row.push(splitData?JSON.stringify(splitData):''); }
+        await apiAppend('Ausgaben',[row]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -581,7 +583,9 @@ async function saveEntry(){
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']]);
+        const row = [id,date,what,cat,amt,note,'',isLohn?'1':'0'];
+        if(groupId) row.push(groupId);
+        await apiAppend('Einnahmen',[row]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -1360,11 +1364,13 @@ function _readSplitForm(totalAmt, group){
 
   if(splitMode==='equal'){
     const count = group.members.length;
-    const share = Math.round((totalAmt/count)*100)/100;
+    const share = Math.floor((totalAmt/count)*100)/100;
     group.members.forEach(m=>{ participants[m] = share; });
-    // Fix rounding
-    const diff = totalAmt - share*count;
-    if(Math.abs(diff)>0.001) participants[group.members[0]] = Math.round((share+diff)*100)/100;
+    // Distribute remaining cents one-by-one across members
+    let remaining = Math.round((totalAmt - share*count)*100);
+    for(let i=0; remaining>0 && i<count; i++, remaining--){
+      participants[group.members[i]] = Math.round((participants[group.members[i]]+0.01)*100)/100;
+    }
   } else {
     // Custom shares
     group.members.forEach(m=>{
