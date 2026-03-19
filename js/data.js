@@ -509,3 +509,64 @@ function getGroupTopCategories(groupId, limit=5){
     .map(([name,total])=>({name,total}));
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Shadow entries — foreign group expenses as personal Verlauf items
+// Each shadow shows the user's SHARE (not full amount), properly
+// categorized, with payer info and group badge.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Generate shadow entries from foreign group entries.
+ * Only generates for groups where CFG.groupVerlauf[groupId] is true.
+ * Returns entries with _type='shadow', showing the user's share.
+ */
+function getGroupShadowEntries(){
+  const gv = CFG.groupVerlauf||{};
+  const entries = DATA.groupEntries||[];
+  const me = CFG.authUser||CFG.userName||'Ich';
+  const shadows = [];
+
+  for(const e of entries){
+    // Skip own entries (already in DATA.expenses)
+    if(e.isMine) continue;
+    // Skip groups without Verlauf toggle
+    if(!gv[e.groupId]) continue;
+    const group = DATA.groups.find(g=>g.id===e.groupId);
+    if(!group) continue;
+
+    // Calculate user's share
+    let myShare = 0;
+    if(e.splitData){
+      const sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData;
+      const parts = sd.participants||{};
+      // Look for my share by checking multiple identity keys
+      myShare = parts[me]!==undefined ? parts[me]
+             : parts[CFG.userName]!==undefined ? parts[CFG.userName]
+             : parts[CFG.authUser]!==undefined ? parts[CFG.authUser]
+             : 0;
+    } else {
+      // No splitData — equal split among all members
+      myShare = group.members.length>0 ? e.amt/group.members.length : e.amt;
+    }
+
+    if(myShare<=0) continue;
+
+    shadows.push({
+      id:           e.id,
+      date:         e.date,
+      what:         e.what,
+      cat:          e.cat,
+      amt:          Math.round(myShare*100)/100,
+      fullAmt:      e.amt,
+      note:         e.note||'',
+      groupId:      e.groupId,
+      groupName:    group.name,
+      paidBy:       e.authorName,
+      currency:     e.currency||group.currency||CFG.currency||'CHF',
+      _type:        'shadow',
+      _shadowOf:    e.id
+    });
+  }
+  return shadows;
+}
+

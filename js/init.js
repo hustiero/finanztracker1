@@ -31,6 +31,7 @@ Object.assign(App.Data, {
   // Groups & Events — data
   getGroupExpenses, getGroupIncomes, getGroupTotal,
   calcSplitBalances, calcSettlements, getOwnShare, getGroupTopCategories,
+  getGroupShadowEntries,
   // Sparziele
   getSparzieleNonTax, getSparTax, sparGoalPct, sparTotalMonthly,
   // Home widgets
@@ -77,7 +78,7 @@ Object.assign(App.IO, {
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
   loadGroupEntries, saveGroupEntry, calculateGroupBalances,
-  confirmSettleUp, groupName, toggleGroupEntriesVisible, openGroupEntryDetail,
+  confirmSettleUp, groupName, toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail,
   // Groups API layer
   groupsApiCall, groupsApiGet, groupsApiAppend, groupsApiUpdate, groupsApiFindRow,
   // Sparziele CRUD
@@ -133,7 +134,7 @@ Object.assign(App.UI, {
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
   exportGroupReport, copyGroupInviteLink, generateInviteLink,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
-  toggleGroupEntriesVisible, openGroupEntryDetail, confirmSettleUp,
+  toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, confirmSettleUp,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,

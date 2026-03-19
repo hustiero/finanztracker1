@@ -617,6 +617,7 @@ function confirmSettleUp(groupId, from, to, amount){
 
 // ── 14. Verlauf toggle for group entries ─────────────────────
 
+/** Toggle shadow entries visibility in Verlauf (global toggle). */
 function toggleGroupEntriesVisible(){
   CFG.showGroupEntries = !CFG.showGroupEntries;
   cfgSave();
@@ -625,22 +626,39 @@ function toggleGroupEntriesVisible(){
   renderVerlauf();
 }
 
+/** Toggle a specific group's Verlauf integration. */
+function toggleGroupVerlauf(groupId){
+  if(!CFG.groupVerlauf) CFG.groupVerlauf = {};
+  CFG.groupVerlauf[groupId] = !CFG.groupVerlauf[groupId];
+  cfgSave();
+  markDirty('verlauf','groups');
+  // Re-render group detail if open
+  if(currentGroupId===groupId) openGroupDetail(groupId);
+}
+
 function openGroupEntryDetail(entryId){
-  const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId);
+  // Check shadow entries first, then raw group entries
+  const shadow = getGroupShadowEntries().find(e=>e.id===entryId);
+  const entry = shadow || (DATA.groupEntries||[]).find(e=>e.id===entryId);
   if(!entry) return;
-  const gName = groupName(entry.groupId);
+  const gName = shadow ? shadow.groupName : groupName(entry.groupId);
+  const isShadow = !!shadow;
   const body = `
     <div style="padding:4px 0">
       <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(entry.what)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
-        <div><span class="t-label">Betrag</span><div style="font-weight:600;margin-top:2px">${curr()} ${fmtAmt(entry.amt)}</div></div>
+        <div><span class="t-label">${isShadow?'Mein Anteil':'Betrag'}</span><div style="font-weight:600;margin-top:2px">${curr()} ${fmtAmt(entry.amt)}</div></div>
+        ${isShadow?`<div><span class="t-label">Gesamtbetrag</span><div style="margin-top:2px;color:var(--text3)">${curr()} ${fmtAmt(shadow.fullAmt)}</div></div>`:''}
         <div><span class="t-label">Datum</span><div style="margin-top:2px">${fmtDate(entry.date)}</div></div>
         <div><span class="t-label">Kategorie</span><div style="margin-top:2px">${catEmoji(entry.cat)} ${esc(entry.cat)}</div></div>
-        <div><span class="t-label">Erstellt von</span><div style="margin-top:2px">${esc(entry.authorName)}</div></div>
+        <div><span class="t-label">${isShadow?'Bezahlt von':'Erstellt von'}</span><div style="margin-top:2px">${esc(isShadow?shadow.paidBy:entry.authorName)}</div></div>
       </div>
-      ${gName?`<div style="margin-top:10px;font-size:12px;color:var(--text3)">Gruppe: ${esc(gName)}</div>`:''}
+      <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
+        <span class="shadow-group-chip">${esc(gName)}</span>
+        ${isShadow?'<span style="font-size:11px;color:var(--text3)">· Gruppen-Schuld</span>':''}
+      </div>
     </div>`;
-  openGenericModal('Gruppen-Buchung', body, '');
+  openGenericModal(isShadow?'Gruppen-Anteil':'Gruppen-Buchung', body, '');
 }
 
 // ── 15. Admin groups panel ───────────────────────────────────

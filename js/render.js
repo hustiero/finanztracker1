@@ -431,14 +431,38 @@ function renderVerlaufEntryGroups(entries){
         <div class="card" style="margin:0 16px">
           ${items.map(e=>{
             const isRec    = e._type==='recurring';
+            const isShadow = e._type==='shadow';
             const isGroup  = e._type==='groupEntry';
             const isFuture = isRec && e.date > today();
-            const onclick  = isGroup
+            const onclick  = isShadow
+              ? `onclick="openGroupEntryDetail('${e.id}')"`
+              : isGroup
               ? `onclick="openGroupEntryDetail('${e.id}')"`
               : isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
             const recLabel = isFuture
               ? `<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:3px">geplant</span>`
               : `<span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`;
+            // Shadow entry: shows group name, paid-by, and share amount
+            if(isShadow){
+              return `
+              <div class="card-row shadow-entry" ${onclick}>
+                <div class="card-row-icon shadow-icon" style="background:${catColor(e.cat)}15">
+                  <span>${catEmoji(e.cat)}</span>
+                </div>
+                <div class="card-row-body">
+                  <div class="card-row-title shadow-title">${esc(e.what)}</div>
+                  <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':''}${esc(e.cat)}</div>
+                  <div class="shadow-meta">
+                    <span class="shadow-group-chip">${esc(e.groupName)}</span>
+                    <span class="shadow-paidby">bezahlt von ${esc(e.paidBy)}</span>
+                  </div>
+                </div>
+                <div class="card-row-amount shadow-amount">
+                  <div>− ${fmtAmt(e.amt)}</div>
+                  <div class="shadow-full">von ${fmtAmt(e.fullAmt)}</div>
+                </div>
+              </div>`;
+            }
             const groupLabel = isGroup
               ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>` : '';
             return `
@@ -476,12 +500,10 @@ function renderVerlaufL1(){
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
-  // Merge foreign group entries when toggle is on
-  if(CFG.showGroupEntries && DATA.groupEntries){
-    const foreignEntries = DATA.groupEntries
-      .filter(e=>!e.isMine)
-      .map(e=>({...e, _type:'groupEntry'}));
-    entries = [...entries, ...foreignEntries];
+  // Merge shadow entries (user's share of foreign group expenses)
+  if(CFG.showGroupEntries){
+    const shadows = getGroupShadowEntries();
+    entries = [...entries, ...shadows];
   }
   entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
