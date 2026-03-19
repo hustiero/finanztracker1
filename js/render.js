@@ -233,12 +233,14 @@ let dashboardChartMonths = 3;
 
 function renderAll(){
   fillAllDropdowns();
+  renderDesktopSidebar();
   renderVerlauf();
   renderCategories();
   renderRecurring();
   renderDashboard();
   renderHome();
   if(currentTab==='sparen') renderSparen();
+  if(currentTab==='groups') renderGroups();
   updatePageSub();
   autoMaterializeRecurrings();
   checkDueRecurrings();

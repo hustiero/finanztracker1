@@ -117,6 +117,8 @@ Object.assign(App.UI, {
   renderAktienCharts, renderAktienDashboardTop, renderAktienList,
   renderAktienTradeForm, renderAktienTabelle,
   renderAktieDetail, renderAdminDesignPresets,
+  // Desktop sidebar
+  renderDesktopSidebar, updateSidebarActive,
   // User management
   openUserManagement, closeUserManagement, refreshUserList, filterUsers,
   // Groups & Events

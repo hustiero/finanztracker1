@@ -1488,3 +1488,84 @@ body.glass-on .settings-group-toggle{
 }
 .font-picker-btn.active{border-color:var(--accent);color:var(--text)}
 
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP SIDEBAR — visible at ≥ 900px
+   ═══════════════════════════════════════════════════════════════ */
+.desktop-sidebar{display:none}
+
+@media(min-width:900px){
+  /* Sidebar itself */
+  .desktop-sidebar{
+    display:flex;flex-direction:column;
+    position:fixed;top:0;left:0;bottom:0;
+    width:var(--sidebar-w,240px);
+    background:var(--bg1);
+    border-right:1px solid var(--border);
+    z-index:200;padding:0;
+    overflow-y:auto;overflow-x:hidden;
+  }
+
+  /* Brand area */
+  .sidebar-brand{
+    display:flex;align-items:center;gap:10px;
+    padding:20px 18px 16px;
+  }
+  .sidebar-logo{
+    width:32px;height:32px;border-radius:8px;
+    background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    overflow:hidden;
+  }
+  .sidebar-logo img{width:100%;height:100%;object-fit:cover}
+  .sidebar-brand-text{
+    font-size:15px;font-weight:700;letter-spacing:-.02em;
+    color:var(--text);
+  }
+
+  /* Nav items */
+  .sidebar-nav{flex:1;padding:4px 10px}
+  .sidebar-nav-item{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;margin:1px 0;border-radius:10px;
+    background:none;border:none;color:var(--text2);
+    font-size:14px;font-weight:500;
+    cursor:pointer;transition:background .12s,color .12s;
+    width:100%;text-align:left;
+  }
+  .sidebar-nav-item:hover{background:var(--bg2)}
+  .sidebar-nav-item.active{background:var(--bg3);color:var(--text);font-weight:600}
+  .sidebar-nav-item.active svg{stroke:var(--accent)}
+  .sidebar-nav-item svg{
+    width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:1.8;
+    flex-shrink:0;
+  }
+  .sidebar-nav-sep{height:1px;background:var(--border);margin:8px 12px}
+
+  /* Footer */
+  .sidebar-footer{
+    padding:12px 18px;border-top:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .sidebar-sync{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3)}
+
+  /* ── Layout shifts ── */
+  /* Push app content right */
+  #app{
+    padding-left:var(--sidebar-w,240px);
+  }
+  /* Top bar adjusts */
+  .top-bar{
+    left:var(--sidebar-w,240px) !important;
+  }
+  /* Hide hamburger "Mehr" button on desktop */
+  .top-bar-mehr-btn{display:none !important}
+  /* Hide mobile bottom nav on desktop */
+  #nav{display:none !important}
+  .fab{display:none !important}
+  /* Hide "Mehr" overlay on desktop */
+  .menu-overlay{display:none !important}
+  /* Content no longer needs bottom padding for nav */
+  #content{padding-bottom:24px !important}
+}
+

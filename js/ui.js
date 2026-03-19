@@ -45,6 +45,7 @@ function goTab(tab){
     groups:'Gruppen', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
+  updateSidebarActive();
   if(tab==='home') renderHome();
   if(tab==='verlauf') renderVerlauf();
   if(tab==='dashboard') renderDashboard();
@@ -1005,6 +1006,53 @@ async function doChangePw(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DESKTOP SIDEBAR
+// ═══════════════════════════════════════════════════════════════
+
+const SIDEBAR_HOME_ICON = '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>';
+const SIDEBAR_EINGABE_ICON = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+
+function renderDesktopSidebar(){
+  const nav = document.getElementById('sidebar-nav');
+  if(!nav) return;
+
+  // Build ordered list: Home, Eingabe, separator, all PINNABLE_TABS, separator, Einstellungen
+  const items = [
+    {key:'home', label:'Home', icon:SIDEBAR_HOME_ICON},
+    {key:'eingabe', label:'Eingabe', icon:SIDEBAR_EINGABE_ICON},
+    {key:'_sep1'},
+  ];
+
+  // Filter: hide Aktien if disabled
+  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
+  visibleTabs.forEach(t => items.push({key:t.key, label:t.label.replace(/&amp;/g,'&'), icon:t.icon}));
+
+  items.push({key:'_sep2'});
+  items.push({key:'einstellungen', label:'Einstellungen', icon:SETTINGS_ICON});
+
+  nav.innerHTML = items.map(item => {
+    if(item.key.startsWith('_sep')) return '<div class="sidebar-nav-sep"></div>';
+    const active = item.key === currentTab ? ' active' : '';
+    return `<button class="sidebar-nav-item${active}" data-tab="${item.key}" onclick="goTab('${item.key}')">
+      <svg viewBox="0 0 24 24">${item.icon}</svg>${item.label}
+    </button>`;
+  }).join('');
+
+  // Sync icon (reuse generateAppIcon if available)
+  const iconEl = document.getElementById('sidebar-app-icon');
+  if(iconEl && typeof generateAppIcon === 'function'){
+    iconEl.innerHTML = generateAppIcon(28);
+  }
+}
+
+function updateSidebarActive(){
+  const items = document.querySelectorAll('.sidebar-nav-item');
+  items.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === currentTab);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // GROUPS & EVENTS — UI
 // ═══════════════════════════════════════════════════════════════
 
@@ -1925,7 +1973,8 @@ function copyAdminCodeGs() {
 // ═══════════════════════════════════════════════════════════════
 const NAV_LABELS = {
   dashboard:'Jahresüb.', verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
-  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.'
+  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.', groups:'Gruppen',
+  sparen:'Sparen'
 };
 
 function renderNav(){

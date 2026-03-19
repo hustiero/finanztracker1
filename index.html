@@ -216,11 +216,26 @@
         <div class="sync-label" id="sync-label">Demo</div>
         <div class="sync-dot demo" id="sync-dot"></div>
       </div>
-      <button class="top-bar-circle-btn" onclick="openMenuOverlay()" aria-label="Mehr">
+      <button class="top-bar-circle-btn top-bar-mehr-btn" onclick="openMenuOverlay()" aria-label="Mehr">
         <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
     </div>
   </div>
+
+  <!-- Desktop Sidebar (visible >= 900px) -->
+  <aside id="desktop-sidebar" class="desktop-sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo" id="sidebar-app-icon"></div>
+      <div class="sidebar-brand-text">FinanzTracker</div>
+    </div>
+    <nav id="sidebar-nav" class="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-sync">
+        <div class="sync-dot demo" id="sidebar-sync-dot"></div>
+        <span class="sync-label" id="sidebar-sync-label">Demo</span>
+      </div>
+    </div>
+  </aside>
 
   <!-- Content Area -->
   <div id="content">
