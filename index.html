@@ -2921,12 +2921,125 @@ function fromTemplate(id){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: INDEXED-DB STORAGE (Step 3)
+// Primary store for CFG + data cache. localStorage kept as
+// synchronous read-fallback and migration source.
+// ═══════════════════════════════════════════════════════════════
+const IDB = {
+  _db: null,
+  _DB_NAME: 'FinanzTracker',
+  _DB_VERSION: 1,
+  _STORE: 'kv',
+
+  /** Open (or reuse) the database. Returns a Promise<IDBDatabase>. */
+  open(){
+    if(this._db) return Promise.resolve(this._db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this._DB_NAME, this._DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains(this._STORE)){
+          db.createObjectStore(this._STORE);
+        }
+      };
+      req.onsuccess = () => { this._db = req.result; resolve(this._db); };
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  /** Get a value by key. Returns Promise<any|undefined>. */
+  async get(key){
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this._STORE, 'readonly');
+      const req = tx.objectStore(this._STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  /** Set a value by key. Returns Promise<void>. */
+  async set(key, value){
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this._STORE, 'readwrite');
+      tx.objectStore(this._STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  /** Delete a key. Returns Promise<void>. */
+  async del(key){
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this._STORE, 'readwrite');
+      tx.objectStore(this._STORE).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: SYNC QUEUE (Step 3)
+// Queues API write operations for resilient offline-first sync.
+// Failed operations are retried on next processQueue tick.
+// ═══════════════════════════════════════════════════════════════
+const syncQueue = [];
+let _syncQueueRunning = false;
+
+/**
+ * Enqueue an API write operation.
+ * @param {string} label - Human-readable label (for debugging)
+ * @param {Function} fn  - Async function that performs the API call
+ */
+function queueSync(label, fn){
+  syncQueue.push({ label, fn, retries: 0, maxRetries: 3 });
+  // Persist queue length to IDB for crash recovery (fire-and-forget)
+  IDB.set('ft_syncqueue_len', syncQueue.length).catch(()=>{});
+}
+
+/** Process pending sync queue items. Called by setInterval. */
+async function processQueue(){
+  if(_syncQueueRunning || !syncQueue.length) return;
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  _syncQueueRunning = true;
+  while(syncQueue.length > 0){
+    const item = syncQueue[0];
+    try{
+      await item.fn();
+      syncQueue.shift(); // success → remove
+    } catch(e){
+      item.retries++;
+      if(item.retries >= item.maxRetries){
+        console.warn(`syncQueue: dropping "${item.label}" after ${item.maxRetries} retries`, e);
+        syncQueue.shift();
+      } else {
+        console.warn(`syncQueue: "${item.label}" failed (attempt ${item.retries}), will retry`, e);
+        break; // stop processing, retry on next tick
+      }
+    }
+  }
+  _syncQueueRunning = false;
+  IDB.set('ft_syncqueue_len', syncQueue.length).catch(()=>{});
+}
+
+// Process queue every 5 seconds
+setInterval(processQueue, 5000);
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
 let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null };
 
-function cfgSave(){ localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); }
+function cfgSave(){
+  // Synchronous write to localStorage (immediate, blocking)
+  localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
+  // Async write to IndexedDB (fire-and-forget, non-blocking)
+  IDB.set(CFG_KEY, JSON.parse(JSON.stringify(CFG))).catch(()=>{});
+}
 // Default design preset — applied to new users (no prior config)
 const DEFAULT_DESIGN = {
   bgPreset:'aurora', glassEnabled:true, glassBlur:14, glassAlpha:45,
@@ -2935,6 +3048,7 @@ const DEFAULT_DESIGN = {
 };
 
 function cfgLoad(){
+  // 1. Synchronous: read from localStorage (fast, blocking)
   const s = localStorage.getItem(CFG_KEY);
   const isNew = !s;
   if(s) CFG = JSON.parse(s);
@@ -2950,6 +3064,17 @@ function cfgLoad(){
   // Migrate old theme toggle to themeMode
   if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';
   applyThemeMode();
+
+  // 2. Async: check IndexedDB for newer data (migration / fallback)
+  IDB.get(CFG_KEY).then(idbCfg => {
+    if(!idbCfg) return; // nothing in IDB yet
+    if(!s){
+      // localStorage was empty but IDB has data → restore from IDB
+      Object.assign(CFG, idbCfg);
+      localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
+      applyThemeMode();
+    }
+  }).catch(()=>{});
 }
 
 // Returns user's configured display currency (default CHF)
@@ -3659,21 +3784,38 @@ const DATA_CACHE_KEY = 'ft_datacache_v1';
 const DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function dataCacheSave(){
-  try{
-    localStorage.setItem(DATA_CACHE_KEY, JSON.stringify({
-      ts: Date.now(),
-      DATA: DATA,
-      SDATA: SDATA
-    }));
-  } catch(e){}
+  const payload = { ts: Date.now(), DATA, SDATA };
+  // Synchronous: localStorage (fast, may throw on quota)
+  try{ localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(payload)); } catch(e){}
+  // Async: IndexedDB (larger quota, non-blocking)
+  IDB.set(DATA_CACHE_KEY, payload).catch(()=>{});
 }
 
 function dataCacheLoad(){
+  // Synchronous: try localStorage first
   try{
     const raw = localStorage.getItem(DATA_CACHE_KEY);
-    if(!raw) return false;
-    const parsed = JSON.parse(raw);
-    if(Date.now() - parsed.ts > DATA_CACHE_TTL) return false;
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Date.now() - parsed.ts <= DATA_CACHE_TTL){
+        if(parsed.DATA) Object.assign(DATA, parsed.DATA);
+        if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+        return true;
+      }
+    }
+  } catch(e){}
+  return false;
+}
+
+/**
+ * Async fallback: try loading data cache from IndexedDB.
+ * Call this when dataCacheLoad() returns false (localStorage miss).
+ * Returns true if valid cache was found and applied.
+ */
+async function dataCacheLoadIDB(){
+  try{
+    const parsed = await IDB.get(DATA_CACHE_KEY);
+    if(!parsed || Date.now() - parsed.ts > DATA_CACHE_TTL) return false;
     if(parsed.DATA) Object.assign(DATA, parsed.DATA);
     if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
     return true;
@@ -3684,7 +3826,9 @@ async function loadAll(){
   setSyncStatus('syncing'); setLoader(true);
 
   // Show cached data immediately while fetching
-  const hadCache = dataCacheLoad();
+  let hadCache = dataCacheLoad();
+  // Fallback: try IndexedDB if localStorage had no cache
+  if(!hadCache) hadCache = await dataCacheLoadIDB();
   if(hadCache) renderAll();
 
   try{
@@ -9858,7 +10002,9 @@ Object.assign(App.IO, {
   // Sheets API
   apiCall, apiGet, apiAppend, apiUpdate, apiFindRow, apiGetMeta,
   // Data cache
-  dataCacheSave, dataCacheLoad,
+  dataCacheSave, dataCacheLoad, dataCacheLoadIDB,
+  // IndexedDB + Sync Queue (Step 3)
+  IDB, syncQueue, queueSync, processQueue,
   // Master load
   loadAll, launchApp, checkSheets,
   // Auto-materialization
