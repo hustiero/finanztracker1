@@ -18,7 +18,10 @@ function _groupsBaseUrl(){
 async function groupsApiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const baseUrl = _groupsBaseUrl();
-  if(!baseUrl) throw new Error('Keine Backend-URL konfiguriert');
+  if(!baseUrl){
+    // Script-URL-Modus ohne Admin-Sheet: Gruppen nicht verfügbar
+    throw new Error('Gruppen sind nur im Account-Modus verfügbar.');
+  }
   const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
   const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
   const r = await fetch(url);
@@ -36,13 +39,13 @@ async function groupsApiCall(params){
 }
 
 function groupsApiGet(range){
-  return groupsApiCall({action:'get', range});
+  return groupsApiCall({action:'groupsGet', range});
 }
 function groupsApiAppend(sheet, values){
-  return groupsApiCall({action:'append', sheet, values: JSON.stringify(values)});
+  return groupsApiCall({action:'groupsAppend', sheet, values: JSON.stringify(values)});
 }
 function groupsApiUpdate(range, values){
-  return groupsApiCall({action:'update', range, values: JSON.stringify(values)});
+  return groupsApiCall({action:'groupsUpdate', range, values: JSON.stringify(values)});
 }
 async function groupsApiFindRow(sheet, id){
   const res = await groupsApiGet(sheet+'!A:A');
@@ -105,18 +108,16 @@ async function ensureGroupsSheets(){
   if(CFG.demo) return;
   try{
     await groupsApiCall({
-      action:'ensureSheet',
+      action:'groupsEnsureSheet',
       sheet:'Groups',
       headers:JSON.stringify(['id','name','type','members','currency','status','created','adminId','inviteCode','sharedSheetUrl'])
     });
     await groupsApiCall({
-      action:'ensureSheet',
+      action:'groupsEnsureSheet',
       sheet:'Notifications',
       headers:JSON.stringify(['recipient','notifJSON','read'])
     });
   }catch(e){
-    // If ensureSheet is not supported, silently ignore.
-    // Errors during actual writes will be visible later.
     console.warn('ensureGroupsSheets:', e.message);
   }
 }
@@ -130,7 +131,10 @@ async function loadGroups(){
       .map(_rowToGroup);
   }catch(e){
     if(!DATA.groups) DATA.groups = [];
-    // No toast — groups are optional
+    if(e.message && e.message.includes('Account-Modus')){
+      console.info('Groups: Script-URL-Modus, übersprungen.');
+    }
+    // sonst silent
   }
 }
 
