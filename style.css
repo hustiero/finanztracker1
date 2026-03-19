@@ -97,15 +97,22 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
 /* Content */
 #content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 24px)}
 
-/* Bottom Nav — flush at bottom, ::after covers any safe-area gap below */
+/* Bottom Nav — flush at absolute bottom, safe-area handled via ::after */
 #nav{
   position:fixed;bottom:0;left:0;right:0;
-  padding:0;padding-bottom:var(--safe-bot);
+  padding:0;
   height:auto;
   background:var(--bg1);
   border-top:1px solid var(--border);
   display:flex;align-items:flex-start;
   z-index:100;
+}
+/* Extend nav background into iPhone safe-area (home indicator zone) */
+#nav::after{
+  content:'';position:absolute;left:0;right:0;top:100%;
+  height:var(--safe-bot);
+  background:inherit;
+  pointer-events:none;
 }
 /* When background image is active, blend nav into the background */
 body.has-bg-image #nav{
@@ -113,6 +120,11 @@ body.has-bg-image #nav{
   backdrop-filter:blur(12px) saturate(140%);
   -webkit-backdrop-filter:blur(12px) saturate(140%);
   border-top-color:rgba(var(--glass-rgb),0.15);
+}
+body.has-bg-image #nav::after{
+  background:rgba(var(--glass-rgb),0.65);
+  backdrop-filter:blur(12px) saturate(140%);
+  -webkit-backdrop-filter:blur(12px) saturate(140%);
 }
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
@@ -127,7 +139,7 @@ body.has-bg-image #nav{
 /* FAB */
 .fab{
   position:fixed;
-  bottom:calc(var(--nav-h) + 8px - 28px);
+  bottom:calc(var(--safe-bot) + var(--nav-h) + 8px - 28px);
   left:50%;transform:translateX(-50%);
   width:56px;height:56px;border-radius:50%;
   background:var(--accent);border:none;
@@ -905,6 +917,12 @@ body.glass-on #nav,
   backdrop-filter:var(--glass-bd);
   -webkit-backdrop-filter:var(--glass-bd);
   border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+}
+body.glass-on #nav::after,
+[data-theme="light"] body.glass-on #nav::after{
+  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
+  backdrop-filter:var(--glass-bd);
+  -webkit-backdrop-filter:var(--glass-bd);
 }
 /* Top-bar — override light-mode solid bg */
 body.glass-on .top-bar,
