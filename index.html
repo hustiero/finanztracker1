@@ -273,6 +273,33 @@
           <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
         </div>
 
+        <!-- Group assignment (optional) -->
+        <div class="form-group" id="f-group-wrap">
+          <label class="form-label">Zu Gruppe hinzufügen <span class="t-text3">(optional)</span></label>
+          <select id="f-group" class="form-select" onchange="onGroupSelect(this.value)">
+            <option value="">— Keine Gruppe —</option>
+          </select>
+        </div>
+
+        <!-- Split fields (shown when a split-group is selected) -->
+        <div id="f-split-section" style="display:none">
+          <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bezahlt von</label>
+              <select id="f-split-payer" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Aufteilung</label>
+              <select id="f-split-mode" class="form-select" onchange="onSplitModeChange()">
+                <option value="equal">Gleichmässig</option>
+                <option value="custom">Individuell</option>
+              </select>
+            </div>
+          </div>
+          <div id="f-split-shares"></div>
+        </div>
+
         <!-- Lohn toggle (only for Einnahme) -->
         <div id="f-lohn-toggle-wrap" style="display:none;margin-bottom:12px">
           <div class="lohn-toggle-row" id="f-lohn-row" onclick="toggleLohnField()">
@@ -424,6 +451,12 @@
               </div>
             </div>
             <div id="verlauf-filter-summary"></div>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+              <button id="verlauf-excl-groups-btn" class="grp-filter-btn" onclick="toggleVerlaufExcludeGroups()" style="font-size:11px">
+                <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:4px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Events ausblenden
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -632,12 +665,38 @@
       </div>
     </div>
 
+    <!-- TAB: Groups & Events -->
+    <div id="tab-groups" class="tab-page" style="display:none">
+      <div id="groups-main">
+        <!-- Filter bar -->
+        <div style="padding:0 16px 8px;display:flex;gap:8px;align-items:center">
+          <button class="grp-filter-btn active" data-filter="all" onclick="setGroupFilter('all')">Alle</button>
+          <button class="grp-filter-btn" data-filter="event" onclick="setGroupFilter('event')">Events</button>
+          <button class="grp-filter-btn" data-filter="split" onclick="setGroupFilter('split')">Split</button>
+          <button class="grp-filter-btn" data-filter="archived" onclick="setGroupFilter('archived')">Archiv</button>
+        </div>
+        <!-- Group cards grid -->
+        <div id="groups-grid" class="groups-grid" style="padding:0 16px"></div>
+        <div style="padding:8px 16px 16px">
+          <button class="save-btn" onclick="openNewGroupModal()" style="width:100%">+ Neue Gruppe</button>
+        </div>
+      </div>
+      <!-- Group detail view (shown on card click) -->
+      <div id="group-detail" style="display:none"></div>
+    </div>
+
     <!-- TAB: Admin (nur für role=admin) -->
     <div id="tab-admin" class="tab-page" style="display:none">
       <div class="section">
         <div class="section-title">Benutzer-Verwaltung</div>
         <div class="card" style="padding:14px">
-          <div id="admin-users-list" style="padding:4px 0"><div class="t-muted">Lade…</div></div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+            Verwalte registrierte Benutzer, setze Passwörter zurück oder entferne Konten.
+          </div>
+          <button class="btn-outline-setup" onclick="openUserManagement()" style="font-size:12px;width:100%">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;display:inline;vertical-align:middle;margin-right:6px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Benutzerverwaltung öffnen
+          </button>
         </div>
       </div>
       <div class="section pt-0">
@@ -1496,6 +1555,26 @@
       <button class="btn-cancel" onclick="closeModal('trade-modal')">Abbrechen</button>
       <button class="btn-save" onclick="saveTrade()">Speichern</button>
     </div>
+  </div>
+</div>
+
+<!-- Benutzerverwaltung Fullscreen Modal -->
+<div id="user-mgmt-overlay" class="user-mgmt-overlay" style="display:none">
+  <div class="user-mgmt-header">
+    <button onclick="closeUserManagement()" class="user-mgmt-back">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="user-mgmt-title">Benutzerverwaltung</span>
+    <button onclick="refreshUserList()" class="user-mgmt-refresh" title="Neu laden">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+  </div>
+  <div class="user-mgmt-search-wrap">
+    <svg viewBox="0 0 24 24" class="user-mgmt-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="user-mgmt-search" type="text" class="user-mgmt-search" placeholder="Name oder E-Mail suchen…" oninput="filterUsers(this.value)">
+  </div>
+  <div id="user-mgmt-body" class="user-mgmt-body">
+    <div class="t-muted" style="text-align:center;padding:40px 0">Lade Benutzerliste…</div>
   </div>
 </div>
 

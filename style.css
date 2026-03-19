@@ -1261,6 +1261,83 @@ body.glass-on .section-title{font-weight:700}
 .admin-user-actions{display:flex;gap:6px;flex-shrink:0}
 .admin-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--accent);color:#000;margin-left:6px}
 .admin-badge.user{background:var(--bg3);color:var(--text3)}
+
+/* ─── User Management Overlay ─────────────────────────────── */
+.user-mgmt-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg0);flex-direction:column;display:none}
+.user-mgmt-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.user-mgmt-back,.user-mgmt-refresh{background:none;border:none;color:var(--text);cursor:pointer;padding:4px;display:flex;align-items:center}
+.user-mgmt-title{flex:1;font-size:17px;font-weight:700}
+.user-mgmt-search-wrap{position:relative;padding:10px 16px;flex-shrink:0}
+.user-mgmt-search{width:100%;padding:10px 10px 10px 36px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;outline:none}
+.user-mgmt-search:focus{border-color:var(--accent)}
+.user-mgmt-search-icon{position:absolute;left:26px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2}
+.user-mgmt-body{flex:1;overflow-y:auto;padding:0 16px 24px}
+.user-mgmt-count{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding:8px 0 4px}
+.user-mgmt-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 0}
+.user-mgmt-more{display:block;width:100%;padding:12px;margin-top:8px;border:1px dashed var(--border);border-radius:10px;background:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer}
+.user-mgmt-more:active{background:var(--bg2)}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ─── Groups & Events ─────────────────────────────────────── */
+.groups-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.grp-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:border-color .2s,transform .15s}
+.grp-card:active{transform:scale(.98)}
+.grp-card-event{border-left:3px solid var(--accent)}
+.grp-card-split{border-left:3px solid #8b5cf6}
+.grp-card-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
+.grp-card-name{font-size:15px;font-weight:700;margin-bottom:2px}
+.grp-card-meta,.grp-card-members{font-size:11px;color:var(--text3);margin-bottom:4px}
+.grp-card-total{font-size:14px;font-family:'DM Mono',monospace;font-weight:600;margin-bottom:2px}
+.grp-card-count{font-size:11px;color:var(--text3)}
+.grp-card-bal{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;display:inline-block;margin-top:4px}
+.grp-bal-pos{background:rgba(52,211,153,.12);color:#34d399}
+.grp-bal-neg{background:rgba(255,77,109,.1);color:var(--red)}
+.grp-bal-zero{background:var(--bg3);color:var(--text3)}
+.grp-filter-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.grp-filter-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+/* Group detail */
+.grp-detail-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.grp-detail-back{background:none;border:none;color:var(--text);cursor:pointer;padding:4px;display:flex}
+.grp-detail-title{font-size:17px;font-weight:700}
+.grp-detail-sub{font-size:12px;color:var(--text3)}
+.grp-detail-actions{margin-left:auto;display:flex;gap:6px}
+.grp-action-btn{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;color:var(--text2);display:flex;align-items:center}
+.grp-action-del{border-color:rgba(255,77,109,.3);color:var(--red)}
+.grp-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:14px 16px 6px}
+
+/* Group top categories */
+.grp-top-cats{padding:0 16px}
+.grp-cat-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+.grp-cat-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.grp-cat-name{font-size:12px;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp-cat-bar{flex:0 0 60px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.grp-cat-bar span{display:block;height:100%;border-radius:2px}
+.grp-cat-amt{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);flex-shrink:0}
+
+/* Group transaction list */
+.grp-tx-list{padding:0 16px}
+.grp-tx-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.grp-tx-row:last-child{border-bottom:none}
+.grp-tx-left{min-width:0;flex:1}
+.grp-tx-what{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp-tx-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.grp-tx-amt{font-size:13px;font-family:'DM Mono',monospace;font-weight:600;flex-shrink:0;margin-left:10px}
+
+/* Split balances & settlements */
+.grp-balances{padding:0 16px}
+.grp-balance-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:4px}
+.grp-balance-row.grp-bal-pos{background:rgba(52,211,153,.08)}
+.grp-balance-row.grp-bal-neg{background:rgba(255,77,109,.06)}
+.grp-balance-row.grp-bal-zero{background:var(--bg2)}
+.grp-balance-name{font-size:13px;font-weight:600}
+.grp-balance-val{font-size:12px;font-weight:600}
+.grp-settlements{padding:0 16px}
+.grp-settle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.grp-settle-row:last-child{border-bottom:none}
+.grp-settle-info{font-size:13px;color:var(--text2);flex:1}
+.grp-settle-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:rgba(200,245,60,.08);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+
 /* account strip in top bar */
 .auth-user-chip{font-size:11px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-right:4px;white-space:nowrap;overflow:hidden;max-width:80px;text-overflow:ellipsis}
 
