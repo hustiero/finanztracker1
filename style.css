@@ -107,13 +107,7 @@ input,select,textarea{font-family:inherit;outline:none;border:none;background:no
   display:flex;align-items:flex-start;
   z-index:100;
 }
-/* Extend nav background into iPhone safe-area (home indicator zone) */
-#nav::after{
-  content:'';position:absolute;left:0;right:0;top:100%;
-  height:var(--safe-bot);
-  background:inherit;
-  pointer-events:none;
-}
+/* Nav buttons extend into safe-area; no ::after needed */
 /* When background image is active, blend nav into the background */
 body.has-bg-image #nav{
   background:rgba(var(--glass-rgb),0.65);
@@ -121,16 +115,12 @@ body.has-bg-image #nav{
   -webkit-backdrop-filter:blur(12px) saturate(140%);
   border-top-color:rgba(var(--glass-rgb),0.15);
 }
-body.has-bg-image #nav::after{
-  background:rgba(var(--glass-rgb),0.65);
-  backdrop-filter:blur(12px) saturate(140%);
-  -webkit-backdrop-filter:blur(12px) saturate(140%);
-}
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  height:var(--nav-h);
+  height:calc(var(--nav-h) + var(--safe-bot));
   background:none;color:var(--text3);font-size:10px;font-weight:500;letter-spacing:.3px;
-  transition:color .15s;padding:0;
+  transition:color .15s;
+  padding:0 0 var(--safe-bot);
 }
 .nav-btn svg{width:22px;height:22px;stroke-width:1.8;fill:none;stroke:currentColor;transition:stroke .15s}
 .nav-btn.active{color:var(--accent)}
@@ -918,12 +908,6 @@ body.glass-on #nav,
   -webkit-backdrop-filter:var(--glass-bd);
   border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
-body.glass-on #nav::after,
-[data-theme="light"] body.glass-on #nav::after{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-}
 /* Top-bar — override light-mode solid bg */
 body.glass-on .top-bar,
 [data-theme="light"] body.glass-on .top-bar{
@@ -1530,16 +1514,26 @@ body.is-android .filter-row{touch-action:pan-x}
    DESKTOP ADAPTIVE LAYOUT (≥ 1024px)
    Two-column: left = nav sidebar, right = scrollable content
 ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   WIDGET TILE GRID — universal size system
+   Classes: tile-1x1, tile-2x1, tile-2x2, tile-2x3, tile-2x4
+   (columns x rows) — on mobile all tiles are full-width.
+═══════════════════════════════════════════════════ */
+.tile-grid{
+  display:flex;flex-direction:column;
+  padding:0 0 16px;
+}
+/* Mobile: all tiles stack vertically */
+.tile-grid .widget-card{margin:0 16px 12px}
+
 @media (min-width: 1024px) {
-  /* Constrain app shell */
+  /* ── App shell: full width, horizontal flex ── */
   #app{
     flex-direction:row;
-    max-width:1400px;
-    margin:0 auto;
     position:relative;
   }
 
-  /* ── Left sidebar: nav + summary ─────────────── */
+  /* ── Left sidebar ─────────────────────────── */
   .desktop-sidebar{
     display:flex !important;
     flex-direction:column;
@@ -1582,7 +1576,7 @@ body.is-android .filter-row{touch-action:pan-x}
     border:1px solid var(--border);
   }
 
-  /* ── Main content column ─────────────────────── */
+  /* ── Main content column (fills remaining space) ── */
   .desktop-main{
     flex:1;min-width:0;
     display:flex;flex-direction:column;
@@ -1594,28 +1588,47 @@ body.is-android .filter-row{touch-action:pan-x}
     position:sticky;top:0;z-index:50;
   }
 
-  /* Content area: cap width, center, remove bottom-nav padding */
+  /* Content area */
   #content{
     flex:1;overflow-y:auto;
     padding-bottom:24px;
   }
+
+  /* Non-home tabs: center with max-width for readability */
   .tab-page{
-    max-width:800px;
+    max-width:900px;
     margin:0 auto;
     width:100%;
   }
-  /* Dashboard & settings can be wider */
-  #tab-dashboard .section,
-  #tab-einstellungen .section,
-  #tab-admin .section{
-    max-width:900px;
+
+  /* Home tab: full width for tile grid */
+  #tab-home{
+    max-width:none;
+    padding:0 8px;
   }
+
+  /* ── Tile grid: CSS Grid on desktop ────────── */
+  .tile-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px;
+    padding:0 8px 24px;
+  }
+  .tile-grid .widget-card{margin:0}
+
+  /* Tile size classes (columns x rows) */
+  .tile-1x1{grid-column:span 1;grid-row:span 1}
+  .tile-2x1{grid-column:span 2;grid-row:span 1}
+  .tile-1x2{grid-column:span 1;grid-row:span 2}
+  .tile-2x2{grid-column:span 2;grid-row:span 2}
+  .tile-2x3{grid-column:span 2;grid-row:span 3}
+  .tile-2x4{grid-column:span 2;grid-row:span 4}
 
   /* Hide mobile bottom nav + FAB on desktop */
   #nav{display:none !important}
   .fab{display:none !important}
 
-  /* Glass sidebar when background is active */
+  /* ── Glass sidebar ────────────────────────── */
   body.has-bg-image .desktop-sidebar{
     background:rgba(var(--glass-rgb),0.55);
     backdrop-filter:blur(16px) saturate(150%);
@@ -1645,7 +1658,26 @@ body.is-android .filter-row{touch-action:pan-x}
   }
 }
 
-/* Hide sidebar on mobile (it's injected by JS but should be invisible) */
+/* ≥1440px: 3-column tile grid for very wide screens */
+@media (min-width: 1440px) {
+  .tile-grid{
+    grid-template-columns:repeat(3, 1fr);
+  }
+  /* 2-col tiles span 2 of 3 on wide screens */
+  .tile-2x1{grid-column:span 2}
+  .tile-2x2{grid-column:span 2}
+  .tile-2x3{grid-column:span 2}
+  .tile-2x4{grid-column:span 2}
+}
+
+/* ≥1800px: 4-column tile grid for ultra-wide */
+@media (min-width: 1800px) {
+  .tile-grid{
+    grid-template-columns:repeat(4, 1fr);
+  }
+}
+
+/* Hide sidebar on mobile */
 @media (max-width: 1023px) {
   .desktop-sidebar{display:none !important}
   .desktop-main{display:contents !important}

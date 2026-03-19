@@ -155,7 +155,7 @@ Object.assign(App.UI, {
   renderVerlaufFilterSummary, verlaufCalcSummary,
   // Home widgets management
   toggleHomeEdit, addWidget, removeWidget, moveWidget,
-  saveHomeWidgets, setHomeKontoMonths,
+  saveHomeWidgets, setHomeKontoMonths, tileClass,
   // Dashboard
   setDashboardMonths,
   // Lohn
