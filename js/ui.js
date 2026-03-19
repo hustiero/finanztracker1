@@ -1618,14 +1618,22 @@ function toggleCustomizeSection(){
 function updateDesignSummary(){
   const el = document.getElementById('design-summary');
   if(!el) return;
-  const parts = [];
-  const hasImg = !!localStorage.getItem('ft_bg_image');
-  if(hasImg) parts.push('Eigenes Bild');
-  else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]) parts.push(BG_PRESETS[CFG.bgPreset].label);
-  else parts.push('Standard');
-  if(CFG.glassEnabled) parts.push('Glass');
-  if(CFG.fontColor && CFG.fontColor!=='standard' && FONT_COLOR_PRESETS[CFG.fontColor])
-    parts.push(FONT_COLOR_PRESETS[CFG.fontColor].label);
-  el.textContent = parts.join(' · ');
+  const pkgId = CFG.designPackageId;
+  const pkg = typeof DESIGN_PACKAGES!=='undefined' && DESIGN_PACKAGES[pkgId];
+  if(pkg){
+    el.textContent = pkg.label + ' — Einzelne Einstellungen unten anpassen';
+  } else if(CFG.designPackage){
+    el.textContent = 'Benutzerdefiniert — Einzelne Einstellungen unten anpassen';
+  } else {
+    const parts = [];
+    const hasImg = !!localStorage.getItem('ft_bg_image');
+    if(hasImg) parts.push('Eigenes Bild');
+    else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]) parts.push(BG_PRESETS[CFG.bgPreset].label);
+    else parts.push('Standard');
+    if(CFG.glassEnabled) parts.push('Glass');
+    if(CFG.fontColor && CFG.fontColor!=='standard' && FONT_COLOR_PRESETS[CFG.fontColor])
+      parts.push(FONT_COLOR_PRESETS[CFG.fontColor].label);
+    el.textContent = parts.join(' · ');
+  }
 }
 
