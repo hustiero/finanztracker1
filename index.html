@@ -677,6 +677,22 @@
               <input id="admin-glass-alpha-slider" type="range" min="2" max="80" value="45" style="width:100%;accent-color:var(--accent)" oninput="updateAdminDefaultDesign()">
             </div>
           </div>
+          <div style="height:1px;background:var(--border);margin:10px 0"></div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">Akzentfarbe</div>
+          <div id="admin-accent-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--text2)">Eigene</span>
+            <input id="admin-accent-picker" type="color" value="#C8F53C" style="width:28px;height:22px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setAdminAccentColor(this.value)">
+            <button onclick="setAdminAccentColor('')" style="margin-left:auto;font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 8px;cursor:pointer">Standard</button>
+          </div>
+          <div style="height:1px;background:var(--border);margin:6px 0 10px"></div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">Text-Glow</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:11px;color:var(--text2)">Intensität</span>
+            <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text2)" id="admin-glow-val">100%</span>
+          </div>
+          <input id="admin-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateAdminDefaultDesign()">
+          <div style="height:6px"></div>
           <button class="save-btn" onclick="saveAdminDefaultDesign()" style="width:100%;margin-top:6px;font-size:12px">Aktuelles Design als Standard setzen</button>
         </div>
       </div>
@@ -893,6 +909,26 @@
                   <button onclick="resetFontColors()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Zurücksetzen</button>
                 </div>
               </div>
+            </div>
+            <!-- Accent color -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Akzentfarbe</div>
+              <div id="accent-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Eigene Farbe</span>
+                <input id="accent-custom-picker" type="color" value="#C8F53C" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setAccentColor(this.value)">
+                <button onclick="resetAccentColor()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
+            </div>
+            <!-- Text Glow -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Text-Glow</div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text2)">Intensität</span>
+                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="text-glow-val">100%</span>
+              </div>
+              <input id="text-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateTextGlow(+this.value)">
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">Regelt den Leuchteffekt hinter Titeln und Dashboard-Werten</div>
             </div>
           </div>
           <div class="card" style="padding:14px">

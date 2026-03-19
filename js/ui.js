@@ -1098,6 +1098,29 @@ function renderAdminDesignPresets(){
   if(alphaSlider) alphaSlider.value = dd.glassAlpha||45;
   const alphaVal = document.getElementById('admin-glass-alpha-val');
   if(alphaVal) alphaVal.textContent = (dd.glassAlpha||45)+'%';
+  // Accent color presets
+  const accentGrid = document.getElementById('admin-accent-presets');
+  if(accentGrid){
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const curAccent = dd.accentColor || '';
+    accentGrid.innerHTML = ACCENT_PRESETS.map(p => {
+      const c = isLight ? p.light : p.dark;
+      const isActive = curAccent === c;
+      return `<div onclick="setAdminAccentColor('${c}')" style="
+        height:26px;border-radius:5px;cursor:pointer;background:${c};
+        border:2px solid ${isActive ? 'var(--text)' : 'transparent'};
+        display:flex;align-items:center;justify-content:center;
+        font-size:7px;font-weight:700;color:${_contrastText(c)};
+        transition:border .15s">${p.label}</div>`;
+    }).join('');
+  }
+  const accentPicker = document.getElementById('admin-accent-picker');
+  if(accentPicker) accentPicker.value = dd.accentColor || '#C8F53C';
+  // Glow slider
+  const glowSlider = document.getElementById('admin-glow-slider');
+  if(glowSlider) glowSlider.value = dd.textGlow ?? 100;
+  const glowVal = document.getElementById('admin-glow-val');
+  if(glowVal) glowVal.textContent = (dd.textGlow ?? 100) + '%';
 }
 function setAdminDefaultBg(key){
   if(!CFG.adminDefaultDesign) CFG.adminDefaultDesign = {...DEFAULT_DESIGN};
@@ -1125,7 +1148,19 @@ function updateAdminDefaultDesign(){
   if(blurVal) blurVal.textContent = CFG.adminDefaultDesign.glassBlur+'px';
   const alphaVal = document.getElementById('admin-glass-alpha-val');
   if(alphaVal) alphaVal.textContent = CFG.adminDefaultDesign.glassAlpha+'%';
+  // Glow
+  const glowSlider = document.getElementById('admin-glow-slider');
+  if(glowSlider){
+    CFG.adminDefaultDesign.textGlow = +glowSlider.value;
+    const gv = document.getElementById('admin-glow-val');
+    if(gv) gv.textContent = CFG.adminDefaultDesign.textGlow + '%';
+  }
   cfgSave(); _updateAdminInviteLink();
+}
+function setAdminAccentColor(color){
+  if(!CFG.adminDefaultDesign) CFG.adminDefaultDesign = {...DEFAULT_DESIGN};
+  CFG.adminDefaultDesign.accentColor = color || '';
+  cfgSave(); renderAdminDesignPresets(); _updateAdminInviteLink();
 }
 function saveAdminDefaultDesign(){
   CFG.adminDefaultDesign = {
@@ -1135,7 +1170,9 @@ function saveAdminDefaultDesign(){
     glassAlpha: CFG.glassAlpha||45,
     glassClean: !!CFG.glassClean,
     fontColor: CFG.fontColor||'',
-    fontColors: CFG.fontColors||{}
+    fontColors: CFG.fontColors||{},
+    accentColor: CFG.accentColor||'',
+    textGlow: CFG.textGlow ?? 100,
   };
   cfgSave(); renderAdminDesignPresets(); _updateAdminInviteLink();
   toast('Aktuelles Design als Standard gespeichert','ok');

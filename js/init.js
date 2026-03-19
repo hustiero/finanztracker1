@@ -155,12 +155,12 @@ Object.assign(App.UI, {
   // Misc UI
   updatePageSub, gotoSetupStep, resetLoginForm, generateAppIcon,
   togglePwVis, toggleSettingsGroup, toggleCustomizeSection, updateDesignSummary,
-  renderFontColorUI,
+  renderFontColorUI, renderAccentColorUI,
   // Aktien views
   setAktienView, setAktienTabView, deleteAktie,
   // Admin
   copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs,
-  setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign,
+  setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign, setAdminAccentColor,
 });
 
 // ── App.Design: theme, background, glassmorphism, fonts ───────
@@ -171,6 +171,8 @@ Object.assign(App.Design, {
   toggleGlass, toggleGlassClean, updateGlassBlur, updateGlassAlpha, updateBgBlur,
   applyFontColors, setFontColorPreset, setFontColorCustom, resetFontColors,
   applyDesignPackage, renderDesignPackages, migrateOldDesignToPkg,
+  applyAccentColor, setAccentColor, resetAccentColor, renderAccentColorUI,
+  applyTextGlow, updateTextGlow,
 });
 
 // ── Render scheduler map (Step 8) ─────────────────────────────
