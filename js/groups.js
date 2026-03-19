@@ -373,8 +373,10 @@ async function settleUp(groupId, from, to, amount){
   toast('✓ Ausgleich gebucht','ok');
   // Push notification to other group members
   const group = DATA.groups.find(g=>g.id===groupId);
-  if(group) pushGroupNotification(group, entry);
+  if(group) pushGroupNotification(group, {...entry, _settlementType:'settlement', _settlementText: from+' hat '+fmtAmt(amount)+' an '+to+' beglichen'});
   markDirty('groups','verlauf');
+  // Re-render group detail if open
+  if(currentGroupId===groupId) openGroupDetail(groupId);
 }
 
 // ── 11. Group notifications ──────────────────────────────────
@@ -467,7 +469,181 @@ async function markGroupNotifsRead(){
   }
 }
 
-// ── 12. Admin groups panel ───────────────────────────────────
+// ── 12. GroupEntries — load & save shared entries ────────────
+
+/** Load group entries from admin sheet (GroupEntries tab). */
+async function loadGroupEntries(){
+  if(CFG.demo || !DATA.groups || !DATA.groups.length) return;
+  const me = _myGroupName();
+  for(const group of DATA.groups){
+    if(group.status!=='active') continue;
+    try{
+      const res = await groupsApiCall({
+        action:'groupsGet',
+        range:'GroupEntries!A2:J2000'
+      }).catch(()=>({values:[]}));
+      const rows = (res.values||[]).filter(r=>
+        r[0] && r[1]===group.id && r[9]!=='1'
+      );
+      if(!DATA.groupEntries) DATA.groupEntries=[];
+      for(const r of rows){
+        const entry = {
+          id:         r[0],
+          groupId:    r[1],
+          authorName: r[2]||'',
+          date:       r[3]||'',
+          what:       r[4]||'',
+          cat:        r[5]||'',
+          amt:        parseFloat(r[6])||0,
+          currency:   r[7]||group.currency||'CHF',
+          splitData:  r[8] ? JSON.parse(r[8]) : null,
+          isMine:     r[2]===me,
+          _type:      'groupEntry'
+        };
+        if(!DATA.groupEntries.find(e=>e.id===entry.id)){
+          DATA.groupEntries.push(entry);
+        }
+      }
+    }catch(e){
+      console.warn('loadGroupEntries:', group.name, e.message);
+    }
+  }
+}
+
+/** Save an entry to the shared GroupEntries sheet on the admin backend. */
+async function saveGroupEntry(group, entry){
+  if(CFG.demo) return;
+  const me = _myGroupName();
+  const row = [
+    entry.id,
+    group.id,
+    me,
+    entry.date,
+    entry.what,
+    entry.cat,
+    entry.amt,
+    group.currency||CFG.currency||'CHF',
+    entry.splitData ? JSON.stringify(entry.splitData) : '',
+    ''
+  ];
+  try{
+    await groupsApiCall({
+      action:'groupsEnsureSheet',
+      sheet:'GroupEntries',
+      headers:JSON.stringify(['id','groupId','authorName','date','what','cat','amt','currency','splitData','deleted'])
+    });
+    await groupsApiCall({
+      action:'groupsAppend',
+      sheet:'GroupEntries',
+      values:JSON.stringify([row])
+    });
+    // Add to local DATA.groupEntries
+    if(!DATA.groupEntries) DATA.groupEntries=[];
+    DATA.groupEntries.push({
+      id:entry.id, groupId:group.id, authorName:me,
+      date:entry.date, what:entry.what, cat:entry.cat,
+      amt:entry.amt, currency:group.currency||CFG.currency||'CHF',
+      splitData:entry.splitData||null, isMine:true, _type:'groupEntry'
+    });
+  }catch(e){
+    console.warn('saveGroupEntry failed:', e.message);
+  }
+}
+
+// ── 13. Group balances — debt calculation ────────────────────
+
+function groupName(groupId){
+  return DATA.groups.find(g=>g.id===groupId)?.name||'';
+}
+
+function calculateGroupBalances(groupId){
+  const group = DATA.groups.find(g=>g.id===groupId);
+  if(!group) return [];
+
+  const myEntries = DATA.expenses.filter(e=>e.groupId===groupId);
+  const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===groupId);
+  const allEntries = [...myEntries, ...foreignEntries];
+
+  const paid = {};
+  const owes = {};
+  group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
+
+  for(const entry of allEntries){
+    const payer = entry.authorName || _myGroupName();
+    const split = entry.splitData;
+    if(!split) continue;
+    paid[payer] = (paid[payer]||0) + entry.amt;
+    Object.entries(split.participants||{}).forEach(([member, share])=>{
+      owes[member] = (owes[member]||0) + share;
+    });
+  }
+
+  const balances = {};
+  group.members.forEach(m=>{
+    balances[m] = (paid[m]||0) - (owes[m]||0);
+  });
+
+  const debts = [];
+  const debtors  = Object.entries(balances).filter(([,v])=>v<-0.01).sort(([,a],[,b])=>a-b);
+  const creditors = Object.entries(balances).filter(([,v])=>v>0.01).sort(([,a],[,b])=>b-a);
+
+  let di=0, ci=0;
+  const dAmt = debtors.map(([,v])=>Math.abs(v));
+  const cAmt = creditors.map(([,v])=>v);
+
+  while(di<debtors.length && ci<creditors.length){
+    const amount = Math.min(dAmt[di], cAmt[ci]);
+    if(amount>0.01){
+      debts.push({
+        from:   debtors[di][0],
+        to:     creditors[ci][0],
+        amount: Math.round(amount*100)/100
+      });
+    }
+    dAmt[di] -= amount;
+    cAmt[ci] -= amount;
+    if(dAmt[di]<0.01) di++;
+    if(cAmt[ci]<0.01) ci++;
+  }
+  return debts;
+}
+
+function confirmSettleUp(groupId, from, to, amount){
+  if(!confirm(
+    `${curr()} ${fmtAmt(amount)} an ${to} begleichen?\nDies wird als Ausgleichs-Buchung erfasst.`
+  )) return;
+  settleUp(groupId, from, to, amount);
+}
+
+// ── 14. Verlauf toggle for group entries ─────────────────────
+
+function toggleGroupEntriesVisible(){
+  CFG.showGroupEntries = !CFG.showGroupEntries;
+  cfgSave();
+  const btn = document.getElementById('verlauf-group-toggle');
+  if(btn) btn.classList.toggle('active', CFG.showGroupEntries);
+  renderVerlauf();
+}
+
+function openGroupEntryDetail(entryId){
+  const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId);
+  if(!entry) return;
+  const gName = groupName(entry.groupId);
+  const body = `
+    <div style="padding:4px 0">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(entry.what)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+        <div><span class="t-label">Betrag</span><div style="font-weight:600;margin-top:2px">${curr()} ${fmtAmt(entry.amt)}</div></div>
+        <div><span class="t-label">Datum</span><div style="margin-top:2px">${fmtDate(entry.date)}</div></div>
+        <div><span class="t-label">Kategorie</span><div style="margin-top:2px">${catEmoji(entry.cat)} ${esc(entry.cat)}</div></div>
+        <div><span class="t-label">Erstellt von</span><div style="margin-top:2px">${esc(entry.authorName)}</div></div>
+      </div>
+      ${gName?`<div style="margin-top:10px;font-size:12px;color:var(--text3)">Gruppe: ${esc(gName)}</div>`:''}
+    </div>`;
+  openGenericModal('Gruppen-Buchung', body, '');
+}
+
+// ── 15. Admin groups panel ───────────────────────────────────
 
 async function renderAdminGroupsPanel(){
   const container = document.getElementById('admin-groups-list');

@@ -76,6 +76,8 @@ Object.assign(App.IO, {
   loadGroups, isGroupAdmin, generateInviteLink,
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  loadGroupEntries, saveGroupEntry, calculateGroupBalances,
+  confirmSettleUp, groupName, toggleGroupEntriesVisible, openGroupEntryDetail,
   // Groups API layer
   groupsApiCall, groupsApiGet, groupsApiAppend, groupsApiUpdate, groupsApiFindRow,
   // Sparziele CRUD
@@ -131,6 +133,7 @@ Object.assign(App.UI, {
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
   exportGroupReport, copyGroupInviteLink, generateInviteLink,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  toggleGroupEntriesVisible, openGroupEntryDetail, confirmSettleUp,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
