@@ -361,6 +361,8 @@ function toggleNotifOverlay(){
     renderNotifications();
     overlay.classList.add('open');
     backdrop.classList.add('open');
+    // Mark group notifications as read in backend (fire-and-forget)
+    if(typeof markGroupNotifsRead === 'function') markGroupNotifsRead();
   }
 }
 
@@ -372,7 +374,10 @@ function closeNotifOverlay(){
 function renderNotifications(){
   const body = document.getElementById('notif-body');
   if(!body) return;
-  const notifs = (CFG.notifications||[]).filter(n=>!n.confirmed||n.type==='dauerauftrag_info').filter(n=>!n.dismissed).sort((a,b)=>b.date.localeCompare(a.date));
+  const notifs = (CFG.notifications||[])
+    .filter(n=>!n.confirmed||n.type==='dauerauftrag_info'||n.type==='group_activity')
+    .filter(n=>!n.dismissed)
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   if(!notifs.length){
     body.innerHTML = `<div style="text-align:center;padding:32px 24px;color:var(--text3)">
@@ -382,18 +387,24 @@ function renderNotifications(){
     return;
   }
 
-  body.innerHTML = notifs.map(n=>`
-    <div class="notif-item${n.dismissed?' dismissed':''}" onclick="openNotifDetail('${n.id}')">
+  body.innerHTML = notifs.map(n=>{
+    // Icon varies by type
+    const icon = n.type==='group_activity'
+      ? '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+      : '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>';
+
+    return `<div class="notif-item${n.dismissed?' dismissed':''}" onclick="openNotifDetail('${n.id}')">
       <div class="notif-item-icon">
-        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
+        <svg viewBox="0 0 24 24">${icon}</svg>
       </div>
       <div class="notif-item-body">
-        <div class="notif-item-title">${esc(n.title)}</div>
-        <div class="notif-item-sub">${esc(n.body)}</div>
-        <div class="notif-item-date">${fmtDate(n.date)}</div>
+        <div class="notif-item-title">${esc(n.title||'')}</div>
+        <div class="notif-item-sub">${esc(n.body||'')}</div>
+        <div class="notif-item-date">${fmtDate(n.date||'')}</div>
       </div>
       ${!n.dismissed?`<button onclick="event.stopPropagation();dismissNotif('${n.id}')" style="background:none;color:var(--text3);font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;flex-shrink:0">Verwerfen</button>`:''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function dismissNotif(id){
@@ -406,12 +417,17 @@ function dismissNotif(id){
 function openNotifDetail(id){
   const n = (CFG.notifications||[]).find(n=>n.id===id);
   if(!n) return;
-  if(n.type==='dauerauftrag_info'){
-    // Informational only — booking already happened automatically
+  if(n.type==='group_activity'){
+    // Navigate to group detail
+    dismissNotif(id);
+    if(n.groupId){
+      goTab('groups');
+      setTimeout(()=>openGroupDetail(n.groupId), 100);
+    }
+  } else if(n.type==='dauerauftrag_info'){
     dismissNotif(id);
     toast(`${n.title} — ${n.body}`,'ok');
   } else if(n.type==='dauerauftrag'){
-    // Legacy: old-style confirmation notifications — just dismiss since auto-materialization handles it
     dismissNotif(id);
   }
 }
@@ -1087,8 +1103,7 @@ function _renderEventDetail(g, el){
   const expenses = getGroupExpenses(g.id);
   const total = expenses.reduce((s,e)=>s+e.amt,0);
   const topCats = getGroupTopCategories(g.id);
-  const me = CFG.userName||'Ich';
-  const isAdmin = !g.adminId || g.adminId===me;
+  const isAdmin = isGroupAdmin(g);
 
   let html = `<div class="grp-detail-header">
     <button class="grp-detail-back" onclick="closeGroupDetail()">
@@ -1161,8 +1176,7 @@ function _renderSplitDetail(g, el){
   const total = expenses.reduce((s,e)=>s+e.amt,0);
   const balances = calcSplitBalances(g.id);
   const settlements = calcSettlements(g.id);
-  const me = CFG.userName||'Ich';
-  const isAdmin = !g.adminId || g.adminId===me;
+  const isAdmin = isGroupAdmin(g);
 
   let html = `<div class="grp-detail-header">
     <button class="grp-detail-back" onclick="closeGroupDetail()">
@@ -1347,22 +1361,7 @@ function _renderSplitShares(group){
   }
 }
 
-// Copy group invite link to clipboard
-function copyGroupInviteLink(groupId){
-  const g = DATA.groups.find(x=>x.id===groupId);
-  if(!g||!g.inviteCode){ toast('Kein Einladungscode vorhanden','err'); return; }
-  const base = window.location.origin + window.location.pathname;
-  const backendUrl = CFG.scriptUrl || CFG.adminUrl || '';
-  const params = new URLSearchParams({joinGroup:g.id, gc:g.inviteCode});
-  if(backendUrl) params.set('url', backendUrl);
-  const link = base + '?' + params.toString();
-  navigator.clipboard.writeText(link).then(()=>{
-    toast('✓ Einladungslink kopiert','ok');
-  }).catch(()=>{
-    // Fallback: show in prompt
-    prompt('Einladungslink:', link);
-  });
-}
+// copyGroupInviteLink() moved to js/groups.js
 
 // Export group report as text
 function exportGroupReport(groupId){
@@ -1406,6 +1405,8 @@ async function renderAdmin(){
   const invEl = document.getElementById('admin-invite-link');
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
+  // Load admin groups panel
+  if(typeof renderAdminGroupsPanel === 'function') renderAdminGroupsPanel();
 }
 
 // ─── User Management Overlay ─────────────────────────────────

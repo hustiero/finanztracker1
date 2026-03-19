@@ -56,7 +56,7 @@ const DATA = {
   recurring: [],  // {id,what,cat,amt,interval,day,note,active,start,endDate,affectsAvg}
   categories: [], // {id,name,type,color,sort,parent}
   sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
-  groups: [],     // {id,name,type('event'|'split'),members[],currency,status('active'|'archived'),created}
+  groups: [],     // {id,name,type('event'|'split'),members[],currency,status,created,adminId,inviteCode,sharedSheetUrl}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
