@@ -347,15 +347,16 @@ async function loadAll(){
   if(hadCache) renderAll();
 
   try{
-    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] = await Promise.allSettled([
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes, grpRes] = await Promise.allSettled([
       apiGet('Kategorien!A2:G500'),
-      apiGet('Ausgaben!A2:H5000'),
-      apiGet('Einnahmen!A2:H5000'),
+      apiGet('Ausgaben!A2:J5000'),
+      apiGet('Einnahmen!A2:I5000'),
       apiGet('Daueraufträge!A2:K200'),
       apiGet('Aktien!A2:F5000'),
       apiGet('Trades!A2:J5000'),
       loadProfileFromSheet(),
-      apiGet('Sparziele!A2:K200')
+      apiGet('Sparziele!A2:K200'),
+      apiGet('Groups!A2:G200').catch(()=>({values:[]}))
     ]);
 
     if(katRes.status==='fulfilled'){
@@ -368,13 +369,22 @@ async function loadAll(){
     if(ausgRes.status==='fulfilled'){
       DATA.expenses = (ausgRes.value.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',recurringId:r[6]||'',isFixkosten:String(r[7]||'')==='1'}));
+        .map(r=>{
+          const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',recurringId:r[6]||'',isFixkosten:String(r[7]||'')==='1'};
+          if(r[8]) e.groupId = r[8];
+          if(r[9]){ try{ e.splitData = JSON.parse(r[9]); }catch(x){ e.splitData = null; } }
+          return e;
+        });
     } else { if(!hadCache) DATA.expenses=[]; }
 
     if(einRes.status==='fulfilled'){
       DATA.incomes = (einRes.value.values||[])
         .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'}));
+        .map(r=>{
+          const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'};
+          if(r[8]) e.groupId = r[8];
+          return e;
+        });
     } else { if(!hadCache) DATA.incomes=[]; }
 
     if(dauerRes.status==='fulfilled'){
@@ -392,6 +402,16 @@ async function loadAll(){
           priority:parseInt(r[7])||99,taxPct:parseFloat(r[8])||0,taxAmt:parseFloat(r[9])||0,
           isTax:String(r[6]||'')==='tax'}));
     }
+
+    // Groups — optionales Sheet
+    if(grpRes.status==='fulfilled'){
+      DATA.groups = (grpRes.value.values||[])
+        .filter(r=>r[0])
+        .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'event',
+          members:r[3]?JSON.parse(r[3]):[CFG.userName||'Ich'],
+          currency:r[4]||CFG.currency||'CHF',
+          status:r[5]||'active',created:r[6]||''}));
+    } else { if(!hadCache) DATA.groups=[]; }
 
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
@@ -530,26 +550,38 @@ async function saveEntry(){
 
   if(!amt||!date||!what){ toast('Betrag, Datum & Beschreibung erforderlich','err'); return; }
 
+  // Group & split data from form
+  const groupSel = document.getElementById('f-group');
+  const groupId = groupSel ? groupSel.value : '';
+  const group = groupId ? DATA.groups.find(g=>g.id===groupId) : null;
+  let splitData = null;
+  if(group && group.type==='split'){
+    splitData = _readSplitForm(amt, group);
+  }
+
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
     const entry = {id,date,what,cat,amt,note,recurringId:'',isFixkosten:false};
+    if(groupId) entry.groupId = groupId;
+    if(splitData) entry.splitData = splitData;
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0']]);
+        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
   } else {
     const isLohn = document.getElementById('f-lohn-switch')?.classList.contains('on')||false;
     const entry = {id,date,what,cat,amt,note,isLohn};
+    if(groupId) entry.groupId = groupId;
     DATA.incomes.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0']]);
+        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -560,12 +592,14 @@ async function saveEntry(){
   document.getElementById('f-what').value='';
   document.getElementById('f-note').value='';
   document.getElementById('f-date').value=today();
+  if(groupSel) groupSel.value='';
+  _hideSplitSection();
   // Reset lohn toggle
   lohnMode = false; updateLohnToggleUI();
 
   toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   dataCacheSave();
-  markDirty('verlauf','dashboard','home','lohn');
+  markDirty('verlauf','dashboard','home','lohn','groups');
 }
 
 // Open edit modal for an entry
@@ -1254,6 +1288,116 @@ async function addToSparGoal(id, amount){
     if(rowNum) await apiUpdate(`Sparziele!E${rowNum}`, [[g.saved]]);
     setSyncStatus('online');
   }catch(e){ setSyncStatus('error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: GROUPS — CRUD
+// ═══════════════════════════════════════════════════════════════
+
+async function saveGroup(name, type, members, currency){
+  const id = genId('G');
+  const created = today();
+  const group = {id,name,type,members,currency,status:'active',created};
+  DATA.groups.push(group);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Groups',[[id,name,type,JSON.stringify(members),currency,'active',created]]);
+      setSyncStatus('online');
+    }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+  }
+  dataCacheSave();
+  markDirty('groups');
+  return group;
+}
+
+async function updateGroup(id, updates){
+  const g = DATA.groups.find(x=>x.id===id);
+  if(!g) return;
+  Object.assign(g, updates);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Groups', id);
+      if(row) await apiUpdate(`Groups!A${row}:G${row}`,[[g.id,g.name,g.type,JSON.stringify(g.members),g.currency,g.status,g.created]]);
+      setSyncStatus('online');
+    }catch(e){ setSyncStatus('error'); }
+  }
+  dataCacheSave();
+  markDirty('groups');
+}
+
+async function deleteGroup(id){
+  if(!confirm('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.')) return;
+  DATA.groups = DATA.groups.filter(g=>g.id!==id);
+  // Remove groupId from linked expenses/incomes
+  DATA.expenses.forEach(e=>{ if(e.groupId===id){ delete e.groupId; delete e.splitData; } });
+  DATA.incomes.forEach(e=>{ if(e.groupId===id) delete e.groupId; });
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Groups', id);
+      if(row) await apiUpdate(`Groups!F${row}`,[ ['deleted'] ]);
+      setSyncStatus('online');
+    }catch(e){ setSyncStatus('error'); }
+  }
+  dataCacheSave();
+  markDirty('groups');
+  renderGroups();
+}
+
+async function archiveGroup(id){
+  await updateGroup(id, {status:'archived'});
+  toast('✓ Gruppe archiviert','ok');
+  renderGroups();
+}
+
+// Read split form data from the entry form
+function _readSplitForm(totalAmt, group){
+  const splitMode = document.getElementById('f-split-mode')?.value||'equal';
+  const payerId = document.getElementById('f-split-payer')?.value||CFG.userName||'Ich';
+  const participants = {};
+
+  if(splitMode==='equal'){
+    const count = group.members.length;
+    const share = Math.round((totalAmt/count)*100)/100;
+    group.members.forEach(m=>{ participants[m] = share; });
+    // Fix rounding
+    const diff = totalAmt - share*count;
+    if(Math.abs(diff)>0.001) participants[group.members[0]] = Math.round((share+diff)*100)/100;
+  } else {
+    // Custom shares
+    group.members.forEach(m=>{
+      const inp = document.getElementById('f-split-share-'+CSS.escape(m));
+      participants[m] = inp ? parseFloat(inp.value)||0 : 0;
+    });
+  }
+  return {totalAmount:totalAmt, payerId, participants};
+}
+
+function _hideSplitSection(){
+  const sec = document.getElementById('f-split-section');
+  if(sec) sec.style.display='none';
+}
+
+// Settle up: create a transfer entry to balance debts
+async function settleUp(groupId, from, to, amount){
+  const id = genId('A');
+  const date = today();
+  const what = 'Ausgleich: '+from+' → '+to;
+  const splitData = {totalAmount:amount, payerId:from, participants:{[to]:amount}};
+  const entry = {id,date,what,cat:'Transfer',amt:amount,note:'Settlement',recurringId:'',isFixkosten:false,groupId,splitData};
+  DATA.expenses.push(entry);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Ausgaben',[[id,date,what,'Transfer',amount,'Settlement','','0',groupId,JSON.stringify(splitData)]]);
+      setSyncStatus('online');
+    }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+  }
+  dataCacheSave();
+  toast('✓ Ausgleich gebucht','ok');
+  markDirty('groups','verlauf');
 }
 
 // Generic modal helper (reused for sparen)

@@ -264,6 +264,33 @@
           <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
         </div>
 
+        <!-- Group assignment (optional) -->
+        <div class="form-group" id="f-group-wrap">
+          <label class="form-label">Zu Gruppe hinzufügen <span class="t-text3">(optional)</span></label>
+          <select id="f-group" class="form-select" onchange="onGroupSelect(this.value)">
+            <option value="">— Keine Gruppe —</option>
+          </select>
+        </div>
+
+        <!-- Split fields (shown when a split-group is selected) -->
+        <div id="f-split-section" style="display:none">
+          <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bezahlt von</label>
+              <select id="f-split-payer" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Aufteilung</label>
+              <select id="f-split-mode" class="form-select" onchange="onSplitModeChange()">
+                <option value="equal">Gleichmässig</option>
+                <option value="custom">Individuell</option>
+              </select>
+            </div>
+          </div>
+          <div id="f-split-shares"></div>
+        </div>
+
         <!-- Lohn toggle (only for Einnahme) -->
         <div id="f-lohn-toggle-wrap" style="display:none;margin-bottom:12px">
           <div class="lohn-toggle-row" id="f-lohn-row" onclick="toggleLohnField()">
@@ -415,6 +442,12 @@
               </div>
             </div>
             <div id="verlauf-filter-summary"></div>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+              <button id="verlauf-excl-groups-btn" class="grp-filter-btn" onclick="toggleVerlaufExcludeGroups()" style="font-size:11px">
+                <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:4px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Events ausblenden
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -621,6 +654,26 @@
       <div style="padding:4px 16px 12px">
         <button class="save-btn" onclick="openNewAktieModal()" class="w-full">+ Aktie hinzufügen</button>
       </div>
+    </div>
+
+    <!-- TAB: Groups & Events -->
+    <div id="tab-groups" class="tab-page" style="display:none">
+      <div id="groups-main">
+        <!-- Filter bar -->
+        <div style="padding:0 16px 8px;display:flex;gap:8px;align-items:center">
+          <button class="grp-filter-btn active" data-filter="all" onclick="setGroupFilter('all')">Alle</button>
+          <button class="grp-filter-btn" data-filter="event" onclick="setGroupFilter('event')">Events</button>
+          <button class="grp-filter-btn" data-filter="split" onclick="setGroupFilter('split')">Split</button>
+          <button class="grp-filter-btn" data-filter="archived" onclick="setGroupFilter('archived')">Archiv</button>
+        </div>
+        <!-- Group cards grid -->
+        <div id="groups-grid" class="groups-grid" style="padding:0 16px"></div>
+        <div style="padding:8px 16px 16px">
+          <button class="save-btn" onclick="openNewGroupModal()" style="width:100%">+ Neue Gruppe</button>
+        </div>
+      </div>
+      <!-- Group detail view (shown on card click) -->
+      <div id="group-detail" style="display:none"></div>
     </div>
 
     <!-- TAB: Admin (nur für role=admin) -->
