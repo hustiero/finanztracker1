@@ -7,7 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzen">
 <meta name="theme-color" content="#0D0D0F">
+<meta name="theme-color" content="#F4F4F7" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230D0D0F'/><circle cx='50' cy='50' r='30' fill='%23C8F53C'/><text y='58' x='50' text-anchor='middle' font-size='40' font-weight='bold' font-family='monospace' fill='%230D0D0F'>₣</text></svg>">
 <title>Finanztracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
@@ -198,6 +201,12 @@
 ════════════════════════════════════ -->
 <div id="app" class="hidden">
   <div class="loader" id="loader"></div>
+
+  <!-- Desktop sidebar (hidden on mobile via CSS, populated by JS) -->
+  <aside class="desktop-sidebar" id="desktop-sidebar"></aside>
+
+  <!-- Desktop main wrapper (display:contents on mobile, flex column on desktop) -->
+  <div class="desktop-main">
 
   <!-- Top Bar -->
   <div class="top-bar">
@@ -1015,6 +1024,8 @@
   <button class="fab" id="fab-add" onclick="goTab('eingabe')" aria-label="Neuer Eintrag">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
+
+  </div><!-- /.desktop-main -->
 </div>
 
 <!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->
@@ -1496,6 +1507,7 @@
 <script src="js/ui.js"></script>
 <script src="js/aktien.js"></script>
 <script src="js/design.js"></script>
+<script src="js/device.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

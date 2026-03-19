@@ -217,6 +217,7 @@ function applyAppBackground(){
   _applyBgBlur();
   applyAccentColor();
   applyTextGlow();
+  if(typeof Device !== 'undefined') Device.syncThemeColor();
 }
 
 // Set CSS variables from CFG

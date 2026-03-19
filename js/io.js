@@ -5,6 +5,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   cfgLoad();
   applyAppBackground(); // Apply background + glass immediately after CFG load
   applyFontColors();
+  Device.init(); // Platform detection, body classes, history nav
 
   // Read adminUrl + optional design from sharing/invite link
   const urlParams = new URLSearchParams(window.location.search);
@@ -255,14 +256,23 @@ function downloadBlankTemplate(){
 
 function generateAppIcon(){
   try{
+    const accent = (typeof CFG !== 'undefined' && CFG.accentColor) || '#C8F53C';
     const c=document.createElement('canvas'); c.width=c.height=180;
     const ctx=c.getContext('2d');
     ctx.fillStyle='#0D0D0F';
     ctx.beginPath();ctx.moveTo(36,0);ctx.arcTo(180,0,180,180,36);ctx.arcTo(180,180,0,180,36);ctx.arcTo(0,180,0,0,36);ctx.arcTo(0,0,180,0,36);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#C8F53C'; ctx.beginPath();ctx.arc(90,90,54,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=accent; ctx.beginPath();ctx.arc(90,90,54,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#0D0D0F'; ctx.font='bold 70px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('\u20A3',90,93);
-    const link=document.createElement('link'); link.rel='apple-touch-icon'; link.sizes='180x180'; link.href=c.toDataURL('image/png');
-    document.head.appendChild(link);
+    // Apple touch icon
+    const appleLink=document.createElement('link'); appleLink.rel='apple-touch-icon'; appleLink.sizes='180x180'; appleLink.href=c.toDataURL('image/png');
+    document.head.appendChild(appleLink);
+    // Also update generic favicon for browsers
+    const favLink = document.querySelector('link[rel="icon"][sizes="180x180"]');
+    if(favLink) favLink.href = c.toDataURL('image/png');
+    else {
+      const fl=document.createElement('link'); fl.rel='icon'; fl.sizes='180x180'; fl.type='image/png'; fl.href=c.toDataURL('image/png');
+      document.head.appendChild(fl);
+    }
   }catch(e){}
 }
 

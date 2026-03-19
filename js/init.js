@@ -163,6 +163,9 @@ Object.assign(App.UI, {
   setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign, setAdminAccentColor,
 });
 
+// ── App.Device: platform detection, history nav, sidebar ──────
+App.Device = Device;
+
 // ── App.Design: theme, background, glassmorphism, fonts ───────
 Object.assign(App.Design, {
   applyThemeMode, setThemeMode, updateThemeSegUI,

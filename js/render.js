@@ -36,6 +36,7 @@ function openMonthView(){
   mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth();
   renderMonthView();
   document.getElementById('month-view').classList.add('open');
+  Device.pushNav('monthview','month-view');
 }
 function closeMonthView(){
   document.getElementById('month-view').classList.remove('open');
