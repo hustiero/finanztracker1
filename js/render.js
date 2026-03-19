@@ -431,22 +431,28 @@ function renderVerlaufEntryGroups(entries){
         <div class="card" style="margin:0 16px">
           ${items.map(e=>{
             const isRec    = e._type==='recurring';
+            const isGroup  = e._type==='groupEntry';
             const isFuture = isRec && e.date > today();
-            const onclick  = isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
+            const onclick  = isGroup
+              ? `onclick="openGroupEntryDetail('${e.id}')"`
+              : isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
             const recLabel = isFuture
               ? `<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:3px">geplant</span>`
               : `<span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`;
+            const groupLabel = isGroup
+              ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>` : '';
             return `
-            <div class="card-row" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
+            <div class="card-row${isGroup?' group-foreign-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
               <div class="card-row-icon" style="background:${catColor(e.cat)}22">
                 <span>${isRec?'↻':catEmoji(e.cat)}</span>
               </div>
               <div class="card-row-body">
                 <div class="card-row-title">${esc(e.what)}${isRec?' '+recLabel:''}</div>
                 <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':'' }${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
+                ${groupLabel}
               </div>
-              <div class="card-row-amount">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
-              ${isRec?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
+              <div class="card-row-amount${isGroup?' foreign':''}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
+              ${isRec||isGroup?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
             </div>`;
           }).join('')}
         </div>
@@ -463,8 +469,6 @@ function renderVerlaufL1(){
   const container = document.getElementById('verlauf-l1-content');
   if(!container) return;
   const {von, bis} = verlaufGetRange();
-  // Use the filter's upper bound (not just today) so upcoming Daueraufträge within
-  // the selected time window appear as scheduled "geplant" entries.
   const recurStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
   const recurEnd   = bis || today();
   let entries = [
@@ -472,9 +476,19 @@ function renderVerlaufL1(){
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
+  // Merge foreign group entries when toggle is on
+  if(CFG.showGroupEntries && DATA.groupEntries){
+    const foreignEntries = DATA.groupEntries
+      .filter(e=>!e.isMine)
+      .map(e=>({...e, _type:'groupEntry'}));
+    entries = [...entries, ...foreignEntries];
+  }
   entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
   entries.sort((a,b)=>b.date.localeCompare(a.date));
+  // Update group toggle button state
+  const gtBtn = document.getElementById('verlauf-group-toggle');
+  if(gtBtn) gtBtn.classList.toggle('active', !!CFG.showGroupEntries);
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
   container.innerHTML = renderVerlaufEntryGroups(entries);
 }

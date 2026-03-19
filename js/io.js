@@ -435,6 +435,11 @@ async function loadAll(){
     // Groups — loaded from admin sheet via groups.js
     await loadGroups();
 
+    // GroupEntries — load shared entries (non-blocking)
+    loadGroupEntries().then(()=>{
+      if(DATA.groupEntries.length) markDirty('verlauf','groups');
+    });
+
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
       const shStocks = (aktRes.value.values||[])
@@ -635,6 +640,10 @@ async function saveEntry(){
   dataCacheSave();
   // Push notification to group members (non-blocking)
   if(group) pushGroupNotification(group, {what,amt,date});
+  // Save to shared GroupEntries sheet (non-blocking)
+  if(group && currentEntryType==='ausgabe'){
+    saveGroupEntry(group, {id,date,what,cat,amt,splitData});
+  }
   markDirty('verlauf','dashboard','home','lohn','groups');
 }
 

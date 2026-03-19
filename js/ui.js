@@ -1151,14 +1151,20 @@ function _renderEventDetail(g, el){
     html += '</div>';
   }
 
-  // Transactions
+  // Transactions (own + foreign)
+  const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+  const allTx = [
+    ...expenses.map(e=>({...e, _author:''})),
+    ...foreignEntries.map(e=>({...e, _author:e.authorName}))
+  ].sort((a,b)=>b.date.localeCompare(a.date));
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
-  if(!expenses.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
-  expenses.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
-    html += `<div class="grp-tx-row">
+  if(!allTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
+  allTx.forEach(e=>{
+    const authorTag = e._author ? ` · 👤 ${esc(e._author)}` : '';
+    html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}${authorTag}</div>
       </div>
       <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
     </div>`;
@@ -1232,32 +1238,46 @@ function _renderSplitDetail(g, el){
   }
   html += '</div>';
 
-  // Settlements
-  if(settlements.length && g.status==='active'){
-    html += '<div class="grp-section-title">Ausgleich</div><div class="grp-settlements">';
-    settlements.forEach(s=>{
-      html += `<div class="grp-settle-row">
-        <div class="grp-settle-info">
-          <strong>${esc(s.from)}</strong> zahlt <strong>${fmtAmt(s.amount)}</strong> an <strong>${esc(s.to)}</strong>
+  // Settlements — using calculateGroupBalances for combined local+foreign entries
+  const debts = calculateGroupBalances(g.id);
+  const me = _myGroupName();
+  if(debts.length && g.status==='active'){
+    html += '<div class="grp-section-title">Abrechnung</div><div class="grp-settlements">';
+    debts.forEach(debt=>{
+      const isMe = debt.from===me;
+      html += `<div class="debt-row${isMe?' debt-mine':''}">
+        <div class="debt-info">
+          <span class="debt-from">${esc(debt.from)}</span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span class="debt-to">${esc(debt.to)}</span>
         </div>
-        <button class="grp-settle-btn" onclick="settleUp('${g.id}','${esc(s.from)}','${esc(s.to)}',${s.amount})">Buchen</button>
+        <div class="debt-right">
+          <span class="debt-amt">${curr()} ${fmtAmt(debt.amount)}</span>
+          ${isMe?`<button class="btn-settle" onclick="confirmSettleUp('${g.id}','${esc(debt.from)}','${esc(debt.to)}',${debt.amount})">Begleichen</button>`:''}
+        </div>
       </div>`;
     });
     html += '</div>';
-  } else if(!settlements.length && Object.keys(balances).length){
-    html += '<div class="grp-section-title">Ausgleich</div><div class="t-muted" style="padding:8px 0">Alle Schulden sind ausgeglichen!</div>';
+  } else if(!debts.length && Object.keys(balances).length){
+    html += '<div class="grp-section-title">Abrechnung</div><div style="padding:8px 16px;font-size:13px;color:var(--green);font-weight:600">Alles beglichen ✓</div>';
   }
 
-  // Transactions
+  // Transactions (own + foreign)
+  const foreignTx = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+  const allSplitTx = [
+    ...expenses.map(e=>({...e, _author:''})),
+    ...foreignTx.map(e=>({...e, _author:e.authorName}))
+  ].sort((a,b)=>b.date.localeCompare(a.date));
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
-  if(!expenses.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
-  expenses.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
+  if(!allSplitTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
+  allSplitTx.forEach(e=>{
     const sd = e.splitData;
     const payer = sd ? (typeof sd==='string'?JSON.parse(sd):sd).payerId : '';
-    html += `<div class="grp-tx-row">
+    const authorTag = e._author ? ` · 👤 ${esc(e._author)}` : '';
+    html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}${authorTag}</div>
       </div>
       <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
     </div>`;

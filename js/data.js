@@ -57,6 +57,7 @@ const DATA = {
   categories: [], // {id,name,type,color,sort,parent}
   sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
   groups: [],     // {id,name,type('event'|'split'),members[],currency,status,created,adminId,inviteCode,sharedSheetUrl}
+  groupEntries: [], // {id,groupId,authorName,date,what,cat,amt,currency,splitData,isMine,_type:'groupEntry'}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
