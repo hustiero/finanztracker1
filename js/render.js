@@ -865,10 +865,25 @@ function renderVerlaufFilterSummary(){
 }
 
 // Gibt Einträge im aktuellen Verlauf-Zeitraum zurück (mit von/bis-Filter)
+let verlaufExcludeGroups = false;
+
+function toggleVerlaufExcludeGroups(){
+  verlaufExcludeGroups = !verlaufExcludeGroups;
+  const btn = document.getElementById('verlauf-excl-groups-btn');
+  if(btn) btn.classList.toggle('active', verlaufExcludeGroups);
+  renderVerlauf();
+}
+
 function verlaufFilterEntries(entries){
   const {von, bis} = verlaufGetRange();
-  if(!von && !bis) return entries;
-  return entries.filter(e=>(!von||e.date>=von)&&(!bis||e.date<=bis));
+  let result = entries;
+  if(von || bis) result = result.filter(e=>(!von||e.date>=von)&&(!bis||e.date<=bis));
+  // Exclude event-group entries when toggle is active
+  if(verlaufExcludeGroups){
+    const eventGroupIds = new Set(DATA.groups.filter(g=>g.type==='event').map(g=>g.id));
+    result = result.filter(e=>!e.groupId||!eventGroupIds.has(e.groupId));
+  }
+  return result;
 }
 
 function renderCategories(){

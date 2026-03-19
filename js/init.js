@@ -28,6 +28,9 @@ Object.assign(App.Data, {
   // Aggregation
   getKategorienMitEintraegen, getKategorieDetails, buildMonthlyBarData,
   getBookedYears,
+  // Groups & Events — data
+  getGroupExpenses, getGroupIncomes, getGroupTotal,
+  calcSplitBalances, calcSettlements, getOwnShare, getGroupTopCategories,
   // Sparziele
   getSparzieleNonTax, getSparTax, sparGoalPct, sparTotalMonthly,
   // Home widgets
@@ -67,6 +70,8 @@ Object.assign(App.IO, {
   addCategory, updateCategory, deleteCategory,
   // Oberkategorien CRUD
   createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
+  // Groups CRUD
+  saveGroup, updateGroup, deleteGroup, archiveGroup, settleUp,
   // Sparziele CRUD
   saveSparGoal, deleteSparGoal, addToSparGoal,
   // Aktien trade
@@ -97,7 +102,7 @@ Object.assign(App.UI, {
   renderSparen, renderCategories, renderRecurring, renderAktien,
   renderEinstellungen, renderMonat, renderNav, renderMonthView,
   renderOberkategorien, renderMenuOverlay, renderNotifications,
-  renderErscheinungsbild, renderAdmin,
+  renderErscheinungsbild, renderAdmin, renderGroups,
   // Widget renderers
   renderWidgetContent, renderWidgetGreeting, renderWidgetVerlaufZeitraum,
   renderWidgetLohnzyklus, renderWidgetTagesavg, renderWidgetTopKategorien,
@@ -114,6 +119,11 @@ Object.assign(App.UI, {
   renderAktieDetail, renderAdminDesignPresets,
   // User management
   openUserManagement, closeUserManagement, refreshUserList, filterUsers,
+  // Groups & Events
+  setGroupFilter, openGroupDetail, closeGroupDetail,
+  openNewGroupModal, onGrpTypeChange, confirmNewGroup,
+  fillGroupDropdown, onGroupSelect, onSplitModeChange,
+  exportGroupReport,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
@@ -140,7 +150,7 @@ Object.assign(App.UI, {
   setAktienTradeType, updateAktienTotal,
   // Verlauf navigation
   verlaufSetType, verlaufOpenKat, verlaufOpenKatFromEl, verlaufGoBack,
-  verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufCatSort,
+  verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufExcludeGroups, toggleVerlaufCatSort,
   setVerlaufZeitraum, setVerlaufCustomRange, setVerlaufSearch,
   renderVerlaufFilterSummary, verlaufCalcSummary,
   // Home widgets management
@@ -192,6 +202,7 @@ RENDER_FN_MAP = {
   sparen:        renderSparen,
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,
+  groups:        renderGroups,
   nav:           renderNav,
   dropdowns:     fillAllDropdowns,
 };
