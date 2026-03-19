@@ -1087,6 +1087,8 @@ function _renderEventDetail(g, el){
   const expenses = getGroupExpenses(g.id);
   const total = expenses.reduce((s,e)=>s+e.amt,0);
   const topCats = getGroupTopCategories(g.id);
+  const me = CFG.userName||'Ich';
+  const isAdmin = !g.adminId || g.adminId===me;
 
   let html = `<div class="grp-detail-header">
     <button class="grp-detail-back" onclick="closeGroupDetail()">
@@ -1094,17 +1096,30 @@ function _renderEventDetail(g, el){
     </button>
     <div>
       <div class="grp-detail-title">${esc(g.name)}</div>
-      <div class="grp-detail-sub">Event · ${fmtAmt(total)} total</div>
+      <div class="grp-detail-sub">Event · ${fmtAmt(total)} total${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
       ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
-      <button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
+      ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
+      </button>`:''}
     </div>
   </div>`;
+
+  // Invite link section
+  if(g.status==='active'){
+    html += `<div class="grp-invite-section">
+      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${g.id}')">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Einladungslink kopieren
+      </button>
+      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${g.id}')" title="Neuen Code generieren">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
+      </button>`:''}
+    </div>`;
+  }
 
   // Top categories
   if(topCats.length){
@@ -1146,6 +1161,8 @@ function _renderSplitDetail(g, el){
   const total = expenses.reduce((s,e)=>s+e.amt,0);
   const balances = calcSplitBalances(g.id);
   const settlements = calcSettlements(g.id);
+  const me = CFG.userName||'Ich';
+  const isAdmin = !g.adminId || g.adminId===me;
 
   let html = `<div class="grp-detail-header">
     <button class="grp-detail-back" onclick="closeGroupDetail()">
@@ -1153,17 +1170,41 @@ function _renderSplitDetail(g, el){
     </button>
     <div>
       <div class="grp-detail-title">${esc(g.name)}</div>
-      <div class="grp-detail-sub">Split · ${g.members.length} Teilnehmer</div>
+      <div class="grp-detail-sub">Split · ${g.members.length} Teilnehmer${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
       ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
-      <button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
+      ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
+      </button>`:''}
     </div>
   </div>`;
+
+  // Invite link section
+  if(g.status==='active'){
+    html += `<div class="grp-invite-section">
+      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${g.id}')">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Einladungslink kopieren
+      </button>
+      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${g.id}')" title="Neuen Code generieren">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
+      </button>`:''}
+    </div>`;
+  }
+
+  // Members section with admin controls
+  html += '<div class="grp-section-title">Mitglieder</div><div class="grp-members-list">';
+  g.members.forEach(m=>{
+    const isAdminMember = m===g.adminId;
+    html += `<div class="grp-member-row">
+      <span class="grp-member-name">${esc(m)}${isAdminMember?' <span class="grp-admin-badge">Admin</span>':''}</span>
+      ${isAdmin && !isAdminMember?`<button class="grp-member-remove" onclick="removeGroupMember('${g.id}','${esc(m)}')" title="Entfernen">✕</button>`:''}
+    </div>`;
+  });
+  html += '</div>';
 
   // Balances matrix
   html += '<div class="grp-section-title">Salden</div><div class="grp-balances">';
@@ -1304,6 +1345,23 @@ function _renderSplitShares(group){
       <input id="f-split-share-${CSS.escape(m)}" class="form-input" type="number" step="0.01" min="0" style="width:100px;text-align:right" placeholder="0.00">
     </div>`).join('');
   }
+}
+
+// Copy group invite link to clipboard
+function copyGroupInviteLink(groupId){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g||!g.inviteCode){ toast('Kein Einladungscode vorhanden','err'); return; }
+  const base = window.location.origin + window.location.pathname;
+  const backendUrl = CFG.scriptUrl || CFG.adminUrl || '';
+  const params = new URLSearchParams({joinGroup:g.id, gc:g.inviteCode});
+  if(backendUrl) params.set('url', backendUrl);
+  const link = base + '?' + params.toString();
+  navigator.clipboard.writeText(link).then(()=>{
+    toast('✓ Einladungslink kopiert','ok');
+  }).catch(()=>{
+    // Fallback: show in prompt
+    prompt('Einladungslink:', link);
+  });
 }
 
 // Export group report as text
