@@ -1,22 +1,35 @@
 # FinanzTracker — Developer Notes
 
-Single-file PWA (`index.html`). All CSS, HTML, and JS live in one file.
+PWA split into three files — no build tools required.
 Backend is a Google Apps Script (`CFG.url`).
 
 ---
+
+## File Structure
+
+| File | Contents | Lines |
+|------|----------|-------|
+| `index.html` | HTML structure only (setup, app shell, modals, templates) | ~1 450 |
+| `style.css` | All CSS (tokens, layout, components, glassmorphism, utilities) | ~1 390 |
+| `app.js` | All JavaScript (namespace, data, IO, rendering, UI) | ~7 300 |
+| `manifest.json` | PWA manifest (standalone, portrait) | ~20 |
 
 ## Architecture
 
 | Area | Location |
 |------|----------|
-| CSS tokens & reset | `<style>` lines ~18–73 |
-| Layout & nav CSS | `<style>` lines ~74–140 |
-| Component CSS | `<style>` lines ~141–1106 |
-| Setup/login screens | `<div id="setup">` |
-| Main app shell | `<div id="app">` |
-| Tab pages | `<div id="tab-*" class="tab-page">` |
-| Bottom nav | `<nav id="nav">` |
-| JS | `<script>` at end of `<body>` |
+| CSS tokens & reset | `style.css` lines ~1–60 |
+| Layout & nav CSS | `style.css` lines ~61–150 |
+| Component CSS | `style.css` lines ~151–1100 |
+| Glassmorphism | `style.css` lines ~860–1100 |
+| Utility classes | `style.css` lines ~1370–1390 |
+| Setup/login screens | `index.html` `<div id="setup">` |
+| Main app shell | `index.html` `<div id="app">` |
+| Tab pages | `index.html` `<div id="tab-*" class="tab-page">` |
+| Bottom nav | `index.html` `<nav id="nav">` |
+| JS namespace | `app.js` `App.Data`, `App.IO`, `App.UI` |
+| JS config & IDB | `app.js` `CFG`, `IDB`, `syncQueue` |
+| JS form helpers | `app.js` `fillForm()`, `readForm()`, `clearForm()` |
 
 ---
 
