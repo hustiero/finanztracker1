@@ -17,8 +17,9 @@ Backend is a Google Apps Script (`CFG.url`).
 | `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 020 |
 | `js/ui.js` | UI helpers, Notifications, Auth, Demo, CodeGS, Settings | ~1 630 |
 | `js/aktien.js` | Stocks: data, rendering, trade, CRUD | ~960 |
-| `js/design.js` | Theme, glassmorphism, background, fonts | ~400 |
-| `js/init.js` | Namespace wiring (Object.assign), RENDER_FN_MAP | ~190 |
+| `js/design.js` | Theme, glassmorphism, background, fonts, accent color | ~500 |
+| `js/device.js` | Device detection, history nav, desktop sidebar, theme-color | ~180 |
+| `js/init.js` | Namespace wiring (Object.assign), RENDER_FN_MAP | ~200 |
 | `manifest.json` | PWA manifest (standalone, portrait) | ~20 |
 
 ### Script Load Order
@@ -31,7 +32,8 @@ Backend is a Google Apps Script (`CFG.url`).
 <script src="js/ui.js"></script>       <!-- 5. UI logic + events -->
 <script src="js/aktien.js"></script>   <!-- 6. Stocks module -->
 <script src="js/design.js"></script>   <!-- 7. Theming -->
-<script src="js/init.js"></script>     <!-- 8. Wire up namespaces -->
+<script src="js/device.js"></script>   <!-- 8. Device detection + platform -->
+<script src="js/init.js"></script>     <!-- 9. Wire up namespaces -->
 ```
 
 ## Architecture

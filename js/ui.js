@@ -11,6 +11,8 @@ function goTab(tab){
     return;
   }
   if(homeEditMode) homeEditMode = false;
+  // Push history state for Android back-gesture navigation
+  if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
   document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
   const tabEl = document.getElementById('tab-'+tab);
@@ -58,7 +60,7 @@ function goTab(tab){
 }
 
 let menuEditMode = false;
-function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.getElementById('menu-overlay').classList.add('open'); }
+function openMenuOverlay(){ menuEditMode=false; renderMenuOverlay(); document.getElementById('menu-overlay').classList.add('open'); Device.pushNav('menu','menu-overlay'); }
 function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.remove('open'); }
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
@@ -814,7 +816,7 @@ function fillParentDropdown(elId, type, selected=''){
   el.innerHTML=`<option value="">— keine —</option>`+tops.map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${esc(c.name)}</option>`).join('');
 }
 
-function openModal(id){ document.getElementById(id).classList.add('show'); }
+function openModal(id){ document.getElementById(id).classList.add('show'); Device.pushNav('modal', id); }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
 // Close modals on overlay click
@@ -1647,6 +1649,8 @@ function renderNav(){
     const lblEl = btn.querySelector('span');
     if(lblEl) lblEl.textContent = NAV_LABELS[key]||key;
   });
+  // Desktop sidebar
+  if(typeof Device !== 'undefined') Device.renderSidebar();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1681,6 +1685,8 @@ function applyThemeMode(){
   }
   document.documentElement.dataset.theme = effective;
   CFG.theme = effective;
+  // Sync meta theme-color and desktop sidebar
+  if(typeof Device !== 'undefined') Device.syncThemeColor();
 }
 
 function updateThemeSegUI(){

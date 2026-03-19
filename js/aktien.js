@@ -769,6 +769,7 @@ function openAktieDetail(stockId){
   document.getElementById('aktie-detail-title').textContent = s.title;
   renderAktieDetail(stockId);
   document.getElementById('aktie-detail').classList.add('open');
+  Device.pushNav('aktiedetail','aktie-detail');
 }
 
 function closeAktieDetail(){
