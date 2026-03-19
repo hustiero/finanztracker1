@@ -1368,6 +1368,40 @@ body.glass-on .settings-group-toggle{
 }
 .spar-add-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
 
+/* ═══════════════════════════════════════════════════
+   UTILITY CLASSES (Step 6)
+   Extracted from repeated inline styles in JS templates.
+═══════════════════════════════════════════════════ */
+/* ── Text styles ── */
+.t-muted{color:var(--text3);font-size:13px}
+.t-muted-sm{color:var(--text3);font-size:12px}
+.t-muted-xs{color:var(--text3);font-size:11px}
+.t-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.t-mono{font-family:'DM Mono',monospace}
+.t-mono-bold{font-family:'DM Mono',monospace;font-weight:600}
+.t-mono-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px}
+.t-mono-val-sm{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px}
+.t-accent{color:var(--accent)}
+.t-red{color:var(--red)}
+.t-green{color:var(--green)}
+.t-text{color:var(--text)}
+.t-text2{color:var(--text2)}
+.t-text3{color:var(--text3)}
+.t-bold{font-weight:600}
+/* ── Layout utilities ── */
+.d-flex{display:flex}
+.d-flex-between{display:flex;justify-content:space-between}
+.d-flex-between-bl{display:flex;justify-content:space-between;align-items:baseline}
+.d-flex-center{display:flex;align-items:center;justify-content:center}
+.flex-1{flex:1}
+.flex-shrink-0{flex-shrink:0}
+.gap-4{gap:4px}.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}
+/* ── Spacing ── */
+.pt-0{padding-top:0}.pb-0{padding-bottom:0}.mb-0{margin-bottom:0}
+.mb-3{margin-bottom:3px}.mb-6{margin-bottom:6px}.mb-10{margin-bottom:10px}
+.p-14{padding:14px}.p-0{padding:0}
+.w-full{width:100%}
+
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -1397,17 +1431,17 @@ body.glass-on .settings-group-toggle{
     </button>
 
     <div style="height:16px"></div>
-    <button class="btn-ghost" onclick="doDemo()" style="font-size:12px;color:var(--text3)">Demo ansehen</button>
+    <button class="btn-ghost" onclick="doDemo()" class="t-muted-sm">Demo ansehen</button>
 
     <!-- Advanced: Script-URL (hidden by default) -->
     <div style="margin-top:20px;width:100%;max-width:380px;text-align:center">
       <button class="btn-ghost" style="font-size:11px;color:var(--text3);opacity:.7" onclick="document.getElementById('sp0-scripturl-wrap').style.display=document.getElementById('sp0-scripturl-wrap').style.display==='none'?'block':'none'">Mit Script-URL verbinden ↓</button>
       <div id="sp0-scripturl-wrap" style="display:none;margin-top:10px">
-        <div class="setup-card" style="margin-bottom:10px">
+        <div class="setup-card mb-10">
           <div class="setup-label">Script URL</div>
           <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
-        <button id="connect-btn" class="btn-primary" style="width:100%" onclick="doConnect()">Verbinden →</button>
+        <button id="connect-btn" class="btn-primary w-full" onclick="doConnect()">Verbinden →</button>
         <div style="height:8px"></div>
         <button class="btn-ghost" style="font-size:11px;color:var(--text3)" onclick="gotoSetupStep(1)">Einrichtungsanleitung →</button>
       </div>
@@ -1449,7 +1483,7 @@ body.glass-on .settings-group-toggle{
     <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(3)">Noch kein Konto? Registrieren</button>
     <button class="btn-ghost" style="margin-top:2px;font-size:11px;color:var(--text3)" onclick="document.getElementById('auth-admin-url-wrap').style.display=document.getElementById('auth-admin-url-wrap').style.display==='none'?'block':'none'">⚙ Admin-URL konfigurieren</button>
     <div style="height:8px"></div>
-    <button class="btn-ghost" onclick="doDemo()" style="font-size:12px;color:var(--text3)">Demo ansehen</button>
+    <button class="btn-ghost" onclick="doDemo()" class="t-muted-sm">Demo ansehen</button>
   </div>
 
   <!-- Page 3: Signup -->
@@ -1475,7 +1509,7 @@ body.glass-on .settings-group-toggle{
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:10px">
+      <div class="form-group mb-10">
         <label class="form-label">Passwort bestätigen</label>
         <div class="auth-input-pw-wrap">
           <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()">
@@ -1483,7 +1517,7 @@ body.glass-on .settings-group-toggle{
         </div>
       </div>
       <div id="su-admin-url-wrap">
-        <div class="form-group" style="margin-bottom:0">
+        <div class="form-group mb-0">
           <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
           <input id="su-admin-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
           <div style="font-size:11px;color:var(--text3);margin-top:3px">Vom Admin bereitgestellt · wird einmalig gespeichert</div>
@@ -1505,12 +1539,12 @@ body.glass-on .settings-group-toggle{
     <div class="setup-page-title">Sheet einrichten</div>
     <div class="setup-page-sub">Einmalige Einrichtung — ca. 5–10 Min.</div>
 
-    <div class="setup-card" style="margin-bottom:10px">
-      <div class="setup-step-row" style="margin-bottom:10px">
+    <div class="setup-card mb-10">
+      <div class="setup-step-row mb-10">
         <div class="setup-step-num">1</div>
         <div>
           <div class="setup-label" style="margin-bottom:3px">Vorlage herunterladen</div>
-          <div style="font-size:12px;color:var(--text3);line-height:1.6">4 CSV-Dateien inkl. Standard-Kategorien. Im Google Sheet importieren: <b style="color:var(--text2)">Datei → Importieren</b> (pro Tab).</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.6">4 CSV-Dateien inkl. Standard-Kategorien. Im Google Sheet importieren: <b class="t-text2">Datei → Importieren</b> (pro Tab).</div>
         </div>
       </div>
       <button class="btn-outline-setup" onclick="downloadBlankTemplate()">
@@ -1525,10 +1559,10 @@ body.glass-on .settings-group-toggle{
         <div>
           <div class="setup-label" style="margin-bottom:6px">Apps Script bereitstellen</div>
           <div style="font-size:12px;color:var(--text3);line-height:1.9">
-            1. Google Sheet → <b style="color:var(--text2)">Erweiterungen → Apps Script</b><br>
+            1. Google Sheet → <b class="t-text2">Erweiterungen → Apps Script</b><br>
             2. Code.gs einfügen &amp; speichern<br>
-            3. <b style="color:var(--text2)">Bereitstellen → Neue Bereitstellung → Web-App</b><br>
-            4. Ausführen als: <b style="color:var(--text2)">Ich</b> · Zugriff: <b style="color:var(--text2)">Jeder</b><br>
+            3. <b class="t-text2">Bereitstellen → Neue Bereitstellung → Web-App</b><br>
+            4. Ausführen als: <b class="t-text2">Ich</b> · Zugriff: <b class="t-text2">Jeder</b><br>
             5. Script-URL kopieren
           </div>
           <button class="btn-outline-setup" onclick="toggleCodeGs(this)" style="margin-top:10px;font-size:11px">
@@ -1617,7 +1651,7 @@ body.glass-on .settings-group-toggle{
         </div>
 
         <div class="form-group">
-          <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
+          <label class="form-label">Notiz <span class="t-text3">(optional)</span></label>
           <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
         </div>
 
@@ -1657,7 +1691,7 @@ body.glass-on .settings-group-toggle{
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Kündigungsdatum <span style="color:var(--text3)">(opt.)</span></label>
+              <label class="form-label">Kündigungsdatum <span class="t-text3">(opt.)</span></label>
               <input id="f-r-end" class="form-input" type="date">
             </div>
             <div class="form-group" style="padding-top:20px">
@@ -1711,7 +1745,7 @@ body.glass-on .settings-group-toggle{
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Notiz <span style="color:var(--text3)">(optional)</span></label>
+            <label class="form-label">Notiz <span class="t-text3">(optional)</span></label>
             <input id="at-note" class="form-input" type="text" placeholder="optional" autocorrect="off">
           </div>
           <button class="save-btn" onclick="saveAktienTradeFromEingabe()">Eintrag speichern</button>
@@ -1725,7 +1759,7 @@ body.glass-on .settings-group-toggle{
       <!-- Verlauf-Header: Type-Switch → Search → Zeitraum -->
       <div style="padding:12px 16px 0">
         <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
-        <div id="verlauf-type-bar" class="type-toggle" style="margin-bottom:10px">
+        <div id="verlauf-type-bar" class="type-toggle mb-10">
           <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
           <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
           <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
@@ -1753,7 +1787,7 @@ body.glass-on .settings-group-toggle{
             <svg id="verlauf-filter-chevron" viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div id="verlauf-filter-panel" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-top:4px;padding:12px">
-            <div class="type-toggle" style="margin-bottom:10px">
+            <div class="type-toggle mb-10">
               <button id="vzm-woche" class="type-btn" onclick="setVerlaufZeitraum('woche')">Woche</button>
               <button id="vzm-monat" class="type-btn active" onclick="setVerlaufZeitraum('monat')">Monat</button>
               <button id="vzm-jahr" class="type-btn" onclick="setVerlaufZeitraum('jahr')">Jahr</button>
@@ -1790,17 +1824,17 @@ body.glass-on .settings-group-toggle{
           Kategorien werden live im Google Sheet gespeichert und in allen Formularen angezeigt. Tippe auf eine Kategorie zum Bearbeiten.
         </p>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Ausgaben-Kategorien</div>
         <div class="card" id="cats-ausgabe"></div>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Einnahmen-Kategorien</div>
         <div class="card" id="cats-einnahme"></div>
       </div>
       <!-- ── Oberkategorien verwalten ──────────────────────────────────── -->
       <!-- Oberkategorien come first: sub-categories depend on them existing -->
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Oberkategorien verwalten</div>
         <div id="okt-ausgabe-list"></div>
         <div id="okt-einnahme-list"></div>
@@ -1822,7 +1856,7 @@ body.glass-on .settings-group-toggle{
         </div>
       </div>
       <!-- Neue Kategorie comes after Oberkategorien so the parent dropdown is already populated -->
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Neue Kategorie</div>
         <div class="card" style="padding:14px">
           <div class="form-row">
@@ -1847,7 +1881,7 @@ body.glass-on .settings-group-toggle{
             <div id="new-cat-emoji-grid" style="display:none;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:8px"></div>
           </div>
           <div class="form-group">
-            <label class="form-label">Überkategorie <span style="color:var(--text3)">(optional)</span></label>
+            <label class="form-label">Überkategorie <span class="t-text3">(optional)</span></label>
             <select id="new-cat-parent" class="form-select"><option value="">— keine —</option></select>
           </div>
           <button class="save-btn" onclick="addCategory()">Kategorie hinzufügen</button>
@@ -1867,7 +1901,7 @@ body.glass-on .settings-group-toggle{
         </div>
         <div class="card" id="rec-list"></div>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Neuer Dauerauftrag</div>
         <div class="card" style="padding:14px">
           <div class="form-row">
@@ -1908,7 +1942,7 @@ body.glass-on .settings-group-toggle{
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Kündigungsdatum <span style="color:var(--text3)">(opt.)</span></label>
+              <label class="form-label">Kündigungsdatum <span class="t-text3">(opt.)</span></label>
               <input id="r-end" class="form-input" type="date">
             </div>
             <div class="form-group" style="justify-content:flex-end;padding-top:20px">
@@ -1938,10 +1972,10 @@ body.glass-on .settings-group-toggle{
     <!-- TAB: Sparen / Lohn -->
     <div id="tab-lohn" class="tab-page" style="display:none">
       <div class="section">
-        <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" style="width:100%">+ Einnahme erfassen</button>
+        <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" class="w-full">+ Einnahme erfassen</button>
       </div>
       <div id="lohn-zyklus-section"></div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Einstellungen</div>
         <div class="card" style="padding:14px">
           <div class="form-group">
@@ -1954,7 +1988,7 @@ body.glass-on .settings-group-toggle{
       </div>
       <div id="lohn-chart-section" style="padding:0 16px 0"></div>
       <div id="lohn-list"></div>
-      <div id="lohn-fixkosten-section" class="section" style="padding-top:0"></div>
+      <div id="lohn-fixkosten-section" class="section pt-0"></div>
     </div>
 
     <!-- TAB: Aktien -->
@@ -1976,7 +2010,7 @@ body.glass-on .settings-group-toggle{
       <div id="aktien-tabelle" style="display:none;padding:0 16px 16px"></div>
       <div id="aktien-charts" style="display:none;padding:0 16px 16px"></div>
       <div style="padding:4px 16px 12px">
-        <button class="save-btn" onclick="openNewAktieModal()" style="width:100%">+ Aktie hinzufügen</button>
+        <button class="save-btn" onclick="openNewAktieModal()" class="w-full">+ Aktie hinzufügen</button>
       </div>
     </div>
 
@@ -1985,10 +2019,10 @@ body.glass-on .settings-group-toggle{
       <div class="section">
         <div class="section-title">Benutzer-Verwaltung</div>
         <div class="card" style="padding:14px">
-          <div id="admin-users-list" style="padding:4px 0"><div style="color:var(--text3);font-size:13px">Lade…</div></div>
+          <div id="admin-users-list" style="padding:4px 0"><div class="t-muted">Lade…</div></div>
         </div>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Admin Code.gs</div>
         <div class="card" style="padding:14px">
           <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
@@ -2004,7 +2038,7 @@ body.glass-on .settings-group-toggle{
           </div>
         </div>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Standarddesign</div>
         <div class="card" style="padding:14px">
           <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
@@ -2037,7 +2071,7 @@ body.glass-on .settings-group-toggle{
           <button class="save-btn" onclick="saveAdminDefaultDesign()" style="width:100%;margin-top:6px;font-size:12px">Aktuelles Design als Standard setzen</button>
         </div>
       </div>
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="section-title">Einladungslink</div>
         <div class="card" style="padding:14px">
           <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
@@ -2075,7 +2109,7 @@ body.glass-on .settings-group-toggle{
             </div>
             <button class="btn-outline-setup" onclick="doLogout()" style="font-size:12px;padding:6px 12px">Ausloggen</button>
           </div>
-          <div style="font-size:12px;color:var(--text3)">Passwort ändern:</div>
+          <div class="t-muted-sm">Passwort ändern:</div>
           <div style="display:flex;gap:8px;margin-top:6px">
             <input id="settings-new-pw" type="password" class="form-input" placeholder="Neues Passwort" style="flex:1;font-size:12px">
             <button class="save-btn" onclick="doChangePw()" style="padding:0 14px;white-space:nowrap">Ändern</button>
@@ -2102,7 +2136,7 @@ body.glass-on .settings-group-toggle{
               <label class="form-label">Dein Name (für Home-Begrüssung)</label>
               <input id="s-username" class="form-input" autocomplete="off" spellcheck="false" placeholder="z.B. Sebastian" oninput="CFG.userName=this.value.trim();cfgSave();autoSyncProfile();if(currentTab==='home')renderHome()">
             </div>
-            <div class="settings-row" style="padding:0">
+            <div class="settings-row p-0">
               <div>
                 <div class="settings-row-label">Standardwährung</div>
                 <div class="settings-row-sub">Alle Beträge in dieser Währung anzeigen</div>
@@ -2144,7 +2178,7 @@ body.glass-on .settings-group-toggle{
       </div>
 
       <!-- ── 2. App-Layout ──────────────────────────────── -->
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-layout')">
           <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span>App-Layout</span>
@@ -2221,7 +2255,7 @@ body.glass-on .settings-group-toggle{
                   </div>
                   <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
                 </div>
-                <div class="settings-row" style="padding:0">
+                <div class="settings-row p-0">
                   <div>
                     <div class="settings-row-label" style="font-size:12px">Clean Look</div>
                     <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
@@ -2256,7 +2290,7 @@ body.glass-on .settings-group-toggle{
       </div>
 
       <!-- ── 3. Spezifische Funktionen ──────────────────── -->
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-features')">
           <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span>Funktionen</span>
@@ -2293,16 +2327,16 @@ body.glass-on .settings-group-toggle{
       </div>
 
       <!-- ── App-Info ──────────────────── -->
-      <div class="section" style="padding-top:0">
+      <div class="section pt-0">
         <div class="card" style="padding:14px">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div class="logo-circle" style="width:40px;height:40px;font-size:18px">₣</div>
             <div>
               <div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:.05em">₣ TRACKER</div>
-              <div style="font-size:12px;color:var(--text3)">F-Tracker von SESI FINANCE</div>
+              <div class="t-muted-sm">F-Tracker von SESI FINANCE</div>
             </div>
           </div>
-          <button class="btn-delete" style="width:100%" onclick="resetApp()">App zurücksetzen</button>
+          <button class="btn-delete w-full" onclick="resetApp()">App zurücksetzen</button>
         </div>
       </div>
     </div>
@@ -2343,7 +2377,7 @@ body.glass-on .settings-group-toggle{
     </button>
     <button onclick="closeFabMenu();openAddAktieFlow()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
       <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      <span style="color:var(--accent)">Aktie / Trade erfassen</span>
+      <span class="t-accent">Aktie / Trade erfassen</span>
     </button>
   </div>
 </div>
@@ -2494,7 +2528,7 @@ body.glass-on .settings-group-toggle{
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Kündigungsdatum <span style="color:var(--text3)">(opt.)</span></label>
+          <label class="form-label">Kündigungsdatum <span class="t-text3">(opt.)</span></label>
           <input id="rec-edit-end" class="form-input" type="date">
         </div>
         <div class="form-group" style="justify-content:flex-end;padding-top:20px">
@@ -2538,7 +2572,7 @@ body.glass-on .settings-group-toggle{
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Überkategorie <span style="color:var(--text3)">(optional)</span></label>
+        <label class="form-label">Überkategorie <span class="t-text3">(optional)</span></label>
         <select id="cat-edit-parent" class="form-select"><option value="">— keine —</option></select>
       </div>
       <div class="form-group">
@@ -2583,7 +2617,7 @@ body.glass-on .settings-group-toggle{
       </div>
     </div>
     <div class="modal-actions" style="flex-direction:column;gap:8px">
-      <button class="btn-save" style="width:100%" onclick="applySettings()">Speichern & neu laden</button>
+      <button class="btn-save w-full" onclick="applySettings()">Speichern & neu laden</button>
       <button class="btn-delete" style="width:100%;margin-top:4px" onclick="resetApp()">App zurücksetzen</button>
     </div>
   </div>
@@ -2686,10 +2720,10 @@ body.glass-on .settings-group-toggle{
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">ISIN</label>
-          <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
+          <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" class="t-mono" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
-          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <label class="form-label">Ticker <span class="t-text3">(Google Finance)</span></label>
           <input id="na-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW, GOOGL" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
         </div>
       </div>
@@ -2728,11 +2762,11 @@ body.glass-on .settings-group-toggle{
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">ISIN <span style="color:var(--text3)">(optional)</span></label>
-          <input id="ea-isin" class="form-input" type="text" placeholder="US0378331005" style="font-family:'DM Mono',monospace" autocorrect="off" autocapitalize="characters">
+          <label class="form-label">ISIN <span class="t-text3">(optional)</span></label>
+          <input id="ea-isin" class="form-input" type="text" placeholder="US0378331005" class="t-mono" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
-          <label class="form-label">Ticker <span style="color:var(--text3)">(Google Finance)</span></label>
+          <label class="form-label">Ticker <span class="t-text3">(Google Finance)</span></label>
           <input id="ea-ticker" class="form-input" type="text" placeholder="z.B. AAPL, NESN.SW" style="font-family:'DM Mono',monospace;text-transform:uppercase" autocorrect="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
         </div>
       </div>
@@ -4449,7 +4483,7 @@ function renderMonthView(){
   const todayStr=today();
 
   document.getElementById('mv-content').innerHTML=`
-    <div class="section" style="padding-bottom:0">
+    <div class="section pb-0">
       <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
         <div class="stat-card">
           <div class="stat-label">Einnahmen</div>
@@ -4482,7 +4516,7 @@ function renderMonthView(){
 
     ${sortedDates.length?`
     <div class="section" style="padding-top:10px">
-      <div class="card" style="padding:0">
+      <div class="card p-0">
         ${sortedDates.map(ds=>{
           const d=new Date(ds+'T12:00:00');
           const dExp=DATA.expenses.filter(e=>e.date===ds);
@@ -4496,7 +4530,7 @@ function renderMonthView(){
               <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':mvWdays[d.getDay()]+' '+d.getDate()+'.'}</span>
               <span class="mv-day-totals">
                 ${dIn>0?`<span style="color:var(--green)">+${fmtAmt(dIn)}</span>`:''}
-                ${dOut>0?`<span style="color:var(--red)">−${fmtAmt(dOut)}</span>`:''}
+                ${dOut>0?`<span class="t-red">−${fmtAmt(dOut)}</span>`:''}
               </span>
             </div>
             ${entries.map(e=>{
@@ -4822,7 +4856,7 @@ function buildMonthlyBarData(kat, typ){
     const x = i*(chartW/months);
     return `<text x="${x.toFixed(1)}" y="${H-3}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${m.label}</text>`;
   }).filter(Boolean);
-  return `<svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">${bars.join('')}${labels.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" height="${H}" class="w-full">${bars.join('')}${labels.join('')}</svg>`;
 }
 
 // ── Einträge nach Datum gruppiert rendern ─────────────────────────────────────
@@ -4940,7 +4974,7 @@ function renderVerlaufL2(){
         <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:4px">
           <div style="height:100%;width:${barPct.toFixed(1)}%;background:${catColor(c.name)};border-radius:2px"></div>
         </div>
-        <div style="font-size:10px;color:var(--text3)">${c.count}× · ${pct.toFixed(0)}%</div>
+        <div class="t-muted-sm">${c.count}× · ${pct.toFixed(0)}%</div>
       </div>`;
     }).join('') + `</div>`;
 }
@@ -4996,15 +5030,15 @@ function renderVerlaufL3(){
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:4px">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt</div>
+          <div class="t-label">Gesamt</div>
           <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(total)}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Ø / Monat</div>
+          <div class="t-label">Ø / Monat</div>
           <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${curr()} ${fmtAmt(avgPerMonth)}</div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Anzahl</div>
+          <div class="t-label">Anzahl</div>
           <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;margin-top:3px">${count}</div>
         </div>
       </div>
@@ -5217,7 +5251,7 @@ function buildDonutSVG(segments, total, size=100){
     paths+=`<path d="${d}" fill="${seg.color}" opacity="0.9"/>`;
     angle=endA;
   });
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="flex-shrink:0">${paths}</svg>`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="flex-shrink-0">${paths}</svg>`;
 }
 
 // Berechnet Zeitraum-Summary (Ausgaben/Einnahmen/Netto + Top-Segmente für Donut)
@@ -5252,18 +5286,18 @@ function renderVerlaufFilterSummary(){
   el.innerHTML=`
   <div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">
     ${donut?`<div style="padding-top:4px">${donut}</div>`:''}
-    <div style="flex:1">
+    <div class="flex-1">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:12px;color:var(--text3)">Ausgaben</span>
+        <span class="t-muted-sm">Ausgaben</span>
         <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)">${curr()} ${fmtAmt(ausgaben)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:12px;color:var(--text3)">Einnahmen</span>
+        <span class="t-muted-sm">Einnahmen</span>
         <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(einnahmen)}</span>
       </div>
       <div style="height:1px;background:var(--border);margin:5px 0"></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:12px;color:var(--text3)">Netto</span>
+        <span class="t-muted-sm">Netto</span>
         <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'}${curr()} ${fmtAmt(Math.abs(netto))}</span>
       </div>
       ${top5.map(([name,amt])=>{
@@ -5341,7 +5375,7 @@ function renderSparen(){
     <div class="card" style="padding:14px">
       <div class="spar-summary-row">
         <span class="spar-summary-label">Gespart (gesamt)</span>
-        <span class="spar-summary-val" style="color:var(--accent)">${curr()} ${fmtAmt(totalSaved)}</span>
+        <span class="spar-summary-val t-accent">${curr()} ${fmtAmt(totalSaved)}</span>
       </div>
       <div class="spar-summary-row">
         <span class="spar-summary-label">Ziel (gesamt)</span>
@@ -5362,7 +5396,7 @@ function renderSparen(){
   </div>`;
 
   // Goals list (sorted by priority)
-  html += `<div class="section" style="padding-top:0">
+  html += `<div class="section pt-0">
     <div class="section-title">Sparziele (Priorität)</div>`;
   if(goals.length===0){
     html += `<div class="card" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
@@ -5404,7 +5438,7 @@ function renderSparen(){
   html += `</div>`;
 
   // Steuern section
-  html += `<div class="section" style="padding-top:0">
+  html += `<div class="section pt-0">
     <div class="section-title">Steuern</div>`;
   if(taxes.length===0){
     html += `<div class="card" style="padding:14px;font-size:13px;color:var(--text3)">
@@ -5432,10 +5466,10 @@ function renderSparen(){
   // Budget integration info
   const budgetDeduct = sparTotalMonthly();
   if(budgetDeduct>0){
-    html += `<div class="section" style="padding-top:0">
+    html += `<div class="section pt-0">
       <div class="section-title">Budget-Integration</div>
       <div class="card" style="padding:14px;font-size:13px;color:var(--text2);line-height:1.6">
-        Monatlich werden <strong style="color:var(--accent)">${curr()} ${fmtAmt(budgetDeduct)}</strong> vom Lohnzyklus-Budget abgezogen
+        Monatlich werden <strong class="t-accent">${curr()} ${fmtAmt(budgetDeduct)}</strong> vom Lohnzyklus-Budget abgezogen
         (Sparziele + Steuern). Überschüsse fliessen automatisch in das Sparziel mit höchster Priorität.
       </div>
     </div>`;
@@ -5488,10 +5522,10 @@ function openSparGoalModal(isTax=false, editId=null){
 
   const actions = isEdit
     ? `<div style="display:flex;gap:8px">
-        <button class="btn-delete" style="flex:1" onclick="deleteSparGoal('${editId}')">Löschen</button>
+        <button class="btn-delete flex-1" onclick="deleteSparGoal('${editId}')">Löschen</button>
         <button class="btn-primary" style="flex:2" onclick="saveSparGoal('${editId}',${isTax})">Speichern</button>
       </div>`
-    : `<button class="btn-primary" style="width:100%" onclick="saveSparGoal(null,${isTax})">Erstellen</button>`;
+    : `<button class="btn-primary w-full" onclick="saveSparGoal(null,${isTax})">Erstellen</button>`;
 
   openGenericModal(title, body, actions);
 }
@@ -5616,10 +5650,10 @@ function renderWidgetSparzieleOverview(){
   goals.forEach(g=>{
     const pct = sparGoalPct(g);
     const done = !g.open && pct>=100;
-    html += `<div style="margin-bottom:10px">
+    html += `<div class="mb-10">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-        <span style="font-weight:600">${esc(g.name)}</span>
-        <span style="color:var(--text3)">${g.open?curr()+' '+fmtAmt(g.saved):pct.toFixed(0)+'%'}</span>
+        <span class="t-bold">${esc(g.name)}</span>
+        <span class="t-text3">${g.open?curr()+' '+fmtAmt(g.saved):pct.toFixed(0)+'%'}</span>
       </div>
       ${!g.open?`<div class="spar-prog-wrap"><div class="spar-prog-fill" style="width:${pct.toFixed(1)}%;background:${done?'var(--green)':'var(--accent)'}"></div></div>`:''}
     </div>`;
@@ -5888,7 +5922,7 @@ function renderRecurring(){
       <div class="card-row-amount expense">${curr()} ${fmtAmt(r.amt)}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
-  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text3)">Total Fixkosten / Monat</span><span style="font-family:'DM Mono',monospace;font-weight:600">${curr()} ${fmtAmt(totalFix)}</span></div>`;
+  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span class="t-text3">Total Fixkosten / Monat</span><span class="t-mono-bold">${curr()} ${fmtAmt(totalFix)}</span></div>`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -5992,7 +6026,7 @@ function renderHome(){
         <span style="flex:1;font-size:13px;font-weight:600">${def.label}</span>
         <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''}>↓</button>
-        <button class="home-edit-btn" style="color:var(--red)" onclick="removeWidget('${key}')">✕</button>
+        <button class="home-edit-btn t-red" onclick="removeWidget('${key}')">✕</button>
       </div>`;
     } else {
       html += renderWidgetContent(key);
@@ -6077,18 +6111,18 @@ function renderWidgetVerlaufZeitraum(){
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${label}</div>
     <div style="display:flex;gap:10px;align-items:center">
       ${donut?`<div>${donut}</div>`:''}
-      <div style="flex:1">
+      <div class="flex-1">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span style="font-size:12px;color:var(--text3)">Ausgaben</span>
+          <span class="t-muted-sm">Ausgaben</span>
           <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)">${curr()} ${fmtAmt(ausgaben)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span style="font-size:12px;color:var(--text3)">Einnahmen</span>
+          <span class="t-muted-sm">Einnahmen</span>
           <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(einnahmen)}</span>
         </div>
         <div style="height:1px;background:var(--border);margin:4px 0"></div>
         <div style="display:flex;justify-content:space-between">
-          <span style="font-size:12px;color:var(--text3)">Netto</span>
+          <span class="t-muted-sm">Netto</span>
           <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'}${curr()} ${fmtAmt(Math.abs(netto))}</span>
         </div>
       </div>
@@ -6099,7 +6133,7 @@ function renderWidgetVerlaufZeitraum(){
 function renderWidgetLohnzyklus(){
   const z = getZyklusInfo();
   if(!z.hasSalary){
-    return `<div><div class="widget-title">Lohnzyklus</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
+    return `<div><div class="widget-title">Lohnzyklus</div><div class="t-muted">Kein Lohneingang erkannt.</div></div>`;
   }
   const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
   const barColor = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
@@ -6109,7 +6143,7 @@ function renderWidgetLohnzyklus(){
     <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
       <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
-      <span style="font-size:12px;color:var(--text3)">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
+      <span class="t-muted-sm">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
     </div>
     <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
       <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
@@ -6133,7 +6167,7 @@ function buildTagesavgCard(mo, yr){
   const prevC = avgDailyVarSpendPrevComp(mo, yr);
   const diffPct = prevC.avg>0 ? (avg-prevC.avg)/prevC.avg*100 : null;
   const mNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  return `<div class="stats-grid" style="margin-bottom:0">
+  return `<div class="stats-grid mb-0">
     <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
       <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)
         ${diffPct!==null?`<span style="font-size:11px;color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:6px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
@@ -6161,16 +6195,16 @@ function buildDayGroup(ds, dExp, dInc, dRec){
   return `<div class="mv-day-group">
     <div class="mv-day-hdr">
       <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
-      <span class="mv-day-totals" style="color:var(--text2)">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
+      <span class="mv-day-totals t-text2">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
     </div>
     ${entries.map(e=>{
       const par = parentOf(e.cat);
       const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
       if(e.t==='r'){
         return `<div class="mv-entry" onclick="openMaterializeModal('${e._recurId}','${e.date}')" style="cursor:pointer;opacity:.65">
-          <span class="mv-entry-cat" style="color:var(--text3)">↻ ${catLabel}</span>
+          <span class="mv-entry-cat t-text3">↻ ${catLabel}</span>
           <span class="mv-entry-what">${esc(e.what)}<span style="font-size:10px;margin-left:5px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text3)">DA</span></span>
-          <span class="mv-entry-amt" style="color:var(--text3)">−${fmtAmt(e.amt)}</span>
+          <span class="mv-entry-amt t-text3">−${fmtAmt(e.amt)}</span>
         </div>`;
       }
       return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
@@ -6202,7 +6236,7 @@ function renderWidgetTopKategorien(){
     const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
   const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  if(sorted.length===0) return `<div><div class="widget-title">Top Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben im Zyklus.</div></div>`;
+  if(sorted.length===0) return `<div><div class="widget-title">Top Kategorien</div><div class="t-muted">Keine Ausgaben im Zyklus.</div></div>`;
   const total = Object.values(catMap).reduce((a,v)=>a+v,0);
   const max = sorted[0][1];
   return `<div>
@@ -6213,7 +6247,7 @@ function renderWidgetTopKategorien(){
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block"></span>${esc(cat)}</span>
-          <span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(amt)} <span style="color:var(--text3);font-size:10px">${total>0?Math.round(amt/total*100):0}%</span></span>
+          <span class="t-mono">${curr()} ${fmtAmt(amt)} <span style="color:var(--text3);font-size:10px">${total>0?Math.round(amt/total*100):0}%</span></span>
         </div>
         <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.85"></div></div>
       </div>`;
@@ -6282,7 +6316,7 @@ function renderWidgetHeuteAusgaben(){
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
       <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
       <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
-        ${remaining>=0?'noch ':'überzogen '}<span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(Math.abs(remaining))}</span>
+        ${remaining>=0?'noch ':'überzogen '}<span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span>
       </span>
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
@@ -6298,7 +6332,7 @@ function renderWidgetHeuteAusgaben(){
 
 function renderWidgetSparquote(){
   const z = getZyklusInfo();
-  if(!z.hasSalary) return `<div><div class="widget-title">Sparquote</div><div style="color:var(--text3);font-size:13px">Kein Lohneingang erkannt.</div></div>`;
+  if(!z.hasSalary) return `<div><div class="widget-title">Sparquote</div><div class="t-muted">Kein Lohneingang erkannt.</div></div>`;
   const ziel = CFG.mSparziel||0;
   const saved = z.lohn - z.fixKosten - z.varSpent;
   const pct = z.lohn>0 ? Math.round(saved/z.lohn*100) : 0;
@@ -6308,7 +6342,7 @@ function renderWidgetSparquote(){
     <div class="widget-title">Sparquote (laufender Zyklus)</div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
       <span style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:${barColor}">${pct}%</span>
-      ${zielPct>0?`<span style="font-size:12px;color:var(--text3)">Ziel: ${zielPct}%</span>`:''}
+      ${zielPct>0?`<span class="t-muted-sm">Ziel: ${zielPct}%</span>`:''}
     </div>
     <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
       <div style="height:100%;width:${Math.min(100,Math.max(0,pct))}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
@@ -6369,7 +6403,7 @@ function renderWidgetMonatKategorien(mo, yr, limit=5){
   const parentTotals={};
   Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
   const sorted=Object.entries(parentTotals).sort((a,b)=>b[1]-a[1]).slice(0,limit);
-  if(!sorted.length) return `<div class="widget-title" style="margin-bottom:0">Keine Ausgaben diesen Monat.</div>`;
+  if(!sorted.length) return `<div class="widget-title mb-0">Keine Ausgaben diesen Monat.</div>`;
   const maxVal=sorted[0][1]||1;
   const mNames=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   return `<div>
@@ -6388,7 +6422,7 @@ function renderWidgetMonatKategorien(mo, yr, limit=5){
 function renderWidgetKontostand(){
   return `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div class="widget-title" style="margin-bottom:0">Kontostand-Verlauf</div>
+      <div class="widget-title mb-0">Kontostand-Verlauf</div>
       <div style="display:flex;gap:3px">
         ${[1,3,6,12].map(m=>`<button onclick="setHomeKontoMonths(${m});event.stopPropagation()" style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid ${homeKontoMonths===m?'var(--accent)':'var(--border)'};background:${homeKontoMonths===m?'rgba(200,245,60,.15)':'var(--bg3)'};color:${homeKontoMonths===m?'var(--accent)':'var(--text3)'}">${m}M</button>`).join('')}
       </div>
@@ -6425,7 +6459,7 @@ function renderWidgetJahresSparquote(yr){
   const proj=avgM*12;
   return `<div onclick="goTab('sparen')" style="cursor:pointer">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="widget-title" style="margin-bottom:0">Jahres-Sparquote ${yr}</div>
+      <div class="widget-title mb-0">Jahres-Sparquote ${yr}</div>
       ${isCurrentYear?`<button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:${sparziel?'8px':'4px'}">
@@ -6433,7 +6467,7 @@ function renderWidgetJahresSparquote(yr){
       ${goalReached?`<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(61,219,150,.15);padding:2px 8px;border-radius:99px">✓ Ziel erreicht</span>`:''}
     </div>
     ${isCurrentYear&&CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'6px'}">davon ${curr()} ${fmtAmt(cashSaved)} Cash + ${curr()} ${fmtAmt(depotWert)} Depot</div>`:''}
-    ${sparziel>0?`<div style="margin-bottom:10px">
+    ${sparziel>0?`<div class="mb-10">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: ${curr()} ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
       <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
     </div>`:''}
@@ -6464,7 +6498,7 @@ function renderWidgetJahresKategorien(yr){
   [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd,true,true)]
     .forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div style="color:var(--text3);font-size:13px">Keine Ausgaben erfasst.</div></div>`;
+  if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div class="t-muted">Keine Ausgaben erfasst.</div></div>`;
   const total=Object.values(catMap).reduce((a,v)=>a+v,0);
   return `<div>
     <div class="widget-title">Jahres-Kategorien ${yr}</div>
@@ -6474,7 +6508,7 @@ function renderWidgetJahresKategorien(yr){
       return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${col}"></div><span style="font-size:13px">${esc(cat)}</span></div>
-          <div style="font-size:12px;font-family:'DM Mono',monospace"><span style="color:var(--text3)">${pct}%</span> ${curr()} ${fmtAmt(amt)}</div>
+          <div style="font-size:12px;font-family:'DM Mono',monospace"><span class="t-text3">${pct}%</span> ${curr()} ${fmtAmt(amt)}</div>
         </div>
         <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.7"></div></div>
       </div>`;
@@ -6497,7 +6531,7 @@ function renderWidgetMonatsverlaufJahr(yr){
     const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
     trend.push({label:months[m],out,inc,net:inc-out,mo:m,cur:isCurrentYear&&m===now.getMonth()});
   }
-  if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
+  if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div class="t-muted">Keine Daten.</div></div>`;
   const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
   return `<div>
     <div class="widget-title">Monatsverlauf ${yr}</div>
@@ -6520,7 +6554,7 @@ function renderWidgetAktienPortfolio(){
     const pos = calcPosition(s.id);
     return pos.qty > 0.0001;
   });
-  if(!active.length) return `<div><div class="widget-title">Aktienportfolio</div><div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div></div>`;
+  if(!active.length) return `<div><div class="widget-title">Aktienportfolio</div><div class="t-muted">Keine aktiven Positionen.</div></div>`;
   let totalCost=0, totalPnl=0, hasPnl=false;
   const rows = active.map(s=>{
     const pos = calcPosition(s.id);
@@ -6556,7 +6590,7 @@ function renderWidgetAktienPortfolio(){
 
 function renderWidgetAktienWert(){
   const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Portfolio-Wert</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  if(!active.length) return `<div><div class="widget-title">Portfolio-Wert</div><div class="t-muted">Keine Positionen.</div></div>`;
   const total = getGesamtPortfoliowert();
   const totalCost = active.reduce((s,st)=>s+calcPosition(st.id).totalCost,0);
   const gv = getGesamtGewinnVerlust();
@@ -6575,8 +6609,8 @@ function renderWidgetAktienWert(){
 function renderWidgetAktienPnl(){
   const gv = getGesamtGewinnVerlust();
   const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
-  if(!gv.hasLive) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div style="color:var(--text3);font-size:13px">Warte auf Live-Kurse…</div></div>`;
+  if(!active.length) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div class="t-muted">Keine Positionen.</div></div>`;
+  if(!gv.hasLive) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div class="t-muted">Warte auf Live-Kurse…</div></div>`;
   const color = gv.amt>=0?'var(--green)':'var(--red)';
   const sign = gv.amt>=0?'+':'';
   return `<div>
@@ -6594,13 +6628,13 @@ function renderWidgetAktienPnl(){
 
 function renderWidgetAktienTop(){
   const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001&&s.ticker);
-  if(!active.length) return `<div><div class="widget-title">Top-Performer</div><div style="color:var(--text3);font-size:13px">Keine Positionen mit Ticker.</div></div>`;
+  if(!active.length) return `<div><div class="widget-title">Top-Performer</div><div class="t-muted">Keine Positionen mit Ticker.</div></div>`;
   let best=null, bestPct=-Infinity;
   active.forEach(s=>{
     const gv=getGewinnVerlust(s.id);
     if(gv.hasLive&&gv.pct>bestPct){bestPct=gv.pct;best=s;}
   });
-  if(!best) return `<div><div class="widget-title">Top-Performer</div><div style="color:var(--text3);font-size:13px">Warte auf Live-Kurse…</div></div>`;
+  if(!best) return `<div><div class="widget-title">Top-Performer</div><div class="t-muted">Warte auf Live-Kurse…</div></div>`;
   const gv=getGewinnVerlust(best.id); const pos=calcPosition(best.id);
   const color=gv.pct>=0?'var(--green)':'var(--red)'; const sign=gv.pct>=0?'+':'';
   return `<div>
@@ -6620,14 +6654,14 @@ function renderWidgetAktienTop(){
 
 function renderWidgetAktienVerteilung(){
   const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Portfolio-Verteilung</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  if(!active.length) return `<div><div class="widget-title">Portfolio-Verteilung</div><div class="t-muted">Keine Positionen.</div></div>`;
   const data = active.map(s=>({
     label: s.ticker||s.title,
     value: getPositionsWert(s.id),
     color: aktieColor(s.id)
   })).filter(d=>d.value>0);
   const total = data.reduce((s,d)=>s+d.value,0);
-  if(total===0) return `<div><div class="widget-title">Portfolio-Verteilung</div><div style="color:var(--text3);font-size:13px">Keine Daten.</div></div>`;
+  if(total===0) return `<div><div class="widget-title">Portfolio-Verteilung</div><div class="t-muted">Keine Daten.</div></div>`;
   // SVG pie chart
   const cx=70,cy=70,r=58;
   let angle=-Math.PI/2;
@@ -6644,13 +6678,13 @@ function renderWidgetAktienVerteilung(){
   return `<div>
     <div class="widget-title">Portfolio-Verteilung</div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <svg viewBox="0 0 140 140" height="110" style="flex-shrink:0">
+      <svg viewBox="0 0 140 140" height="110" class="flex-shrink-0">
         ${slices.map(s=>`<path d="${s.path}" fill="${s.color}" stroke="var(--bg0)" stroke-width="1.5"/>`).join('')}
       </svg>
       <div style="flex:1;min-width:80px">
         ${slices.map(s=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;font-size:11px">
           <span style="width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0"></span>
-          <span style="color:var(--text2)">${esc(s.label)}</span>
+          <span class="t-text2">${esc(s.label)}</span>
           <span style="color:var(--text3);margin-left:auto">${s.pct}%</span>
         </div>`).join('')}
       </div>
@@ -6669,21 +6703,21 @@ function renderWidgetAktienPosition(){
     }, null);
     s = best?.s;
   }
-  if(!s) return `<div><div class="widget-title">Einzelposition</div><div style="color:var(--text3);font-size:13px">Keine Positionen.</div></div>`;
+  if(!s) return `<div><div class="widget-title">Einzelposition</div><div class="t-muted">Keine Positionen.</div></div>`;
   const pos=calcPosition(s.id); const gv=getGewinnVerlust(s.id);
   const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
   const sign=gv.pct>=0?'+':'';
   const lp=s.ticker?getAktuellerKurs(s.ticker):null;
   return `<div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-      <div class="widget-title" style="margin-bottom:0">${esc(s.title)}</div>
+      <div class="widget-title mb-0">${esc(s.title)}</div>
       ${s.ticker?`<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${esc(s.ticker)}</span>`:''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div><div style="font-size:10px;color:var(--text3)">Anzahl</div><div style="font-family:'DM Mono',monospace;font-weight:600">${fmtQty(pos.qty)} Stk.</div></div>
-      <div><div style="font-size:10px;color:var(--text3)">Ø Kaufpreis</div><div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(pos.avgPrice)}</div></div>
-      <div><div style="font-size:10px;color:var(--text3)">Kurs live</div><div style="font-family:'DM Mono',monospace;font-weight:600">${lp!=null?fmtPrice(lp):'—'}</div></div>
-      <div><div style="font-size:10px;color:var(--text3)">P&L</div><div style="font-family:'DM Mono',monospace;font-weight:600;color:${color}">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</div></div>
+      <div><div class="t-muted-sm">Anzahl</div><div class="t-mono-bold">${fmtQty(pos.qty)} Stk.</div></div>
+      <div><div class="t-muted-sm">Ø Kaufpreis</div><div class="t-mono-bold">${fmtPrice(pos.avgPrice)}</div></div>
+      <div><div class="t-muted-sm">Kurs live</div><div class="t-mono-bold">${lp!=null?fmtPrice(lp):'—'}</div></div>
+      <div><div class="t-muted-sm">P&L</div><div style="font-family:'DM Mono',monospace;font-weight:600;color:${color}">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</div></div>
     </div>
     ${SDATA.stocks.filter(st=>calcPosition(st.id).qty>0.0001).length>1?`
     <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
@@ -6719,7 +6753,7 @@ function renderWidgetAktienDashboard(){
   const posCount = active.length;
   if(!posCount) return `<div>
     <div class="widget-title">Aktien-Dashboard</div>
-    <div style="color:var(--text3);font-size:13px">Keine aktiven Positionen.</div>
+    <div class="t-muted">Keine aktiven Positionen.</div>
   </div>`;
   const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
   const gvSign = gv.amt>=0?'+':'';
@@ -6727,22 +6761,22 @@ function renderWidgetAktienDashboard(){
   const todaySign = todayChg.amt>=0?'+':'';
   const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
   return `<div>
-    <div class="widget-title" style="margin-bottom:10px">Aktien-Dashboard</div>
+    <div class="widget-title mb-10">Aktien-Dashboard</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
       <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-right:12px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div class="t-label">Portfolio-Wert</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
       </div>
       <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div class="t-label">Heute</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
       </div>
       <div style="padding:8px 0;padding-right:12px;margin-top:2px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div class="t-label">Gesamt G/V</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
       </div>
       <div style="padding:8px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:2px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div class="t-label">Positionen</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
       </div>
     </div>
@@ -6780,7 +6814,7 @@ function renderDashboard(){
   const container=document.getElementById('dashboard-content');
   container.innerHTML=`
     <!-- Jahres-Navigation -->
-    <div class="section" style="padding-bottom:0">
+    <div class="section pb-0">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px">
         <button class="btn-cancel" onclick="prevDashYear()" style="padding:8px 16px;font-size:18px"${hasPrev?'':' disabled'}>‹</button>
         <div style="font-size:16px;font-weight:700">${dashYear}</div>
@@ -6790,8 +6824,8 @@ function renderDashboard(){
 
     ${isCurrentYear ? `
     <!-- Heute & Woche stats -->
-    <div class="section" style="padding-top:0">
-      <div class="stats-grid" style="margin-bottom:0">
+    <div class="section pt-0">
+      <div class="stats-grid mb-0">
         <div class="stat-card">
           <div class="stat-label">Heute ausgegeben</div>
           <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">
@@ -6808,9 +6842,9 @@ function renderDashboard(){
     </div>
 
     <!-- Kontostand-Verlauf (Linienchart) -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div class="section-title" style="margin-bottom:0">Kontostand-Verlauf</div>
+        <div class="section-title mb-0">Kontostand-Verlauf</div>
         <div style="display:flex;gap:4px">
           ${[1,3,6,12].map(m=>`<button class="chart-period-btn${dashboardChartMonths===m?' active':''}" onclick="setDashboardMonths(${m})">${m}M</button>`).join('')}
         </div>
@@ -6820,8 +6854,8 @@ function renderDashboard(){
     ` : ''}
 
     <!-- Ø Tagesausgabe (Jahresdurchschnitt) -->
-    <div class="section" style="padding-top:0">
-      <div class="stats-grid" style="margin-bottom:0">
+    <div class="section pt-0">
+      <div class="stats-grid mb-0">
         <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
           <div class="stat-label">Ø Tagesausgabe ${dashYear} (ohne Fixkosten)
             ${avgDayYearDiff!==null?`<span style="font-size:11px;color:${avgDayYearDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDayYearDiff<=0?'↓':'↑'}${Math.abs(avgDayYearDiff).toFixed(0)}% vs. ${dashYear-1}</span>`:''}
@@ -6835,13 +6869,13 @@ function renderDashboard(){
     </div>
 
     <!-- Lohn % Einnahmen -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px 16px">
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Lohn % Einnahmen ${dashYear}</div>
         ${yearTotalInc>0 ? `
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
           <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:var(--text)">${lohnPct.toFixed(1)}%</span>
-          <span style="font-size:12px;color:var(--text3)">${curr()} ${fmtAmt(yearLohnInc)} von ${curr()} ${fmtAmt(yearTotalInc)}</span>
+          <span class="t-muted-sm">${curr()} ${fmtAmt(yearLohnInc)} von ${curr()} ${fmtAmt(yearTotalInc)}</span>
         </div>
         <div class="zy-prog-wrap" style="margin:0;height:8px">
           <div class="zy-prog-fill" style="width:${Math.min(lohnPct,100).toFixed(1)}%;background:var(--accent)"></div>
@@ -6851,17 +6885,17 @@ function renderDashboard(){
     </div>
 
     <!-- Jahres-Sparquote (shared widget) — click navigates to Sparen tab -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px;cursor:pointer" onclick="goTab('sparen')">${renderWidgetJahresSparquote(dashYear)}</div>
     </div>
 
     <!-- Top Kategorien (shared widget) -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${renderWidgetJahresKategorien(dashYear)}</div>
     </div>
 
     <!-- Monatsverlauf (shared widget) -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${renderWidgetMonatsverlaufJahr(dashYear)}</div>
     </div>
   `;
@@ -7017,7 +7051,7 @@ function openAddAktieFlow(){
       const pos = calcPosition(s.id);
       html += `<button onclick="closeModal('aktie-flow-modal');openAktieDetailFromFlow('${s.id}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:6px;color:var(--text);font-size:14px;cursor:pointer;text-align:left">
         <div>
-          <div style="font-weight:600">${esc(s.title)}</div>
+          <div class="t-bold">${esc(s.title)}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.ticker?esc(s.ticker)+' · ':''} ${fmtQty(pos.qty)} Stk.</div>
         </div>
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
@@ -7117,7 +7151,7 @@ function renderMenuOverlay(){
   if(footer){
     footer.innerHTML = `
       <div class="menu-item-row" style="border-top:none">
-        <button class="menu-item-nav" style="color:var(--accent)" onclick="toggleMenuEditMode()">
+        <button class="menu-item-nav t-accent" onclick="toggleMenuEditMode()">
           <svg viewBox="0 0 24 24" style="stroke:var(--accent)">${menuEditMode?'<polyline points="20 6 9 17 4 12"/>':PIN_ICON}</svg>
           ${menuEditMode?'Fertig':'Taskleiste bearbeiten'}
         </button>
@@ -7128,7 +7162,7 @@ function renderMenuOverlay(){
         </button>
       </div>
       <div class="menu-item-row" style="border-top:1px solid var(--border)">
-        <button class="menu-item-nav" style="color:var(--red)" onclick="doLogout();closeMenuOverlay()">
+        <button class="menu-item-nav t-red" onclick="doLogout();closeMenuOverlay()">
           <svg viewBox="0 0 24 24" style="stroke:var(--red)"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Logout
         </button>
@@ -7381,7 +7415,7 @@ function renderLohn(){
     const cycleExp = DATA.expenses.filter(e=>e.date>=z.startStr&&e.date<=z.endStr).sort((a,b)=>a.date.localeCompare(b.date));
     const cycleAll = [...cycleInc.map(e=>({...e,_type:'inc'})),...cycleExp.map(e=>({...e,_type:'exp'}))].sort((a,b)=>a.date.localeCompare(b.date));
     zSec.innerHTML = `
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="section-title">Lohnzyklus</div>
       <div class="zy-card">
         <div class="zy-header">
@@ -7391,12 +7425,12 @@ function renderLohn(){
         <div class="zy-body">
           ${z.hasSalary ? `
           <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ ${curr()} ${fmtAmt(z.lohn)}</span></div>
-          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val" style="color:var(--text2)">− ${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val t-text2">− ${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
           ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}${curr()} ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
-          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val" style="color:var(--accent)">− ${curr()} ${fmtAmt(z.mSparziel)}</span></div>`:''}
+          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val t-accent">− ${curr()} ${fmtAmt(z.mSparziel)}</span></div>`:''}
           <div class="zy-divider"></div>
           <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span></div>
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val" style="color:var(--red)">− ${curr()} ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val t-red">− ${curr()} ${fmtAmt(z.varSpent)}</span></div>
           <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(z.varRemaining)}</span></div>
           <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
           <div class="zy-prog-labels"><span>${budgetPct.toFixed(0)}% des Budgets verbraucht</span><span>${z.daysLeft} Tage verbleibend</span></div>
@@ -7418,11 +7452,11 @@ function renderLohn(){
     </div>
 
     ${cycleAll.length ? `
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="section-title">Buchungen im Zyklus
         <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">Fixkosten per Taste markieren</span>
       </div>
-      <div class="card" style="padding:0">
+      <div class="card p-0">
         ${cycleAll.map(e=>`
         <div class="card-row" style="padding-right:8px">
           <div class="card-row-icon" style="background:${catColor(e.cat)}22"><span>${catEmoji(e.cat)}</span></div>
@@ -7614,7 +7648,7 @@ function openAvgConfig(){
     <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
       <div>
         <div style="font-size:14px;font-weight:500">${esc(r.what)}</div>
-        <div style="font-size:12px;color:var(--text3)">${r.interval} · ${curr()} ${fmtAmt(r.amt)}</div>
+        <div class="t-muted-sm">${r.interval} · ${curr()} ${fmtAmt(r.amt)}</div>
       </div>
       <input type="checkbox" data-rid="${r.id}" ${r.affectsAvg?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
     </label>`).join('');
@@ -7938,12 +7972,12 @@ async function doChangePw(){
 // ─── Admin Panel ─────────────────────────────────────────────
 
 async function renderAdmin(){
-  if(CFG.authRole!=='admin'){ document.getElementById('admin-users-list').innerHTML='<div style="color:var(--text3);font-size:13px">Kein Zugriff.</div>'; return; }
+  if(CFG.authRole!=='admin'){ document.getElementById('admin-users-list').innerHTML='<div class="t-muted">Kein Zugriff.</div>'; return; }
   // Invite link (with design params)
   const invEl = document.getElementById('admin-invite-link');
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
-  document.getElementById('admin-users-list').innerHTML = '<div style="color:var(--text3);font-size:13px">Lade Benutzerliste…</div>';
+  document.getElementById('admin-users-list').innerHTML = '<div class="t-muted">Lade Benutzerliste…</div>';
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_list',token:CFG.sessionToken}));
     const d = await r.json();
@@ -7956,7 +7990,7 @@ async function renderAdmin(){
 
 function renderAdminUserList(users){
   const el = document.getElementById('admin-users-list');
-  if(!users.length){ el.innerHTML='<div style="color:var(--text3);font-size:13px">Noch keine Benutzer.</div>'; return; }
+  if(!users.length){ el.innerHTML='<div class="t-muted">Noch keine Benutzer.</div>'; return; }
   el.innerHTML = users.map(u=>`
   <div class="admin-user-row">
     <div style="min-width:0">
@@ -8727,14 +8761,14 @@ function buildPortfolioPieChart(stocks){
   return `
   <div class="widget-title">Portfolio-Verteilung</div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-    <svg viewBox="0 0 180 180" height="140" style="flex-shrink:0">
+    <svg viewBox="0 0 180 180" height="140" class="flex-shrink-0">
       ${slices.map(s=>`<path d="${s.path}" fill="${s.color}" stroke="var(--bg0)" stroke-width="2"/>`).join('')}
     </svg>
     <div>
       ${slices.map(s=>`
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px">
           <span style="width:10px;height:10px;border-radius:3px;background:${s.color};flex-shrink:0"></span>
-          <span style="color:var(--text2)">${esc(s.label)}</span>
+          <span class="t-text2">${esc(s.label)}</span>
           <span style="color:var(--text3);margin-left:auto;font-family:'DM Mono',monospace">${s.pct}%</span>
         </div>`).join('')}
     </div>
@@ -8829,7 +8863,7 @@ function buildPortfolioVerlauf(){
       <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace">${curr()} ${fmtAmt(latestVal)}</span>
       <span style="font-size:12px;color:${retColor};font-family:'DM Mono',monospace">${totalReturn>=0?'+':''}${totalReturn.toFixed(1)}% ges.</span>
     </div>
-    <svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">
+    <svg viewBox="0 0 ${W} ${H}" height="${H}" class="w-full">
       <defs><linearGradient id="pvGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="var(--green)" stop-opacity="0.3"/>
         <stop offset="100%" stop-color="var(--green)" stop-opacity="0.02"/>
@@ -8862,7 +8896,7 @@ function buildPortfolioVerlauf(){
   return `
   <div class="widget-title">Investiertes Kapital (Verlauf)</div>
   <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Basiert auf Einstandswerten · Mit jedem Sheet-Sync wird der Marktwert gespeichert</div>
-  <svg viewBox="0 0 ${W} ${H}" height="${H}" style="width:100%">
+  <svg viewBox="0 0 ${W} ${H}" height="${H}" class="w-full">
     <defs><linearGradient id="invGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
       <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
@@ -8880,13 +8914,13 @@ function renderAktienCharts(stocks){
   const active=stocks.filter(s=>s.pos.qty>0.0001);
   if(!active.length){ el.innerHTML=''; return; }
   el.innerHTML=`
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${buildPortfolioPieChart(active)}</div>
     </div>
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${buildPreisVergleichChart(active)}</div>
     </div>
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${buildPortfolioVerlauf()}</div>
     </div>`;
 }
@@ -8917,13 +8951,13 @@ function renderAktienTabelle(stocks){
         const sign=gv.pct>=0?'+':'';
         const liveTxt=lpConverted!=null?(needsFx?`${fmtPrice(lpConverted)} (${fmtPrice(lp)} ${stockCurr})`:fmtPrice(lpConverted)):'—';
         return `<tr style="cursor:pointer" onclick="openAktieDetail('${s.id}')">
-          <td><div style="font-weight:600">${esc(s.ticker||s.title)}</div>
-              <div style="font-size:10px;color:var(--text3)">${esc(s.title)}${stockCurr&&stockCurr!==userCurrUC?' · '+stockCurr:''}</div></td>
-          <td style="font-family:'DM Mono',monospace">${fmtQty(s.pos.qty)}</td>
-          <td style="font-family:'DM Mono',monospace">${fmtPrice(s.pos.avgPrice)}</td>
+          <td><div class="t-bold">${esc(s.ticker||s.title)}</div>
+              <div class="t-muted-sm">${esc(s.title)}${stockCurr&&stockCurr!==userCurrUC?' · '+stockCurr:''}</div></td>
+          <td class="t-mono">${fmtQty(s.pos.qty)}</td>
+          <td class="t-mono">${fmtPrice(s.pos.avgPrice)}</td>
           <td style="font-family:'DM Mono',monospace;color:${lpConverted!=null?color:'var(--text3)'};font-size:11px">${liveTxt}</td>
           <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</td>
-          <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtAmt(wert)}</td>
+          <td class="t-mono-bold">${fmtAmt(wert)}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>
@@ -8952,19 +8986,19 @@ function renderAktienDashboardTop(){
     <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:10px;text-transform:uppercase">Portfolio-Übersicht</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
       <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-right:12px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Portfolio-Wert</div>
+        <div class="t-label">Portfolio-Wert</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
       </div>
       <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Heute</div>
+        <div class="t-label">Heute</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
       </div>
       <div style="padding:6px 0;padding-right:12px;margin-top:4px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Gesamt G/V</div>
+        <div class="t-label">Gesamt G/V</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
       </div>
       <div style="padding:6px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:4px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Positionen</div>
+        <div class="t-label">Positionen</div>
         <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
       </div>
     </div>
@@ -9143,7 +9177,7 @@ function renderAktieDetail(stockId){
         <div class="aktie-stat-val aktie-pnl-na" style="cursor:pointer" onclick="refreshStockPrice('${s.id}')">Laden…</div></div>` : ''}
     </div>
   </div>
-  <div class="section" style="padding-top:0">
+  <div class="section pt-0">
     <div class="section-title">Trade-Historie</div>
     ${!trades.length ? `<div class="empty" style="padding:16px 0"><div class="empty-text">Noch keine Trades</div></div>` : `
     <div class="trade-tbl-wrap">
@@ -9157,10 +9191,10 @@ function renderAktieDetail(stockId){
             <td style="white-space:nowrap">${fmtDate(t.date)}</td>
             <td><span class="${t.type==='kauf'?'t-kauf':'t-verk'}">${t.type==='kauf'?'Kauf':'Verkauf'}</span></td>
             <td>${fmtQty(t.qty)}</td>
-            <td style="font-family:'DM Mono',monospace">${fmtPrice(t.price)}</td>
+            <td class="t-mono">${fmtPrice(t.price)}</td>
             <td>${esc(t.currency||s.currency||'')}</td>
-            <td style="font-family:'DM Mono',monospace">${fmtPrice(t.courtage||0)}</td>
-            <td style="font-family:'DM Mono',monospace;font-weight:600">${fmtPrice(t.total)}</td>
+            <td class="t-mono">${fmtPrice(t.courtage||0)}</td>
+            <td class="t-mono-bold">${fmtPrice(t.total)}</td>
             <td><button onclick="deleteTrade('${t.id}')" style="background:none;color:var(--text3);font-size:14px;padding:2px 6px;border:none;cursor:pointer;line-height:1">×</button></td>
           </tr>`).join('')}
         </tbody>
@@ -9901,7 +9935,7 @@ function renderMonat(){
 
   container.innerHTML = `
     <!-- Month navigation -->
-    <div class="section" style="padding-bottom:0">
+    <div class="section pb-0">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px">
         <button class="btn-cancel" onclick="prevMvMonth()" style="padding:8px 16px;font-size:18px">‹</button>
         <div style="font-size:16px;font-weight:700">${mvMonths[mo]} ${yr}</div>
@@ -9910,14 +9944,14 @@ function renderMonat(){
     </div>
 
     <!-- Monats-Zusammenfassung (shared widget — includes 3-stat + Ø Tagesausgabe) -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:14px">${renderWidgetMonatSummary(mo, yr)}</div>
     </div>
 
     ${isCurrent ? `
     <!-- Heute & Woche (current month only) -->
-    <div class="section" style="padding-top:0">
-      <div class="stats-grid" style="margin-bottom:0">
+    <div class="section pt-0">
+      <div class="stats-grid mb-0">
         <div class="stat-card">
           <div class="stat-label">Heute ausgegeben</div>
           <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">${todayOut>0?'− '+fmtAmt(todayOut):'—'}</div>
@@ -9931,15 +9965,15 @@ function renderMonat(){
     ` : ''}
 
     <!-- Kategorien (shared widget) -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="card" style="padding:12px 14px">${renderWidgetMonatKategorien(mo, yr, 8)}</div>
     </div>
 
     ${sortedDates.length ? `
     <!-- Day entries -->
-    <div class="section" style="padding-top:0">
+    <div class="section pt-0">
       <div class="section-title">Einträge</div>
-      <div class="card" style="padding:0">
+      <div class="card p-0">
         ${sortedDates.map(ds=>buildDayGroup(ds,
           DATA.expenses.filter(ex=>ex.date===ds),
           DATA.incomes.filter(ex=>ex.date===ds),
