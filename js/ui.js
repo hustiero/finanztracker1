@@ -1136,6 +1136,19 @@ function _renderEventDetail(g, el){
     </div>`;
   }
 
+  // Verlauf integration toggle
+  const gvOn = !!(CFG.groupVerlauf||{})[g.id];
+  html += `<div class="grp-verlauf-toggle-row">
+    <div class="grp-verlauf-toggle-info">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div>
+        <div style="font-size:13px;font-weight:600">Im Verlauf anzeigen</div>
+        <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
+      </div>
+    </div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+  </div>`;
+
   // Top categories
   if(topCats.length){
     html += '<div class="grp-section-title">Top Kategorien</div><div class="grp-top-cats">';
@@ -1214,6 +1227,19 @@ function _renderSplitDetail(g, el){
       </button>`:''}
     </div>`;
   }
+
+  // Verlauf integration toggle
+  const gvOn = !!(CFG.groupVerlauf||{})[g.id];
+  html += `<div class="grp-verlauf-toggle-row">
+    <div class="grp-verlauf-toggle-info">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div>
+        <div style="font-size:13px;font-weight:600">Im Verlauf anzeigen</div>
+        <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
+      </div>
+    </div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+  </div>`;
 
   // Members section with admin controls
   html += '<div class="grp-section-title">Mitglieder</div><div class="grp-members-list">';

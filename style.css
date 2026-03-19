@@ -1368,6 +1368,22 @@ body.glass-on .section-title{font-weight:700}
 .group-entry-author{font-size:11px;color:var(--text3);display:block;margin-top:2px}
 .card-row-amount.foreign{color:var(--text2)}
 
+/* Shadow entries — user's share of foreign group expenses */
+.shadow-entry{opacity:.55;border-left:3px solid rgba(139,92,246,.35);cursor:pointer;transition:opacity .15s}
+.shadow-entry:hover,.shadow-entry:active{opacity:.8}
+.shadow-icon{opacity:.7}
+.shadow-title{color:var(--text2)!important}
+.shadow-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.shadow-group-chip{font-size:10px;font-weight:600;color:rgba(139,92,246,.9);background:rgba(139,92,246,.1);padding:1px 7px;border-radius:4px;white-space:nowrap}
+.shadow-paidby{font-size:10px;color:var(--text3);white-space:nowrap}
+.shadow-amount{text-align:right;color:var(--text3)!important;font-size:13px}
+.shadow-amount div:first-child{font-family:'DM Mono',monospace;font-weight:600;font-size:13px}
+.shadow-full{font-size:10px;color:var(--text3);opacity:.7;margin-top:1px}
+
+/* Group detail: Verlauf toggle row */
+.grp-verlauf-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.grp-verlauf-toggle-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+
 /* Debt rows in group detail */
 .debt-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
 .debt-row:last-child{border-bottom:none}
