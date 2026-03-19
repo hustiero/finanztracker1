@@ -111,7 +111,9 @@ Object.assign(App.UI, {
   // Aktien sub-renderers
   renderAktienCharts, renderAktienDashboardTop, renderAktienList,
   renderAktienTradeForm, renderAktienTabelle,
-  renderAktieDetail, renderAdminUserList, renderAdminDesignPresets,
+  renderAktieDetail, renderAdminDesignPresets,
+  // User management
+  openUserManagement, closeUserManagement, refreshUserList, filterUsers,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
