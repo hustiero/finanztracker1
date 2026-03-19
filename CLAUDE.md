@@ -14,6 +14,7 @@ Backend is a Google Apps Script (`CFG.url`).
 | `js/core.js` | App namespace, EventBus, IDB, syncQueue, Config, helpers | ~370 |
 | `js/data.js` | Sheets API, DATA state, calculations, formatting | ~400 |
 | `js/io.js` | Init/Load, Entry/Recurring/Category CRUD, Export, Sparziele | ~1 430 |
+| `js/groups.js` | Groups: API layer, CRUD, invitations, notifications, admin panel | ~400 |
 | `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 020 |
 | `js/ui.js` | UI helpers, Notifications, Auth, Demo, CodeGS, Settings | ~1 630 |
 | `js/aktien.js` | Stocks: data, rendering, trade, CRUD | ~960 |
@@ -28,6 +29,7 @@ Backend is a Google Apps Script (`CFG.url`).
 <script src="js/core.js"></script>     <!-- 1. Namespace + infrastructure -->
 <script src="js/data.js"></script>     <!-- 2. Data layer + API -->
 <script src="js/io.js"></script>       <!-- 3. CRUD + sync -->
+<script src="js/groups.js"></script>   <!-- 3b. Groups: API, CRUD, invites, notifs -->
 <script src="js/render.js"></script>   <!-- 4. All renderers -->
 <script src="js/ui.js"></script>       <!-- 5. UI logic + events -->
 <script src="js/aktien.js"></script>   <!-- 6. Stocks module -->

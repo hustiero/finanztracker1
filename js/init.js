@@ -70,9 +70,14 @@ Object.assign(App.IO, {
   addCategory, updateCategory, deleteCategory,
   // Oberkategorien CRUD
   createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
-  // Groups CRUD
+  // Groups CRUD (delegated to js/groups.js)
   saveGroup, updateGroup, deleteGroup, archiveGroup, settleUp,
   joinGroupByInvite, removeGroupMember, regenerateInviteCode,
+  loadGroups, isGroupAdmin, generateInviteLink,
+  pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
+  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  // Groups API layer
+  groupsApiCall, groupsApiGet, groupsApiAppend, groupsApiUpdate, groupsApiFindRow,
   // Sparziele CRUD
   saveSparGoal, deleteSparGoal, addToSparGoal,
   // Aktien trade
@@ -124,7 +129,8 @@ Object.assign(App.UI, {
   setGroupFilter, openGroupDetail, closeGroupDetail,
   openNewGroupModal, onGrpTypeChange, confirmNewGroup,
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
-  exportGroupReport, copyGroupInviteLink,
+  exportGroupReport, copyGroupInviteLink, generateInviteLink,
+  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
