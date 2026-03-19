@@ -40,7 +40,7 @@
     </button>
 
     <div style="height:16px"></div>
-    <button class="btn-ghost" onclick="doDemo()" class="t-muted-sm">Demo ansehen</button>
+    <button class="btn-ghost t-muted-sm" onclick="doDemo()">Demo ansehen</button>
 
     <!-- Advanced: Script-URL (hidden by default) -->
     <div style="margin-top:20px;width:100%;max-width:380px;text-align:center">
@@ -92,7 +92,7 @@
     <button class="btn-ghost" style="margin-top:8px" onclick="gotoSetupStep(3)">Noch kein Konto? Registrieren</button>
     <button class="btn-ghost" style="margin-top:2px;font-size:11px;color:var(--text3)" onclick="document.getElementById('auth-admin-url-wrap').style.display=document.getElementById('auth-admin-url-wrap').style.display==='none'?'block':'none'">⚙ Admin-URL konfigurieren</button>
     <div style="height:8px"></div>
-    <button class="btn-ghost" onclick="doDemo()" class="t-muted-sm">Demo ansehen</button>
+    <button class="btn-ghost t-muted-sm" onclick="doDemo()">Demo ansehen</button>
   </div>
 
   <!-- Page 3: Signup -->
@@ -331,8 +331,10 @@
               <select id="f-r-interval" class="form-select">
                 <option>monatlich</option>
                 <option>wöchentlich</option>
-                <option>jährlich</option>
+                <option>zweiwöchentlich</option>
+                <option>quartalsweise</option>
                 <option>halbjährlich</option>
+                <option>jährlich</option>
               </select>
             </div>
             <div class="form-group">
@@ -538,7 +540,7 @@
             <div id="new-cat-emoji-grid" style="display:none;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:8px"></div>
           </div>
           <div class="form-group">
-            <label class="form-label">Überkategorie <span class="t-text3">(optional)</span></label>
+            <label class="form-label">Oberkategorie <span class="t-text3">(optional)</span></label>
             <select id="new-cat-parent" class="form-select"><option value="">— keine —</option></select>
           </div>
           <button class="save-btn" onclick="addCategory()">Kategorie hinzufügen</button>
@@ -581,9 +583,10 @@
               <select id="r-interval" class="form-select">
                 <option>monatlich</option>
                 <option>wöchentlich</option>
-                <option>jährlich</option>
+                <option>zweiwöchentlich</option>
+                <option>quartalsweise</option>
                 <option>halbjährlich</option>
-                <option>semestral</option>
+                <option>jährlich</option>
               </select>
             </div>
           </div>
@@ -629,7 +632,7 @@
     <!-- TAB: Sparen / Lohn -->
     <div id="tab-lohn" class="tab-page" style="display:none">
       <div class="section">
-        <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" class="w-full">+ Einnahme erfassen</button>
+        <button class="save-btn w-full" onclick="setType('einnahme');goTab('eingabe')">+ Einnahme erfassen</button>
       </div>
       <div id="lohn-zyklus-section"></div>
       <div class="section pt-0">
@@ -667,7 +670,7 @@
       <div id="aktien-tabelle" style="display:none;padding:0 16px 16px"></div>
       <div id="aktien-charts" style="display:none;padding:0 16px 16px"></div>
       <div style="padding:4px 16px 12px">
-        <button class="save-btn" onclick="openNewAktieModal()" class="w-full">+ Aktie hinzufügen</button>
+        <button class="save-btn w-full" onclick="openNewAktieModal()">+ Aktie hinzufügen</button>
       </div>
     </div>
 
@@ -1059,20 +1062,6 @@
   </nav>
 </div>
 
-<!-- FAB Speed-Dial Overlay (Aktien aktiviert) -->
-<div id="fab-speed-dial" style="display:none">
-  <div id="fab-speed-dial-sheet">
-    <button onclick="closeFabMenu();goTab('eingabe')" style="display:none">
-      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Ausgabe / Einnahme
-    </button>
-    <button onclick="closeFabMenu();openAddAktieFlow()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;border-radius:var(--r2);color:var(--text);font-size:14px;font-weight:500;text-align:left;border:none;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'" ontouchstart="this.style.background='var(--bg3)'" ontouchend="this.style.background='none'">
-      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:2;flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      <span class="t-accent">Aktie / Trade erfassen</span>
-    </button>
-  </div>
-</div>
-
 <!-- Aktie-Flow Modal (Bestehende wählen oder Neue erstellen) -->
 <div class="modal-overlay" id="aktie-flow-modal">
   <div class="modal">
@@ -1163,6 +1152,11 @@
         <label class="form-label">Notiz</label>
         <input id="edit-note" class="form-input" type="text" autocorrect="off">
       </div>
+      <div class="form-group" id="edit-fixk-wrap" style="display:none">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input id="edit-fixk" type="checkbox"> Fixkosten
+        </label>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteEntry()">Löschen</button>
@@ -1201,9 +1195,10 @@
           <select id="rec-edit-interval" class="form-select">
             <option>monatlich</option>
             <option>wöchentlich</option>
-            <option>jährlich</option>
+            <option>zweiwöchentlich</option>
+            <option>quartalsweise</option>
             <option>halbjährlich</option>
-            <option>semestral</option>
+            <option>jährlich</option>
           </select>
         </div>
       </div>
@@ -1263,7 +1258,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Überkategorie <span class="t-text3">(optional)</span></label>
+        <label class="form-label">Oberkategorie <span class="t-text3">(optional)</span></label>
         <select id="cat-edit-parent" class="form-select"><option value="">— keine —</option></select>
       </div>
       <div class="form-group">
@@ -1287,32 +1282,6 @@
   </div>
 </div>
 
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settings-modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title">Einstellungen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('settings-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Script URL</label>
-        <input id="s-url" class="form-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
-      </div>
-      <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <label class="form-label">Darstellung</label>
-        <button class="btn-save" style="width:100%;margin-top:8px" onclick="toggleTheme()">
-          <span id="theme-label">Hell-Modus</span>
-        </button>
-      </div>
-    </div>
-    <div class="modal-actions" style="flex-direction:column;gap:8px">
-      <button class="btn-save w-full" onclick="applySettings()">Speichern & neu laden</button>
-      <button class="btn-delete" style="width:100%;margin-top:4px" onclick="resetApp()">App zurücksetzen</button>
-    </div>
-  </div>
-</div>
 
 <!-- Avg Daily Config Modal -->
 <div class="modal-overlay" id="avg-config-modal">
@@ -1411,7 +1380,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">ISIN</label>
-          <input id="na-isin" class="form-input" type="text" placeholder="US0378331005" class="t-mono" autocorrect="off" autocapitalize="characters">
+          <input id="na-isin" class="form-input t-mono" type="text" placeholder="US0378331005" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
           <label class="form-label">Ticker <span class="t-text3">(Google Finance)</span></label>
@@ -1454,7 +1423,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">ISIN <span class="t-text3">(optional)</span></label>
-          <input id="ea-isin" class="form-input" type="text" placeholder="US0378331005" class="t-mono" autocorrect="off" autocapitalize="characters">
+          <input id="ea-isin" class="form-input t-mono" type="text" placeholder="US0378331005" autocorrect="off" autocapitalize="characters">
         </div>
         <div class="form-group">
           <label class="form-label">Ticker <span class="t-text3">(Google Finance)</span></label>

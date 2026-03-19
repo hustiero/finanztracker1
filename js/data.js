@@ -227,7 +227,13 @@ function getFixkosten(von, bis){
 
 // Auto-materialize ALL due recurring occurrences (up to today) as real DATA.expenses entries.
 // Called on every data load / renderAll. Syncs new entries to the Sheet in one batch.
+let _materializingLock = false;
 async function autoMaterializeRecurrings(){
+  if(_materializingLock) return;
+  _materializingLock = true;
+  try{ await _doMaterialize(); }finally{ _materializingLock = false; }
+}
+async function _doMaterialize(){
   if(!DATA.recurring.length) return;
   const todayStr = today();
   // Use a wide range: earliest possible start to today

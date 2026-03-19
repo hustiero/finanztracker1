@@ -615,6 +615,11 @@ function openEditModal(id, type){
   fillForm('edit', { id, type, amt:entry.amt, date:entry.date, what:entry.what, note:entry.note||'' });
   fillForm('edit-modal', { $title: type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten', '@recurringId':'' });
   fillDropdown('edit-cat', type, entry.cat);
+  // Show isFixk checkbox for expenses
+  const fixkWrap = document.getElementById('edit-fixk-wrap');
+  const fixkCb = document.getElementById('edit-fixk');
+  if(fixkWrap) fixkWrap.style.display = type==='ausgabe'?'':'none';
+  if(fixkCb) fixkCb.checked = !!entry.isFixkosten;
   openModal('edit-modal');
 }
 
@@ -675,7 +680,12 @@ async function updateEntry(){
   if(idx===-1) return;
 
   // Optimistic update
-  list[idx] = {...list[idx],amt,date,what,cat,note};
+  if(type==='ausgabe'){
+    const isFixk = !!document.getElementById('edit-fixk')?.checked;
+    list[idx] = {...list[idx],amt,date,what,cat,note,isFixkosten:isFixk};
+  } else {
+    list[idx] = {...list[idx],amt,date,what,cat,note};
+  }
   closeModal('edit-modal');
   dataCacheSave();
   markDirty('verlauf','dashboard','home','lohn');
@@ -688,8 +698,21 @@ async function updateEntry(){
       if(row){
         const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
         const isFixk = type==='ausgabe' ? (list[idx]?.isFixkosten ? '1' : '0') : '';
-        const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'',isFixk]] : [[id,date,what,cat,amt,note,'',isLohn]];
-        const updateRange = `${sheet}!A${row}:H${row}`;
+        const e = list[idx];
+        let updateVals, updateRange;
+        if(type==='ausgabe' && (e.groupId||e.splitData)){
+          updateVals = [[id,date,what,cat,amt,note,'',isFixk,e.groupId||'',e.splitData?JSON.stringify(e.splitData):'']];
+          updateRange = `${sheet}!A${row}:J${row}`;
+        } else if(type==='ausgabe'){
+          updateVals = [[id,date,what,cat,amt,note,'',isFixk]];
+          updateRange = `${sheet}!A${row}:H${row}`;
+        } else if(e.groupId){
+          updateVals = [[id,date,what,cat,amt,note,'',isLohn,e.groupId]];
+          updateRange = `${sheet}!A${row}:I${row}`;
+        } else {
+          updateVals = [[id,date,what,cat,amt,note,'',isLohn]];
+          updateRange = `${sheet}!A${row}:H${row}`;
+        }
         await apiUpdate(updateRange, updateVals);
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
       }
@@ -946,7 +969,7 @@ async function updateCategory(){
 async function deleteCategory(){
   const id = document.getElementById('cat-edit-id').value;
   const cat = DATA.categories.find(c=>c.id===id);
-  const inUse = DATA.expenses.some(e=>e.cat===cat?.name) || DATA.incomes.some(e=>e.cat===cat?.name);
+  const inUse = DATA.expenses.some(e=>e.cat===cat?.name) || DATA.incomes.some(e=>e.cat===cat?.name) || DATA.recurring.some(r=>r.active&&r.cat===cat?.name);
   if(inUse){ toast('Kategorie wird noch verwendet','err'); return; }
   if(!confirm('Kategorie "'+cat?.name+'" wirklich löschen?')) return;
 
@@ -1388,6 +1411,12 @@ function _hideSplitSection(){
 
 // Settle up: create a transfer entry to balance debts
 async function settleUp(groupId, from, to, amount){
+  // Ensure 'Transfer' category exists
+  if(!DATA.categories.some(c=>c.name==='Transfer')){
+    const catId = genId('K');
+    DATA.categories.push({id:catId,name:'Transfer',type:'ausgabe',emoji:'↔',color:'#888',parent:''});
+    if(!CFG.demo){ try{ await apiAppend('Kategorien',[[catId,'Transfer','ausgabe','↔','#888','']]); }catch(e){} }
+  }
   const id = genId('A');
   const date = today();
   const what = 'Ausgleich: '+from+' → '+to;

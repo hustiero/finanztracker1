@@ -849,17 +849,6 @@ function toast(msg,type=''){
 
 function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
 
-function openSettings(){
-  document.getElementById('s-url').value=CFG.scriptUrl||'';
-  updateThemeLabel();
-  openModal('settings-modal');
-}
-
-function applySettings(){
-  CFG.scriptUrl=document.getElementById('s-url').value.trim();
-  CFG.demo=false; cfgSave(); location.reload();
-}
-
 function resetApp(){ if(confirm('App wirklich zurücksetzen? Alle lokalen Daten werden gelöscht.')){ localStorage.removeItem(CFG_KEY); location.reload(); } }
 
 // ═══════════════════════════════════════════════════════════════

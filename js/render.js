@@ -272,19 +272,25 @@ function getRecurringInstances(startStr, endStr){
       d = new Date(d.getFullYear(), d.getMonth(), r.day, 12);
       if(dateStr(d) < startStr) d = new Date(d.getFullYear(), d.getMonth()+1, r.day, 12);
       while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear(), d.getMonth()+1, r.day, 12); }
-    } else if(r.interval==='wöchentlich'){
+    } else if(r.interval==='wöchentlich'||r.interval==='zweiwöchentlich'){
+      const step = (r.interval==='zweiwöchentlich'?14:7)*86400000;
       let d = new Date(Math.max(new Date(startStr+'T12:00:00'), new Date(rStart+'T12:00:00')));
-      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getTime()+7*86400000); }
+      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getTime()+step); }
     } else if(r.interval==='jährlich'){
       const orig = new Date(rStart+'T12:00:00');
       let d = new Date(new Date(startStr+'T12:00:00').getFullYear(), orig.getMonth(), orig.getDate(), 12);
       if(dateStr(d) < startStr) d = new Date(d.getFullYear()+1, orig.getMonth(), orig.getDate(), 12);
       while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear()+1, orig.getMonth(), orig.getDate(), 12); }
-    } else if(r.interval==='halbjährlich'){
+    } else if(r.interval==='halbjährlich'||r.interval==='semestral'){
       const orig = new Date(rStart+'T12:00:00');
       let d = new Date(new Date(startStr+'T12:00:00').getFullYear(), orig.getMonth(), orig.getDate(), 12);
       if(dateStr(d) < rStart) d = new Date(d.getFullYear(), d.getMonth()+6, d.getDate(), 12);
       while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear(), d.getMonth()+6, d.getDate(), 12); }
+    } else if(r.interval==='quartalsweise'){
+      const orig = new Date(rStart+'T12:00:00');
+      let d = new Date(new Date(startStr+'T12:00:00').getFullYear(), orig.getMonth(), orig.getDate(), 12);
+      if(dateStr(d) < rStart) d = new Date(d.getFullYear(), d.getMonth()+3, d.getDate(), 12);
+      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear(), d.getMonth()+3, d.getDate(), 12); }
     }
   }
   return entries;
@@ -811,7 +817,8 @@ function verlaufCalcSummary(){
   const {von, bis} = verlaufGetRange();
   let ausgaben=0, einnahmen=0;
   const byKat={};
-  DATA.expenses.forEach(e=>{
+  const allExpenses = (von&&bis) ? getAusgaben(von,bis) : DATA.expenses;
+  allExpenses.forEach(e=>{
     if((!von||e.date>=von)&&(!bis||e.date<=bis)){
       ausgaben+=e.amt;
       if(!byKat[e.cat]) byKat[e.cat]=0;
