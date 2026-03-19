@@ -3971,11 +3971,12 @@ async function saveEntryOrRecurring(){
 }
 
 async function saveEntry(){
-  const amt = parseFloat(document.getElementById('f-amt').value);
-  const date = document.getElementById('f-date').value;
-  const what = document.getElementById('f-what').value.trim();
-  const cat = document.getElementById('f-cat').value;
-  const note = document.getElementById('f-note').value.trim();
+  const f = readForm('f', ['amt','date','what','cat','note']);
+  const amt = parseFloat(f.amt);
+  const date = f.date;
+  const what = f.what.trim();
+  const cat = f.cat;
+  const note = f.note.trim();
 
   if(!amt||!date||!what){ toast('Betrag, Datum & Beschreibung erforderlich','err'); return; }
 
@@ -4022,16 +4023,9 @@ function openEditModal(id, type){
   const entry = list.find(e=>e.id===id);
   if(!entry) return;
 
-  document.getElementById('edit-id').value = id;
-  document.getElementById('edit-type').value = type;
-  document.getElementById('edit-amt').value = entry.amt;
-  document.getElementById('edit-date').value = entry.date;
-  document.getElementById('edit-what').value = entry.what;
-  document.getElementById('edit-note').value = entry.note||'';
-  document.getElementById('edit-modal-title').textContent = type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten';
+  fillForm('edit', { id, type, amt:entry.amt, date:entry.date, what:entry.what, note:entry.note||'' });
+  fillForm('edit-modal', { $title: type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten', '@recurringId':'' });
   fillDropdown('edit-cat', type, entry.cat);
-  document.getElementById('edit-modal').dataset.recurringId = '';
-
   openModal('edit-modal');
 }
 
@@ -4044,27 +4038,20 @@ function openMaterializeModal(recurId, date){
   const r = DATA.recurring.find(r=>r.id===recurId);
   if(!r) return;
 
-  document.getElementById('edit-id').value = '';   // empty = new entry
-  document.getElementById('edit-type').value = 'ausgabe';
-  document.getElementById('edit-amt').value = r.amt;
-  document.getElementById('edit-date').value = date;
-  document.getElementById('edit-what').value = r.what;
-  document.getElementById('edit-note').value = r.note||'';
-  document.getElementById('edit-modal-title').textContent = 'Dauerauftrag buchen';
+  fillForm('edit', { id:'', type:'ausgabe', amt:r.amt, date, what:r.what, note:r.note||'' });
+  fillForm('edit-modal', { $title:'Dauerauftrag buchen', '@recurringId':recurId });
   fillDropdown('edit-cat', 'ausgabe', r.cat);
-  document.getElementById('edit-modal').dataset.recurringId = recurId;
-
   openModal('edit-modal');
 }
 
 async function updateEntry(){
-  const id = document.getElementById('edit-id').value;
-  const type = document.getElementById('edit-type').value;
-  const amt = parseFloat(document.getElementById('edit-amt').value);
-  const date = document.getElementById('edit-date').value;
-  const what = document.getElementById('edit-what').value.trim();
-  const cat = document.getElementById('edit-cat').value;
-  const note = document.getElementById('edit-note').value.trim();
+  const f = readForm('edit', ['id','type','amt','date','what','cat','note']);
+  const id = f.id, type = f.type;
+  const amt = parseFloat(f.amt);
+  const date = f.date;
+  const what = f.what.trim();
+  const cat = f.cat;
+  const note = f.note.trim();
 
   if(!amt||!date||!what){ toast('Felder ausfüllen','err'); return; }
 
@@ -6887,6 +6874,65 @@ function openMonthViewAt(mo,yr){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: FORM HELPERS (Step 5)
+// Eliminate repeated getElementById().value chains in modal code.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Fill form fields from an object.  Keys map to element IDs via prefix.
+ * @param {string} prefix  - e.g. 'edit'  → targets #edit-amt, #edit-date, …
+ * @param {Object} fields  - { amt: 42, date: '2025-01-01', … }
+ *
+ * Special handling:
+ *  - If the target element has .textContent property and key starts with '$',
+ *    sets textContent instead of value  (e.g. { $title: 'Foo' })
+ *  - dataset entries use '@' prefix (e.g. { '@recurringId': 'R1' })
+ */
+function fillForm(prefix, fields){
+  for(const [key, val] of Object.entries(fields)){
+    if(key.startsWith('@')){
+      // dataset attribute
+      const el = document.getElementById(prefix);
+      if(el) el.dataset[key.slice(1)] = val ?? '';
+    } else if(key.startsWith('$')){
+      // textContent
+      const el = document.getElementById(prefix + '-' + key.slice(1));
+      if(el) el.textContent = val ?? '';
+    } else {
+      const el = document.getElementById(prefix + '-' + key);
+      if(el) el.value = val ?? '';
+    }
+  }
+}
+
+/**
+ * Read form field values into an object.
+ * @param {string} prefix   - e.g. 'edit'
+ * @param {string[]} keys   - field names: ['id','type','amt','date','what','cat','note']
+ * @returns {Object}        - { id: '…', type: '…', amt: '…', … }
+ */
+function readForm(prefix, keys){
+  const out = {};
+  for(const key of keys){
+    const el = document.getElementById(prefix + '-' + key);
+    out[key] = el ? el.value : '';
+  }
+  return out;
+}
+
+/**
+ * Clear form fields (set value to '').
+ * @param {string} prefix - e.g. 'tm'
+ * @param {string[]} keys - field names to clear
+ */
+function clearForm(prefix, keys){
+  for(const key of keys){
+    const el = document.getElementById(prefix + '-' + key);
+    if(el) el.value = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: UI HELPERS
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'home';
@@ -9135,8 +9181,8 @@ async function refreshStockPrice(stockId){
 }
 
 function openNewAktieModal(){
-  ['na-title','na-isin','na-ticker'].forEach(id=>{ document.getElementById(id).value=''; });
-  document.getElementById('na-currency').value = 'USD';
+  clearForm('na', ['title','isin','ticker']);
+  fillForm('na', { currency:'USD' });
   const res = document.getElementById('na-ticker-result');
   if(res) res.textContent = '—';
   openModal('new-aktie-modal');
@@ -9158,11 +9204,7 @@ async function testTickerFromNew(){
 function openEditAktieModal(stockId){
   const s = SDATA.stocks.find(s=>s.id===stockId);
   if(!s) return;
-  document.getElementById('ea-id').value = s.id;
-  document.getElementById('ea-title').value = s.title||'';
-  document.getElementById('ea-isin').value = s.isin||'';
-  document.getElementById('ea-ticker').value = s.ticker||'';
-  document.getElementById('ea-currency').value = s.currency||'USD';
+  fillForm('ea', { id:s.id, title:s.title||'', isin:s.isin||'', ticker:s.ticker||'', currency:s.currency||'USD' });
   const res = document.getElementById('ea-ticker-result');
   if(res){ res.textContent = '—'; res.style.color = 'var(--text3)'; }
   openModal('edit-aktie-modal');
@@ -9182,16 +9224,16 @@ async function testTickerFromEdit(){
 }
 
 function saveEditAktie(){
-  const id = document.getElementById('ea-id').value;
-  const title = document.getElementById('ea-title').value.trim();
+  const f = readForm('ea', ['id','title','isin','ticker','currency']);
+  const title = f.title.trim();
   if(!title){ toast('Titel erforderlich','err'); return; }
-  const s = SDATA.stocks.find(s=>s.id===id);
+  const s = SDATA.stocks.find(s=>s.id===f.id);
   if(!s){ toast('Aktie nicht gefunden','err'); return; }
   const oldTicker = s.ticker;
   s.title = title;
-  s.isin = document.getElementById('ea-isin').value.trim().toUpperCase();
-  s.ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
-  s.currency = document.getElementById('ea-currency').value;
+  s.isin = f.isin.trim().toUpperCase();
+  s.ticker = f.ticker.trim().toUpperCase();
+  s.currency = f.currency;
   sdataSave();
   // Invalidate price cache if ticker changed
   if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
@@ -9208,14 +9250,15 @@ function saveEditAktie(){
 }
 
 function saveNewAktie(){
-  const title = document.getElementById('na-title').value.trim();
+  const f = readForm('na', ['title','isin','ticker','currency']);
+  const title = f.title.trim();
   if(!title){ toast('Titel erforderlich','err'); return; }
   const s = {
     id: 'st_'+Date.now(),
     title,
-    isin: document.getElementById('na-isin').value.trim().toUpperCase(),
-    ticker: document.getElementById('na-ticker').value.trim().toUpperCase(),
-    currency: document.getElementById('na-currency').value
+    isin: f.isin.trim().toUpperCase(),
+    ticker: f.ticker.trim().toUpperCase(),
+    currency: f.currency
   };
   SDATA.stocks.push(s);
   sdataSave();
@@ -9230,36 +9273,28 @@ function saveNewAktie(){
 function openTradeModal(type){
   if(!currentAktieId) return;
   const s = SDATA.stocks.find(s=>s.id===currentAktieId);
-  document.getElementById('tm-stockid').value = currentAktieId;
-  document.getElementById('tm-type').value = type;
-  document.getElementById('trade-modal-title').textContent = type==='kauf' ? 'Kauf erfassen' : 'Verkauf erfassen';
-  document.getElementById('tm-date').value = today();
-  document.getElementById('tm-qty').value = '';
-  document.getElementById('tm-price').value = '';
-  document.getElementById('tm-currency').value = s?.currency||'USD';
-  document.getElementById('tm-courtage').value = '';
-  document.getElementById('tm-total-display').textContent = '—';
+  fillForm('tm', { stockid:currentAktieId, type, date:today(), currency:s?.currency||'USD' });
+  clearForm('tm', ['qty','price','courtage']);
+  fillForm('trade-modal', { $title: type==='kauf' ? 'Kauf erfassen' : 'Verkauf erfassen' });
+  fillForm('tm-total', { $display:'—' });
   openModal('trade-modal');
 }
 
 function updateTradeTotal(){
-  const qty = parseFloat(document.getElementById('tm-qty').value)||0;
-  const price = parseFloat(document.getElementById('tm-price').value)||0;
-  const courtage = parseFloat(document.getElementById('tm-courtage').value)||0;
-  const currency = document.getElementById('tm-currency').value;
-  const type = document.getElementById('tm-type').value;
-  const total = type==='kauf' ? qty*price+courtage : qty*price-courtage;
-  document.getElementById('tm-total-display').textContent = qty>0&&price>0 ? `${currency} ${fmtPrice(total)}` : '—';
+  const f = readForm('tm', ['qty','price','courtage','currency','type']);
+  const qty = parseFloat(f.qty)||0;
+  const price = parseFloat(f.price)||0;
+  const courtage = parseFloat(f.courtage)||0;
+  const total = f.type==='kauf' ? qty*price+courtage : qty*price-courtage;
+  fillForm('tm-total', { $display: qty>0&&price>0 ? `${f.currency} ${fmtPrice(total)}` : '—' });
 }
 
 function saveTrade(){
-  const stockId = document.getElementById('tm-stockid').value;
-  const type = document.getElementById('tm-type').value;
-  const date = document.getElementById('tm-date').value;
-  const qty = parseFloat(document.getElementById('tm-qty').value);
-  const price = parseFloat(document.getElementById('tm-price').value);
-  const currency = document.getElementById('tm-currency').value;
-  const courtage = parseFloat(document.getElementById('tm-courtage').value)||0;
+  const f = readForm('tm', ['stockid','type','date','qty','price','currency','courtage']);
+  const stockId = f.stockid, type = f.type, date = f.date, currency = f.currency;
+  const qty = parseFloat(f.qty);
+  const price = parseFloat(f.price);
+  const courtage = parseFloat(f.courtage)||0;
   if(!date){ toast('Datum erforderlich','err'); return; }
   if(!qty||qty<=0){ toast('Anzahl erforderlich','err'); return; }
   if(!price||price<=0){ toast('Preis erforderlich','err'); return; }
@@ -10004,6 +10039,8 @@ Object.assign(App.IO, {
 Object.assign(App.UI, {
   // Rendering helpers (Step 2)
   h, fromTemplate,
+  // Form helpers (Step 5)
+  fillForm, readForm, clearForm,
   // Master render
   renderAll,
   // Page renderers
