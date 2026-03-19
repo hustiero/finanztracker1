@@ -2848,6 +2848,79 @@ body.glass-on .spar-add-btn{
 const App = { Data: {}, IO: {}, UI: {}, Design: {} };
 
 // ═══════════════════════════════════════════════════════════════
+// RENDERING HELPERS — h() & fromTemplate()
+// Use for NEW components only. Existing innerHTML stays untouched.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Minimal hyperscript helper for building DOM without innerHTML.
+ *
+ * Usage:
+ *   h('div', {className:'card', onclick:fn},
+ *     h('span', {style:{color:'var(--red)'}}, 'Hello'),
+ *     h('button', null, 'Click me')
+ *   )
+ *
+ * @param {string} tag - HTML tag name
+ * @param {Object|null} attrs - Attributes, event handlers (onX), className, style (object), dataset
+ * @param {...(string|number|Node|Array|null)} children
+ * @returns {HTMLElement}
+ */
+function h(tag, attrs, ...children){
+  const el = document.createElement(tag);
+  if(attrs){
+    for(const [k,v] of Object.entries(attrs)){
+      if(v == null || v === false) continue;
+      if(k.startsWith('on') && typeof v === 'function'){
+        el.addEventListener(k.slice(2).toLowerCase(), v);
+      } else if(k === 'className'){
+        el.className = v;
+      } else if(k === 'style' && typeof v === 'object'){
+        Object.assign(el.style, v);
+      } else if(k === 'dataset' && typeof v === 'object'){
+        Object.assign(el.dataset, v);
+      } else if(k === 'htmlFor'){
+        el.htmlFor = v;
+      } else {
+        el.setAttribute(k, v);
+      }
+    }
+  }
+  for(const child of children){
+    if(child == null || child === false) continue;
+    if(typeof child === 'string' || typeof child === 'number'){
+      el.appendChild(document.createTextNode(child));
+    } else if(child instanceof Node){
+      el.appendChild(child);
+    } else if(Array.isArray(child)){
+      child.forEach(c => { if(c instanceof Node) el.appendChild(c); });
+    }
+  }
+  return el;
+}
+
+/**
+ * Clone a <template> element's content by ID.
+ * Returns the first element child (the root node of the template).
+ *
+ * Usage:
+ *   <template id="tpl-stat-card">
+ *     <div class="stat-card"><span class="stat-label"></span></div>
+ *   </template>
+ *
+ *   const card = fromTemplate('tpl-stat-card');
+ *   card.querySelector('.stat-label').textContent = 'Budget';
+ *
+ * @param {string} id - Template element ID
+ * @returns {HTMLElement|null}
+ */
+function fromTemplate(id){
+  const tpl = document.getElementById(id);
+  if(!tpl) return null;
+  return tpl.content.cloneNode(true).firstElementChild;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
@@ -9813,6 +9886,92 @@ Object.assign(App.IO, {
   loadPortfolioVerlauf, appendPortfolioSnapshot,
   // UI sync indicator
   setSyncStatus,
+});
+
+// ── App.UI: rendering, modals, navigation, form helpers ───────
+Object.assign(App.UI, {
+  // Rendering helpers (Step 2)
+  h, fromTemplate,
+  // Master render
+  renderAll,
+  // Page renderers
+  renderHome, renderDashboard, renderVerlauf, renderLohn,
+  renderSparen, renderCategories, renderRecurring, renderAktien,
+  renderEinstellungen, renderMonat, renderNav, renderMonthView,
+  renderOberkategorien, renderMenuOverlay, renderNotifications,
+  renderErscheinungsbild, renderAdmin,
+  // Widget renderers
+  renderWidgetContent, renderWidgetGreeting, renderWidgetVerlaufZeitraum,
+  renderWidgetLohnzyklus, renderWidgetTagesavg, renderWidgetTopKategorien,
+  renderWidgetMonatverlauf, renderWidgetHeuteAusgaben, renderWidgetSparquote,
+  renderWidgetMonatSummary, renderWidgetMonatKategorien, renderWidgetKontostand,
+  renderWidgetJahresSparquote, renderWidgetJahresKategorien, renderWidgetMonatsverlaufJahr,
+  renderWidgetSparzieleOverview,
+  renderWidgetAktienPortfolio, renderWidgetAktienWert, renderWidgetAktienPnl,
+  renderWidgetAktienTop, renderWidgetAktienVerteilung, renderWidgetAktienPosition,
+  renderWidgetAktienDashboard,
+  // Aktien sub-renderers
+  renderAktienCharts, renderAktienDashboardTop, renderAktienList,
+  renderAktienTradeForm, renderAktienTabelle,
+  renderAktieDetail, renderAdminUserList, renderAdminDesignPresets,
+  // Charts
+  buildBarChart, buildBalanceChart,
+  buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
+  buildMonthlyBarData,
+  // Navigation
+  goTab, openMenuOverlay, closeMenuOverlay, toggleMenuEditMode,
+  openFabMenu, closeFabMenu, pinTab, unpinTab,
+  prevDashYear, nextDashYear, prevMvMonth, nextMvMonth,
+  openMonthView, closeMonthView, openMonthViewAt,
+  // Modals
+  openModal, closeModal, openGenericModal, closeGenericModal,
+  openEditModal, openMaterializeModal, openRecModal, openCatModal,
+  openSparGoalModal, openSparGoalDetail, openSparziel, openAvgConfig,
+  openNewAktieModal, openEditAktieModal, openAktieDetail, closeAktieDetail,
+  openTradeModal, openAddAktieFlow, openAktieDetailFromFlow,
+  openNewAktieModalFromEingabe,
+  // Toast & status
+  toast, setLoader, setSyncStatus,
+  // Form helpers
+  setType, fillDropdown, fillAllDropdowns, fillParentDropdown,
+  selectColor, buildEmojiGrid, esc,
+  toggleRecurringFields, updateRecurToggleUI,
+  toggleLohnField, updateLohnToggleUI,
+  setAktienTradeType, updateAktienTotal,
+  // Verlauf navigation
+  verlaufSetType, verlaufOpenKat, verlaufOpenKatFromEl, verlaufGoBack,
+  verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufCatSort,
+  setVerlaufZeitraum, setVerlaufCustomRange, setVerlaufSearch,
+  renderVerlaufFilterSummary, verlaufCalcSummary,
+  // Home widgets management
+  toggleHomeEdit, addWidget, removeWidget, moveWidget,
+  saveHomeWidgets, setHomeKontoMonths,
+  // Dashboard
+  setDashboardMonths,
+  // Lohn
+  setLohnMonths, toggleFixkosten,
+  // Notifications
+  checkDueRecurrings, checkAllNotifications, renderNotifSettings,
+  toggleNotifSetting, updateNotifBadge, toggleNotifOverlay,
+  closeNotifOverlay, dismissNotif, openNotifDetail,
+  // Misc UI
+  updatePageSub, gotoSetupStep, resetLoginForm, generateAppIcon,
+  togglePwVis, toggleSettingsGroup, toggleCustomizeSection, updateDesignSummary,
+  renderFontColorUI,
+  // Aktien views
+  setAktienView, setAktienTabView, deleteAktie,
+  // Admin
+  copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs,
+  setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign,
+});
+
+// ── App.Design: theme, background, glassmorphism, fonts ───────
+Object.assign(App.Design, {
+  applyThemeMode, setThemeMode, updateThemeSegUI,
+  toggleTheme, updateThemeLabel,
+  applyAppBackground, setBgPreset, clearBgImage, triggerBgUpload, loadBgFile,
+  toggleGlass, toggleGlassClean, updateGlassBlur, updateGlassAlpha, updateBgBlur,
+  applyFontColors, setFontColorPreset, setFontColorCustom, resetFontColors,
 });
 </script>
 </body>
