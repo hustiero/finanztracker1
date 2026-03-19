@@ -1003,28 +1003,107 @@ async function doChangePw(){
 
 // ─── Admin Panel ─────────────────────────────────────────────
 
+// ─── Admin: user cache & pagination state ────────────────────
+let _adminUserCache = null;
+const _USER_PAGE_SIZE = 50;
+let _userPageShown = 0;
+
 async function renderAdmin(){
-  if(CFG.authRole!=='admin'){ document.getElementById('admin-users-list').innerHTML='<div class="t-muted">Kein Zugriff.</div>'; return; }
-  // Invite link (with design params)
+  if(CFG.authRole!=='admin') return;
   const invEl = document.getElementById('admin-invite-link');
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
-  document.getElementById('admin-users-list').innerHTML = '<div class="t-muted">Lade Benutzerliste…</div>';
+}
+
+// ─── User Management Overlay ─────────────────────────────────
+function openUserManagement(){
+  if(CFG.authRole!=='admin'){ toast('Kein Zugriff','err'); return; }
+  const ov = document.getElementById('user-mgmt-overlay');
+  ov.style.display = 'flex';
+  document.getElementById('user-mgmt-search').value = '';
+  if(_adminUserCache){
+    _renderUserMgmtList(_adminUserCache);
+  } else {
+    _fetchAndRenderUsers();
+  }
+}
+
+function closeUserManagement(){
+  document.getElementById('user-mgmt-overlay').style.display = 'none';
+}
+
+function refreshUserList(){
+  _adminUserCache = null;
+  _fetchAndRenderUsers();
+}
+
+async function _fetchAndRenderUsers(){
+  const body = document.getElementById('user-mgmt-body');
+  body.innerHTML = '<div class="user-mgmt-spinner"><div class="spinner"></div><div style="margin-top:10px;font-size:12px;color:var(--text3)">Lade Benutzerliste…</div></div>';
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_list',token:CFG.sessionToken}));
     const d = await r.json();
     if(d.error) throw new Error(d.error);
-    renderAdminUserList(d.users||[]);
+    _adminUserCache = d.users || [];
+    _renderUserMgmtList(_adminUserCache);
   }catch(e){
-    document.getElementById('admin-users-list').innerHTML='<div style="color:var(--red);font-size:12px">'+esc(e.message)+'</div>';
+    body.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;padding:30px 0">'+esc(e.message)+'</div>';
   }
 }
 
-function renderAdminUserList(users){
-  const el = document.getElementById('admin-users-list');
-  if(!users.length){ el.innerHTML='<div class="t-muted">Noch keine Benutzer.</div>'; return; }
-  el.innerHTML = users.map(u=>`
-  <div class="admin-user-row">
+function filterUsers(query){
+  if(!_adminUserCache) return;
+  const q = query.trim().toLowerCase();
+  if(!q){ _renderUserMgmtList(_adminUserCache); return; }
+  const filtered = _adminUserCache.filter(u =>
+    (u.username||'').toLowerCase().includes(q) ||
+    (u.email||'').toLowerCase().includes(q)
+  );
+  _renderUserMgmtList(filtered, true);
+}
+
+function _renderUserMgmtList(users, isFiltered){
+  const body = document.getElementById('user-mgmt-body');
+  if(!users.length){
+    body.innerHTML = '<div class="t-muted" style="text-align:center;padding:40px 0">'+(isFiltered?'Keine Treffer.':'Noch keine Benutzer.')+'</div>';
+    return;
+  }
+  _userPageShown = Math.min(users.length, _USER_PAGE_SIZE);
+  const slice = users.slice(0, _userPageShown);
+  let html = '<div class="user-mgmt-count">'+users.length+' Benutzer'+(isFiltered?' gefunden':'')+'</div>';
+  html += slice.map(u => _userRowHtml(u)).join('');
+  if(users.length > _userPageShown){
+    html += '<button class="user-mgmt-more" onclick="_showMoreUsers()">Mehr laden ('+(_userPageShown)+'/'+users.length+')</button>';
+  }
+  body.innerHTML = html;
+}
+
+function _showMoreUsers(){
+  const query = (document.getElementById('user-mgmt-search').value||'').trim().toLowerCase();
+  let list = _adminUserCache || [];
+  if(query) list = list.filter(u => (u.username||'').toLowerCase().includes(query) || (u.email||'').toLowerCase().includes(query));
+  const nextEnd = Math.min(list.length, _userPageShown + _USER_PAGE_SIZE);
+  const newSlice = list.slice(_userPageShown, nextEnd);
+  _userPageShown = nextEnd;
+  const body = document.getElementById('user-mgmt-body');
+  // Remove "Mehr laden" button
+  const moreBtn = body.querySelector('.user-mgmt-more');
+  if(moreBtn) moreBtn.remove();
+  // Append new rows
+  const frag = document.createElement('div');
+  frag.innerHTML = newSlice.map(u => _userRowHtml(u)).join('');
+  while(frag.firstChild) body.appendChild(frag.firstChild);
+  if(list.length > _userPageShown){
+    const btn = document.createElement('button');
+    btn.className = 'user-mgmt-more';
+    btn.textContent = 'Mehr laden ('+_userPageShown+'/'+list.length+')';
+    btn.onclick = _showMoreUsers;
+    body.appendChild(btn);
+  }
+}
+
+function _userRowHtml(u){
+  return `<div class="admin-user-row">
     <div style="min-width:0">
       <div class="admin-user-name">${esc(u.username)}<span class="admin-badge ${u.role==='admin'?'':'user'}">${u.role==='admin'?'Admin':'User'}</span></div>
       <div class="admin-user-meta">Erstellt: ${u.createdAt?u.createdAt.slice(0,10):'–'} · Login: ${u.lastLogin?u.lastLogin.slice(0,10):'–'}</div>
@@ -1034,7 +1113,7 @@ function renderAdminUserList(users){
       <button onclick="adminResetPw('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">Reset PW</button>
       ${u.username!==CFG.authUser?`<button onclick="adminDeleteUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:var(--red);cursor:pointer">Löschen</button>`:''}
     </div>
-  </div>`).join('');
+  </div>`;
 }
 
 async function adminResetPw(target){
@@ -1056,7 +1135,8 @@ async function adminDeleteUser(target){
     const d = await r.json();
     if(d.error) throw new Error(d.error);
     toast('✓ Benutzer gelöscht','ok');
-    renderAdmin();
+    _adminUserCache = null;
+    _fetchAndRenderUsers();
   }catch(e){ toast('Fehler: '+e.message,'err'); }
 }
 
