@@ -6,6 +6,75 @@
 const App = { Data: {}, IO: {}, UI: {}, Design: {} };
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: EVENT BUS + RENDER SCHEDULER (Step 8)
+// Decouples data mutations from UI updates.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Lightweight event bus for decoupled communication.
+ * Usage:
+ *   AppBus.on('expenses:changed', () => { ... });
+ *   AppBus.emit('expenses:changed', { id: '...' });
+ */
+const AppBus = {
+  _subs: {},
+  on(evt, fn){
+    (this._subs[evt] ??= []).push(fn);
+    return () => this.off(evt, fn); // return unsubscribe function
+  },
+  off(evt, fn){ this._subs[evt] = (this._subs[evt]||[]).filter(f=>f!==fn); },
+  emit(evt, data){ (this._subs[evt]||[]).forEach(fn => { try{ fn(data); }catch(e){ console.error('AppBus error:',evt,e); } }); }
+};
+
+/**
+ * Render scheduler — batches multiple markDirty() calls into one
+ * requestAnimationFrame, then renders only the affected tabs.
+ *
+ * Tab → render function mapping (set up after functions are defined):
+ *   RENDER_FN_MAP = { home: renderHome, verlauf: renderVerlauf, ... }
+ *
+ * Usage:
+ *   markDirty('verlauf', 'dashboard');   // schedule these tabs for re-render
+ *   markDirty('all');                    // schedule full re-render
+ */
+const _dirtyTabs = new Set();
+let _renderRAF = null;
+
+function markDirty(...tabs){
+  tabs.forEach(t => _dirtyTabs.add(t));
+  if(!_renderRAF){
+    _renderRAF = requestAnimationFrame(flushRender);
+  }
+}
+
+function flushRender(){
+  _renderRAF = null;
+  if(!_dirtyTabs.size) return;
+
+  if(_dirtyTabs.has('all')){
+    // Full render (backward-compatible with renderAll)
+    _dirtyTabs.clear();
+    renderAll();
+    return;
+  }
+
+  // Smart render: only render dirty tabs that have render functions
+  const tabs = [..._dirtyTabs];
+  _dirtyTabs.clear();
+  for(const tab of tabs){
+    if(RENDER_FN_MAP[tab]){
+      // Only render if tab is currently visible OR it's a global element
+      if(tab === currentTab || tab === 'nav' || tab === 'dropdowns'){
+        RENDER_FN_MAP[tab]();
+      }
+    }
+  }
+}
+
+// Populated after render functions are defined (see bottom of this file)
+let RENDER_FN_MAP = {};
+
+// ═══════════════════════════════════════════════════════════════
 // RENDERING HELPERS — h() & fromTemplate()
 // Use for NEW components only. Existing innerHTML stays untouched.
 // ═══════════════════════════════════════════════════════════════
@@ -1156,7 +1225,8 @@ async function saveEntryOrRecurring(){
     const cb=document.getElementById('f-r-affects-avg'); if(cb) cb.checked=false;
     recurringMode=false; updateRecurToggleUI();
     toast('✓ Dauerauftrag gespeichert','ok');
-    renderRecurring(); renderDashboard();
+    dataCacheSave();
+    markDirty('dauerauftraege','dashboard','home');
   } else {
     saveEntry();
   }
@@ -1206,7 +1276,8 @@ async function saveEntry(){
   lohnMode = false; updateLohnToggleUI();
 
   toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
-  renderAll();
+  dataCacheSave();
+  markDirty('verlauf','dashboard','home','lohn');
 }
 
 // Open edit modal for an entry
@@ -1268,7 +1339,8 @@ async function updateEntry(){
     }
     closeModal('edit-modal');
     toast('✓ Dauerauftrag gebucht','ok');
-    renderAll();
+    dataCacheSave();
+    markDirty('verlauf','dashboard','home','lohn','dauerauftraege');
     return;
   }
 
@@ -1279,7 +1351,8 @@ async function updateEntry(){
   // Optimistic update
   list[idx] = {...list[idx],amt,date,what,cat,note};
   closeModal('edit-modal');
-  renderAll();
+  dataCacheSave();
+  markDirty('verlauf','dashboard','home','lohn');
   toast('Gespeichert…');
 
   if(!CFG.demo){
@@ -1309,7 +1382,8 @@ async function deleteEntry(){
   if(idx!==-1) list.splice(idx,1);
 
   closeModal('edit-modal');
-  renderAll();
+  dataCacheSave();
+  markDirty('verlauf','dashboard','home','lohn');
 
   if(!CFG.demo){
     setSyncStatus('syncing');
@@ -1319,7 +1393,8 @@ async function deleteEntry(){
       if(!row){
         // Eintrag nicht in Sheet gefunden – lokal zurücksetzen
         if(backup && idx!==-1) list.splice(idx,0,backup);
-        renderAll();
+        dataCacheSave();
+        markDirty('verlauf','dashboard','home','lohn');
         setSyncStatus('error');
         toast('Fehler: Eintrag nicht in Sheet gefunden','err');
         return;
@@ -1329,7 +1404,8 @@ async function deleteEntry(){
     } catch(e){
       // Netzwerkfehler – lokal zurücksetzen
       if(backup && idx!==-1) list.splice(idx,0,backup);
-      renderAll();
+      dataCacheSave();
+      markDirty('verlauf','dashboard','home','lohn');
       setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
     }
   } else { toast('✓ Gelöscht (Demo)','ok'); }
@@ -1369,44 +1445,35 @@ async function saveRecurring(prefix='r'){
   ['what','amt','note','start','end'].forEach(f=>{ const el=document.getElementById(prefix+'-'+f); if(el) el.value=''; });
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
   toast('✓ Dauerauftrag hinzugefügt','ok');
-  renderRecurring();
-  renderDashboard();
+  dataCacheSave();
+  markDirty('dauerauftraege','dashboard','home');
 }
 
 function openRecModal(id){
   const rec = DATA.recurring.find(r=>r.id===id);
   if(!rec) return;
-  document.getElementById('rec-edit-id').value = id;
-  document.getElementById('rec-edit-what').value = rec.what;
-  document.getElementById('rec-edit-amt').value = rec.amt;
-  document.getElementById('rec-edit-day').value = rec.day;
-  document.getElementById('rec-edit-start').value = rec.start||'';
-  document.getElementById('rec-edit-end').value = rec.endDate||'';
+  fillForm('rec-edit', { id, what:rec.what, amt:rec.amt, day:rec.day, start:rec.start||'', end:rec.endDate||'', note:rec.note||'', interval:rec.interval });
   document.getElementById('rec-edit-affects-avg').checked = rec.affectsAvg||false;
-  document.getElementById('rec-edit-note').value = rec.note||'';
-  document.getElementById('rec-edit-interval').value = rec.interval;
   fillDropdown('rec-edit-cat','ausgabe',rec.cat);
   openModal('rec-modal');
 }
 
 async function updateRecurring(){
-  const id = document.getElementById('rec-edit-id').value;
-  const what = document.getElementById('rec-edit-what').value.trim();
-  const amt = parseFloat(document.getElementById('rec-edit-amt').value)||0;
-  const cat = document.getElementById('rec-edit-cat').value;
-  const interval = document.getElementById('rec-edit-interval').value;
-  const day = parseInt(document.getElementById('rec-edit-day').value)||1;
-  const start = document.getElementById('rec-edit-start').value||'';
-  const endDate = document.getElementById('rec-edit-end').value||'';
+  const f = readForm('rec-edit', ['id','what','amt','cat','interval','day','start','end','note']);
+  const id = f.id, what = f.what.trim(), note = f.note.trim();
+  const amt = parseFloat(f.amt)||0;
+  const cat = f.cat, interval = f.interval;
+  const day = parseInt(f.day)||1;
+  const start = f.start||'';
+  const endDate = f.end||'';
   const affectsAvg = document.getElementById('rec-edit-affects-avg').checked||false;
-  const note = document.getElementById('rec-edit-note').value.trim();
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
   DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
   closeModal('rec-modal');
-  renderRecurring();
-  renderDashboard();
+  dataCacheSave();
+  markDirty('dauerauftraege','dashboard','home');
 
   if(!CFG.demo){
     try{
@@ -1423,7 +1490,8 @@ async function deleteRecurring(){
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx!==-1) DATA.recurring.splice(idx,1);
   closeModal('rec-modal');
-  renderRecurring();
+  dataCacheSave();
+  markDirty('dauerauftraege','dashboard','home');
 
   if(!CFG.demo){
     try{
@@ -1538,7 +1606,7 @@ async function updateCategory(){
   }
 
   closeModal('cat-modal');
-  renderCategories(); fillAllDropdowns(); renderAll();
+  renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');
 
   if(!CFG.demo){
     try{
@@ -7198,6 +7266,8 @@ Object.assign(App.IO, {
   dataCacheSave, dataCacheLoad, dataCacheLoadIDB,
   // IndexedDB + Sync Queue (Step 3)
   IDB, syncQueue, queueSync, processQueue,
+  // Event Bus + Render Scheduler (Step 8)
+  AppBus, markDirty, flushRender, RENDER_FN_MAP,
   // Master load
   loadAll, launchApp, checkSheets,
   // Auto-materialization
@@ -7314,3 +7384,19 @@ Object.assign(App.Design, {
   toggleGlass, toggleGlassClean, updateGlassBlur, updateGlassAlpha, updateBgBlur,
   applyFontColors, setFontColorPreset, setFontColorCustom, resetFontColors,
 });
+
+// ── Render scheduler map (Step 8) ─────────────────────────────
+// Now that all render functions are defined, wire up the map.
+RENDER_FN_MAP = {
+  home:          renderHome,
+  verlauf:       renderVerlauf,
+  dashboard:     renderDashboard,
+  lohn:          renderLohn,
+  kategorien:    renderCategories,
+  dauerauftraege:renderRecurring,
+  sparen:        renderSparen,
+  aktien:        renderAktien,
+  einstellungen: renderEinstellungen,
+  nav:           renderNav,
+  dropdowns:     fillAllDropdowns,
+};
