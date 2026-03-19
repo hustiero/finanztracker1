@@ -1004,6 +1004,29 @@
               <input id="text-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateTextGlow(+this.value)">
               <div style="font-size:11px;color:var(--text3);margin-top:4px">Regelt den Leuchteffekt hinter Titeln und Dashboard-Werten</div>
             </div>
+            <!-- Farben & Elemente -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Farben &amp; Elemente</div>
+              <!-- Button text color -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Button-Text</span>
+                <span id="dv-btn-text-label" style="font-size:10px;color:var(--text3);flex:1">Auto-Kontrast</span>
+                <input id="dv-btn-text-picker" type="color" value="#000000" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setBtnTextColor(this.value)">
+                <button onclick="resetBtnTextColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Auto</button>
+              </div>
+              <!-- Card background -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Karten-Hintergrund</span>
+                <input id="dv-card-bg-picker" type="color" value="#1C1C21" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent;margin-left:auto" onchange="setCardBgColor(this.value)">
+                <button onclick="resetCardBgColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
+              <!-- Panel background -->
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Panel-Hintergrund</span>
+                <input id="dv-panel-bg-picker" type="color" value="#1C1C21" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent;margin-left:auto" onchange="setPanelBgColor(this.value)">
+                <button onclick="resetPanelBgColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
+            </div>
           </div>
           <div class="card" style="padding:14px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Navigation</div>

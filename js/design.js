@@ -131,6 +131,8 @@ function setAccentColor(color){
   CFG.designPackageId = '_custom'; CFG.designPackage = null;
   cfgSave(); autoSyncProfile();
   applyAccentColor();
+  // Auto-update btn-text contrast unless manually overridden
+  if(!CFG.btnTextColorManual) applyDesignVars();
   renderAccentColorUI();
 }
 function resetAccentColor(){
@@ -216,6 +218,7 @@ function applyAppBackground(){
   _updateGlassCssVars();
   _applyBgBlur();
   applyAccentColor();
+  applyDesignVars();
   applyTextGlow();
   if(typeof Device !== 'undefined') Device.syncThemeColor();
 }
@@ -443,6 +446,7 @@ function renderErscheinungsbild(){
 
   renderFontColorUI();
   renderAccentColorUI();
+  renderDesignVarsUI();
   renderDesignPackages();
   updateDesignSummary();
 }
@@ -519,9 +523,14 @@ function applyDesignPackage(pkgId){
     CFG.fontColor = pkg.font;
     CFG.fontColors = {primary:fc.primary, secondary:fc.secondary, tertiary:fc.tertiary};
   }
-  // Reset accent & glow to defaults for packages
+  // Reset accent, glow & design vars to defaults for packages
   CFG.accentColor = '';
   CFG.textGlow = 100;
+  CFG.btnTextColor = '';
+  CFG.btnTextColorManual = false;
+  CFG.cardBgColor = '';
+  CFG.navBgColor = '';
+  CFG.panelBgColor = '';
   cfgSave(); autoSyncProfile();
   applyFontColors();
   applyAppBackground();
@@ -580,6 +589,95 @@ function migrateOldDesignToPkg(){
     fontColors: CFG.fontColors||{},
     theme: CFG.themeMode||'dark',
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN VARIABLES — btn-text, card-bg, nav-bg, panel-bg
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Apply all design variables from CFG to CSS custom properties.
+ * Called from applyAppBackground() so every theme change picks them up.
+ */
+function applyDesignVars(){
+  const root = document.documentElement;
+  // Button text color
+  if(CFG.btnTextColor){
+    root.style.setProperty('--btn-text', CFG.btnTextColor);
+    root.style.setProperty('--btn-text-muted', CFG.btnTextColor);
+  } else {
+    // Auto-contrast from accent color
+    const accent = getComputedStyle(root).getPropertyValue('--accent').trim() || '#C8F53C';
+    const auto = _contrastText(accent);
+    root.style.setProperty('--btn-text', auto);
+    root.style.setProperty('--btn-text-muted', auto);
+  }
+  // Card background
+  if(CFG.cardBgColor) root.style.setProperty('--card-bg', CFG.cardBgColor);
+  else root.style.removeProperty('--card-bg');
+  // Nav background
+  if(CFG.navBgColor) root.style.setProperty('--nav-bg', CFG.navBgColor);
+  else root.style.removeProperty('--nav-bg');
+  // Panel background
+  if(CFG.panelBgColor) root.style.setProperty('--panel-bg', CFG.panelBgColor);
+  else root.style.removeProperty('--panel-bg');
+}
+
+// ── Setters & resetters ──────────────────────────────────────
+function setBtnTextColor(color){
+  CFG.btnTextColor = color || '';
+  CFG.btnTextColorManual = !!color;
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+function resetBtnTextColor(){
+  CFG.btnTextColor = '';
+  CFG.btnTextColorManual = false;
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+function setCardBgColor(color){
+  CFG.cardBgColor = color || '';
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+function resetCardBgColor(){
+  CFG.cardBgColor = '';
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+function setPanelBgColor(color){
+  CFG.panelBgColor = color || '';
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+function resetPanelBgColor(){
+  CFG.panelBgColor = '';
+  cfgSave(); autoSyncProfile();
+  applyDesignVars();
+  renderDesignVarsUI();
+}
+
+function renderDesignVarsUI(){
+  // Button text color picker
+  const btnPicker = document.getElementById('dv-btn-text-picker');
+  if(btnPicker) btnPicker.value = CFG.btnTextColor || _contrastText(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#C8F53C');
+  const btnLabel = document.getElementById('dv-btn-text-label');
+  if(btnLabel) btnLabel.textContent = CFG.btnTextColor ? 'Manuell' : 'Auto-Kontrast';
+  // Card bg picker
+  const cardPicker = document.getElementById('dv-card-bg-picker');
+  if(cardPicker) cardPicker.value = CFG.cardBgColor || '#1C1C21';
+  // Panel bg picker
+  const panelPicker = document.getElementById('dv-panel-bg-picker');
+  if(panelPicker) panelPicker.value = CFG.panelBgColor || '#1C1C21';
 }
 
 function toggleAktienEnabled(){

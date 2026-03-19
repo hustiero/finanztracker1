@@ -195,6 +195,10 @@ Object.assign(App.Design, {
   applyDesignPackage, renderDesignPackages, migrateOldDesignToPkg,
   applyAccentColor, setAccentColor, resetAccentColor, renderAccentColorUI,
   applyTextGlow, updateTextGlow,
+  applyDesignVars, renderDesignVarsUI,
+  setBtnTextColor, resetBtnTextColor,
+  setCardBgColor, resetCardBgColor,
+  setPanelBgColor, resetPanelBgColor,
 });
 
 // ── Render scheduler map (Step 8) ─────────────────────────────
