@@ -2841,6 +2841,13 @@ body.glass-on .spar-add-btn{
 
 <script>
 // ═══════════════════════════════════════════════════════════════
+// APP NAMESPACE — Step 1 of incremental refactor
+// Canonical home for all functions. Global names kept as aliases.
+// Usage: App.Data.getAusgaben(von, bis) or getAusgaben(von, bis)
+// ═══════════════════════════════════════════════════════════════
+const App = { Data: {}, IO: {}, UI: {}, Design: {} };
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
@@ -9725,6 +9732,88 @@ function renderMonat(){
     : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// NAMESPACE WIRING — App.Data & App.IO
+// All functions remain global (backward compat). The App object
+// provides a structured namespace for new code & future modules.
+// ═══════════════════════════════════════════════════════════════
+
+// ── App.Data: pure data retrieval, calculation, formatting ────
+Object.assign(App.Data, {
+  // Utilities
+  genId, today, dateStr,
+  // Date/cycle helpers
+  getCycleRange, getMonthsBetween,
+  // Recurring expansion
+  getRecurringOccurrences, getRecurringInstances,
+  // Core data access
+  getAusgaben, getEinnahmen, getNetto, getFixkosten,
+  isFixkostenEntry, toggleFixkostenKat,
+  // Budget / Lohnzyklus
+  getZyklusInfo,
+  // Averages
+  avgDailyVarSpend, avgDailyVarSpendPrevComp, avgDailyVarSpendYear,
+  // Category helpers
+  parentOf, catColor, catEmoji, getOberkategorien, randomCatColor,
+  // Formatting & normalization
+  fmtDate, fmtAmt, normalizeDate, normalizeAmt,
+  // Search & filter
+  sucheTransaktionen, verlaufFilterEntries,
+  // Aggregation
+  getKategorienMitEintraegen, getKategorieDetails, buildMonthlyBarData,
+  getBookedYears,
+  // Sparziele
+  getSparzieleNonTax, getSparTax, sparGoalPct, sparTotalMonthly,
+  // Home widgets
+  getHomeWidgets,
+  // Aktien — data/calculation
+  aktieColor, calcPosition, getDurchschnittsPreis,
+  getAktuellerKurs, getCachedStock,
+  getFxRate, hasFxRate, toUserCurrency,
+  getPositionsWert, getGesamtPortfoliowert,
+  getGewinnVerlust, getGesamtGewinnVerlust,
+  getPortfolioTodayChange,
+  normalizeTickerForGF,
+  fmtPrice, fmtQty,
+});
+
+// ── App.IO: storage, API calls, sync, import/export ───────────
+Object.assign(App.IO, {
+  // Config persistence
+  cfgSave, cfgLoad, curr,
+  // Sheets API
+  apiCall, apiGet, apiAppend, apiUpdate, apiFindRow, apiGetMeta,
+  // Data cache
+  dataCacheSave, dataCacheLoad,
+  // Master load
+  loadAll, launchApp, checkSheets,
+  // Auto-materialization
+  autoMaterializeRecurrings,
+  // Entry CRUD
+  saveEntryOrRecurring, saveEntry, updateEntry, deleteEntry,
+  // Recurring CRUD
+  saveRecurring, updateRecurring, deleteRecurring,
+  // Category CRUD
+  addCategory, updateCategory, deleteCategory,
+  // Oberkategorien CRUD
+  createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
+  // Sparziele CRUD
+  saveSparGoal, deleteSparGoal, addToSparGoal,
+  // Aktien trade
+  saveAktienTradeFromEingabe,
+  // Profile sync
+  syncProfileToSheet, autoSyncProfile, loadProfileFromSheet,
+  _profileExportable, _profileApply,
+  // Export / Import
+  exportProfileJSON, importProfileJSON, downloadBlankTemplate,
+  // Stocks IO
+  sdataLoad, sdataSave,
+  syncKurseSheet, fetchStockPrice,
+  loadPortfolioVerlauf, appendPortfolioSnapshot,
+  // UI sync indicator
+  setSyncStatus,
+});
 </script>
 </body>
 </html>
