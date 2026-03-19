@@ -1,6 +1,6 @@
 # FinanzTracker — Developer Notes
 
-PWA split into three files — no build tools required.
+Modular PWA — no build tools required. Just `<script>` tags.
 Backend is a Google Apps Script (`CFG.url`).
 
 ---
@@ -9,10 +9,30 @@ Backend is a Google Apps Script (`CFG.url`).
 
 | File | Contents | Lines |
 |------|----------|-------|
-| `index.html` | HTML structure only (setup, app shell, modals, templates) | ~1 450 |
-| `style.css` | All CSS (tokens, layout, components, glassmorphism, utilities) | ~1 390 |
-| `app.js` | All JavaScript (namespace, data, IO, rendering, UI) | ~7 300 |
+| `index.html` | HTML structure (setup, app shell, modals, templates) | ~1 460 |
+| `style.css` | All CSS (tokens, layout, components, glass, utilities) | ~1 390 |
+| `js/core.js` | App namespace, EventBus, IDB, syncQueue, Config, helpers | ~370 |
+| `js/data.js` | Sheets API, DATA state, calculations, formatting | ~400 |
+| `js/io.js` | Init/Load, Entry/Recurring/Category CRUD, Export, Sparziele | ~1 430 |
+| `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 020 |
+| `js/ui.js` | UI helpers, Notifications, Auth, Demo, CodeGS, Settings | ~1 630 |
+| `js/aktien.js` | Stocks: data, rendering, trade, CRUD | ~960 |
+| `js/design.js` | Theme, glassmorphism, background, fonts | ~400 |
+| `js/init.js` | Namespace wiring (Object.assign), RENDER_FN_MAP | ~190 |
 | `manifest.json` | PWA manifest (standalone, portrait) | ~20 |
+
+### Script Load Order
+
+```html
+<script src="js/core.js"></script>     <!-- 1. Namespace + infrastructure -->
+<script src="js/data.js"></script>     <!-- 2. Data layer + API -->
+<script src="js/io.js"></script>       <!-- 3. CRUD + sync -->
+<script src="js/render.js"></script>   <!-- 4. All renderers -->
+<script src="js/ui.js"></script>       <!-- 5. UI logic + events -->
+<script src="js/aktien.js"></script>   <!-- 6. Stocks module -->
+<script src="js/design.js"></script>   <!-- 7. Theming -->
+<script src="js/init.js"></script>     <!-- 8. Wire up namespaces -->
+```
 
 ## Architecture
 
@@ -27,9 +47,10 @@ Backend is a Google Apps Script (`CFG.url`).
 | Main app shell | `index.html` `<div id="app">` |
 | Tab pages | `index.html` `<div id="tab-*" class="tab-page">` |
 | Bottom nav | `index.html` `<nav id="nav">` |
-| JS namespace | `app.js` `App.Data`, `App.IO`, `App.UI` |
-| JS config & IDB | `app.js` `CFG`, `IDB`, `syncQueue` |
-| JS form helpers | `app.js` `fillForm()`, `readForm()`, `clearForm()` |
+| JS namespace | `js/core.js` → `App.Data`, `App.IO`, `App.UI` |
+| JS config & IDB | `js/core.js` → `CFG`, `IDB`, `syncQueue` |
+| JS form helpers | `js/core.js` → `fillForm()`, `readForm()`, `clearForm()` |
+| JS event bus | `js/core.js` → `AppBus`, `markDirty()`, `flushRender()` |
 
 ---
 
