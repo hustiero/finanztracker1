@@ -1011,6 +1011,36 @@ function moveWidget(key, dir){
   renderHome();
 }
 
+// ── Tile sizes: widget key → CSS size class ──
+// Sizes: 1x1, 2x1 (wide), 1x2 (tall), 2x2, 2x3, 2x4
+const WIDGET_SIZES = {
+  greeting:         '2x1',
+  lohnzyklus:       '2x2',
+  tagesavg:         '1x1',
+  topKategorien:    '1x2',
+  monatsverlauf:    '2x1',
+  heuteAusgaben:    '1x1',
+  sparquote:        '1x1',
+  monatSummary:     '2x1',
+  monatKategorien:  '1x2',
+  kontostand:       '2x2',
+  jahresSparquote:  '1x1',
+  jahresKategorien: '1x2',
+  monatsverlaufJahr:'2x2',
+  verlaufZeitraum:  '2x2',
+  aktienDashboard:  '2x2',
+  aktienPortfolio:  '2x1',
+  aktienWert:       '1x1',
+  aktienPnl:        '1x1',
+  aktienTop:        '1x1',
+  aktienVerteilung: '1x2',
+  aktienPosition:   '1x1',
+  sparzieleOverview:'2x1',
+};
+
+/** Return tile CSS class for a widget key. Falls back to 2x1 (full-width mobile). */
+function tileClass(key){ return 'tile-'+(WIDGET_SIZES[key]||'2x1'); }
+
 // Widget → target tab mapping for clickable widgets
 const WIDGET_TAB_MAP = {
   lohnzyklus:'lohn', tagesavg:'verlauf', topKategorien:'kategorien',
@@ -1031,7 +1061,7 @@ function renderHome(){
   const allWidgets = getHomeWidgets();
   const widgets = CFG.aktienEnabled ? allWidgets : allWidgets.filter(k=>!aktienWidgetKeys.includes(k));
   const available = visibleCatalog.filter(c=>!widgets.includes(c.key));
-  let html = '';
+  let html = '<div class="tile-grid">';
 
   // Active widgets
   widgets.forEach((key,idx)=>{
@@ -1039,7 +1069,7 @@ function renderHome(){
     if(!def) return;
     const targetTab = WIDGET_TAB_MAP[key];
     const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
-    html += `<div class="widget-card" id="widget-card-${key}"${clickAttr}>`;
+    html += `<div class="widget-card ${tileClass(key)}" id="widget-card-${key}"${clickAttr}>`;
     if(homeEditMode){
       html += `<div class="home-edit-row">
         <span class="home-edit-drag">⠿</span>
@@ -1053,6 +1083,8 @@ function renderHome(){
     }
     html += `</div>`;
   });
+
+  html += '</div>'; // close tile-grid
 
   // Available to add (edit mode only)
   if(homeEditMode && available.length>0){
