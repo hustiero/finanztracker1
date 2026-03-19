@@ -259,7 +259,7 @@ setInterval(processQueue, 5000);
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null };
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null };
 
 function cfgSave(){
   // Synchronous write to localStorage (immediate, blocking)
@@ -273,6 +273,8 @@ const DEFAULT_DESIGN = {
   glassClean:false, fontColor:'cool',
   fontColors:{primary:'#E8F0FF',secondary:'#8AA0C0',tertiary:'#5A6A88'}
 };
+// Default design package ID for brand-new installs
+const DEFAULT_DESIGN_PKG_ID = 'aurora';
 
 function cfgLoad(){
   // 1. Synchronous: read from localStorage (fast, blocking)
@@ -282,6 +284,7 @@ function cfgLoad(){
   // Apply default design for brand-new installs
   if(isNew){
     Object.assign(CFG, DEFAULT_DESIGN);
+    CFG.designPackageId = DEFAULT_DESIGN_PKG_ID;
     cfgSave();
   }
   // Migrate from old navSlots to pinnedTabs
@@ -290,6 +293,11 @@ function cfgLoad(){
   }
   // Migrate old theme toggle to themeMode
   if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';
+  // Migrate old flat design fields to design package (deferred — design.js defines migrateOldDesignToPkg)
+  if(!CFG.designPackageId && !CFG.designPackage && typeof migrateOldDesignToPkg === 'function'){
+    const migrated = migrateOldDesignToPkg();
+    if(migrated){ CFG.designPackage = migrated; CFG.designPackageId = '_custom'; cfgSave(); }
+  }
   applyThemeMode();
 
   // 2. Async: check IndexedDB for newer data (migration / fallback)
