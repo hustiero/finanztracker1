@@ -1338,6 +1338,21 @@ body.glass-on .section-title{font-weight:700}
 .grp-settle-info{font-size:13px;color:var(--text2);flex:1}
 .grp-settle-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:rgba(200,245,60,.08);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
 
+/* Group invite section */
+.grp-invite-section{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.grp-invite-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:var(--accent);color:var(--bg0);border:none;font-size:13px;font-weight:600;cursor:pointer;flex:1;justify-content:center}
+.grp-invite-regen{padding:6px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.grp-invite-regen:active{background:var(--bg3)}
+
+/* Group members list */
+.grp-members-list{padding:0 16px}
+.grp-member-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)}
+.grp-member-row:last-child{border-bottom:none}
+.grp-member-name{font-size:14px;color:var(--text);display:flex;align-items:center;gap:6px}
+.grp-admin-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);background:rgba(var(--accent-rgb,200,245,60),.12);padding:2px 6px;border-radius:4px}
+.grp-member-remove{background:none;border:none;color:var(--red,#ff4d6d);font-size:16px;cursor:pointer;padding:4px 8px;opacity:.6;transition:opacity .15s}
+.grp-member-remove:hover{opacity:1}
+
 /* account strip in top bar */
 .auth-user-chip{font-size:11px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-right:4px;white-space:nowrap;overflow:hidden;max-width:80px;text-overflow:ellipsis}
 
@@ -1624,9 +1639,10 @@ body.is-android .filter-row{touch-action:pan-x}
   .tile-2x3{grid-column:span 2;grid-row:span 3}
   .tile-2x4{grid-column:span 2;grid-row:span 4}
 
-  /* Hide mobile bottom nav + FAB on desktop */
+  /* Hide mobile bottom nav, FAB, and hamburger menu on desktop */
   #nav{display:none !important}
   .fab{display:none !important}
+  .top-bar-right .top-bar-circle-btn[aria-label="Mehr"]{display:none !important}
 
   /* ── Glass sidebar ────────────────────────── */
   body.has-bg-image .desktop-sidebar{

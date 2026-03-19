@@ -72,6 +72,7 @@ Object.assign(App.IO, {
   createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
   // Groups CRUD
   saveGroup, updateGroup, deleteGroup, archiveGroup, settleUp,
+  joinGroupByInvite, removeGroupMember, regenerateInviteCode,
   // Sparziele CRUD
   saveSparGoal, deleteSparGoal, addToSparGoal,
   // Aktien trade
@@ -123,7 +124,7 @@ Object.assign(App.UI, {
   setGroupFilter, openGroupDetail, closeGroupDetail,
   openNewGroupModal, onGrpTypeChange, confirmNewGroup,
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
-  exportGroupReport,
+  exportGroupReport, copyGroupInviteLink,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,

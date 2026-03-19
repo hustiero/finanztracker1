@@ -34,6 +34,20 @@ window.addEventListener('DOMContentLoaded', ()=>{
     window.history.replaceState({}, '', window.location.pathname);
   }
 
+  // Group invite link: ?joinGroup=<id>&gc=<code>[&url=<backendUrl>]
+  const joinGroupId = urlParams.get('joinGroup');
+  const joinGroupCode = urlParams.get('gc');
+  const joinUrl = urlParams.get('url');
+  if(joinGroupId && joinGroupCode){
+    // If a backend URL is provided and we don't have one, store it
+    if(joinUrl && !CFG.scriptUrl && !CFG.adminUrl){
+      if(joinUrl.includes('script.google.com')) CFG.scriptUrl = joinUrl;
+    }
+    // Store pending join for after data loads
+    CFG._pendingGroupJoin = {id:joinGroupId, code:joinGroupCode};
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   document.getElementById('f-date').value = today();
 
   if(CFG.sessionToken && CFG.adminUrl){
@@ -372,7 +386,7 @@ async function loadAll(){
       apiGet('Trades!A2:J5000'),
       loadProfileFromSheet(),
       apiGet('Sparziele!A2:K200'),
-      apiGet('Groups!A2:G200').catch(()=>({values:[]}))
+      apiGet('Groups!A2:I200').catch(()=>({values:[]}))
     ]);
 
     if(katRes.status==='fulfilled'){
@@ -419,14 +433,15 @@ async function loadAll(){
           isTax:String(r[6]||'')==='tax'}));
     }
 
-    // Groups — optionales Sheet
+    // Groups — optionales Sheet (cols A-I)
     if(grpRes.status==='fulfilled'){
       DATA.groups = (grpRes.value.values||[])
         .filter(r=>r[0])
         .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'event',
           members:r[3]?JSON.parse(r[3]):[CFG.userName||'Ich'],
           currency:r[4]||CFG.currency||'CHF',
-          status:r[5]||'active',created:r[6]||''}));
+          status:r[5]||'active',created:r[6]||'',
+          adminId:r[7]||'',inviteCode:r[8]||''}));
     } else { if(!hadCache) DATA.groups=[]; }
 
     // Aktien + Trades — optionale Sheets
@@ -444,6 +459,14 @@ async function loadAll(){
 
     dataCacheSave();
     setSyncStatus('online'); renderAll();
+
+    // Process pending group join (from invite link)
+    if(CFG._pendingGroupJoin){
+      const pj = CFG._pendingGroupJoin;
+      delete CFG._pendingGroupJoin;
+      const joined = await joinGroupByInvite(pj.id, pj.code);
+      if(joined) goTab('groups');
+    }
 
     // Secondary async: Kurse-Sheet + Portfolio-Verlauf (non-blocking)
     if(SDATA.stocks.length){
@@ -1310,15 +1333,23 @@ async function addToSparGoal(id, amount){
 // MODULE: GROUPS — CRUD
 // ═══════════════════════════════════════════════════════════════
 
+function _genInviteCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz23456789';
+  let s='';for(let i=0;i<8;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
 async function saveGroup(name, type, members, currency){
   const id = genId('G');
   const created = today();
-  const group = {id,name,type,members,currency,status:'active',created};
+  const adminId = CFG.userName||'Ich';
+  const inviteCode = _genInviteCode();
+  const group = {id,name,type,members,currency,status:'active',created,adminId,inviteCode};
   DATA.groups.push(group);
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Groups',[[id,name,type,JSON.stringify(members),currency,'active',created]]);
+      await apiAppend('Groups',[[id,name,type,JSON.stringify(members),currency,'active',created,adminId,inviteCode]]);
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
   }
@@ -1335,7 +1366,7 @@ async function updateGroup(id, updates){
     setSyncStatus('syncing');
     try{
       const row = await apiFindRow('Groups', id);
-      if(row) await apiUpdate(`Groups!A${row}:G${row}`,[[g.id,g.name,g.type,JSON.stringify(g.members),g.currency,g.status,g.created]]);
+      if(row) await apiUpdate(`Groups!A${row}:I${row}`,[[g.id,g.name,g.type,JSON.stringify(g.members),g.currency,g.status,g.created,g.adminId||'',g.inviteCode||'']]);
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); }
   }
@@ -1344,6 +1375,8 @@ async function updateGroup(id, updates){
 }
 
 async function deleteGroup(id){
+  const g = DATA.groups.find(x=>x.id===id);
+  if(g && g.adminId && g.adminId!==(CFG.userName||'Ich')){ toast('Nur der Admin kann die Gruppe löschen','err'); return; }
   if(!confirm('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.')) return;
   DATA.groups = DATA.groups.filter(g=>g.id!==id);
   // Remove groupId from linked expenses/incomes
@@ -1366,6 +1399,45 @@ async function archiveGroup(id){
   await updateGroup(id, {status:'archived'});
   toast('✓ Gruppe archiviert','ok');
   renderGroups();
+}
+
+async function joinGroupByInvite(groupId, inviteCode){
+  // Fetch group from sheet to verify invite code
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g){ toast('Gruppe nicht gefunden','err'); return false; }
+  if(g.inviteCode!==inviteCode){ toast('Ungültiger Einladungscode','err'); return false; }
+  if(g.status==='deleted'){ toast('Gruppe wurde gelöscht','err'); return false; }
+  const me = CFG.userName||'Ich';
+  if(g.members.includes(me)){ toast('Du bist bereits Mitglied','info'); return true; }
+  g.members.push(me);
+  await updateGroup(groupId, {members:g.members});
+  toast('✓ Gruppe beigetreten: '+g.name,'ok');
+  markDirty('groups');
+  return true;
+}
+
+async function removeGroupMember(groupId, memberName){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  const me = CFG.userName||'Ich';
+  if(g.adminId!==me){ toast('Nur der Admin kann Mitglieder entfernen','err'); return; }
+  if(memberName===g.adminId){ toast('Admin kann nicht entfernt werden','err'); return; }
+  if(!confirm(memberName+' aus der Gruppe entfernen?')) return;
+  g.members = g.members.filter(m=>m!==memberName);
+  await updateGroup(groupId, {members:g.members});
+  toast('✓ '+memberName+' entfernt','ok');
+  openGroupDetail(groupId);
+}
+
+async function regenerateInviteCode(groupId){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  const me = CFG.userName||'Ich';
+  if(g.adminId!==me){ toast('Nur der Admin kann den Code erneuern','err'); return; }
+  g.inviteCode = _genInviteCode();
+  await updateGroup(groupId, {inviteCode:g.inviteCode});
+  toast('✓ Neuer Einladungscode generiert','ok');
+  openGroupDetail(groupId);
 }
 
 // Read split form data from the entry form
