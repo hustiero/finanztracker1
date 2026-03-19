@@ -101,15 +101,36 @@ function _rowToGroup(r){
 
 // ── 5. Load groups from backend ──────────────────────────────
 
+async function ensureGroupsSheets(){
+  if(CFG.demo) return;
+  try{
+    await groupsApiCall({
+      action:'ensureSheet',
+      sheet:'Groups',
+      headers:JSON.stringify(['id','name','type','members','currency','status','created','adminId','inviteCode','sharedSheetUrl'])
+    });
+    await groupsApiCall({
+      action:'ensureSheet',
+      sheet:'Notifications',
+      headers:JSON.stringify(['recipient','notifJSON','read'])
+    });
+  }catch(e){
+    // If ensureSheet is not supported, silently ignore.
+    // Errors during actual writes will be visible later.
+    console.warn('ensureGroupsSheets:', e.message);
+  }
+}
+
 async function loadGroups(){
+  await ensureGroupsSheets();
   try{
     const res = await groupsApiGet('Groups!A2:J200');
     DATA.groups = (res.values||[])
-      .filter(r=>r[0])
+      .filter(r=>r[0] && r[5]!=='deleted')
       .map(_rowToGroup);
   }catch(e){
-    // Sheet might not exist yet — keep existing data
     if(!DATA.groups) DATA.groups = [];
+    // No toast — groups are optional
   }
 }
 
@@ -127,7 +148,13 @@ async function saveGroup(name, type, members, currency){
     try{
       await groupsApiAppend('Groups',[_groupToRow(group)]);
       setSyncStatus('online');
-    }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+    }catch(e){
+      setSyncStatus('error');
+      toast('Gruppe konnte nicht gespeichert werden: '+e.message,'err');
+      // Revert local state to avoid ghost group
+      DATA.groups = DATA.groups.filter(x=>x.id!==id);
+      return null;
+    }
   }
   dataCacheSave();
   markDirty('groups');

@@ -1309,7 +1309,8 @@ async function confirmNewGroup(){
     ? [CFG.userName||'Ich']
     : membersRaw.split(',').map(s=>s.trim()).filter(Boolean);
   if(type==='split' && members.length<2){ toast('Mind. 2 Teilnehmer für Split','err'); return; }
-  await saveGroup(name, type, members, currency);
+  const group = await saveGroup(name, type, members, currency);
+  if(!group) return;
   closeGenericModal();
   toast('✓ Gruppe erstellt','ok');
   renderGroups();
