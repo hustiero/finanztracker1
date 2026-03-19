@@ -94,6 +94,96 @@ function renderFontColorUI(){
   if(ft) ft.value = fc.tertiary || '#5A5A6A';
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ACCENT COLOR — customizable highlight / switch / active color
+// ═══════════════════════════════════════════════════════════════
+const ACCENT_PRESETS = [
+  {label:'Lime',    dark:'#C8F53C', light:'#1B5FE8'},
+  {label:'Blau',    dark:'#60A5FA', light:'#2563EB'},
+  {label:'Cyan',    dark:'#22D3EE', light:'#0891B2'},
+  {label:'Grün',    dark:'#3DDB96', light:'#059669'},
+  {label:'Pink',    dark:'#F472B6', light:'#DB2777'},
+  {label:'Violett', dark:'#A78BFA', light:'#7C3AED'},
+  {label:'Orange',  dark:'#FB923C', light:'#EA580C'},
+  {label:'Rot',     dark:'#FF4D6D', light:'#DC2626'},
+  {label:'Gold',    dark:'#FFD166', light:'#B45309'},
+  {label:'Weiss',   dark:'#E0E0E8', light:'#333340'},
+];
+
+function applyAccentColor(){
+  const root = document.documentElement;
+  const c = CFG.accentColor;
+  if(c){
+    root.style.setProperty('--accent', c);
+    // Derive a slightly darker accent2
+    root.style.setProperty('--accent2', _darkenHex(c, 20));
+    // Update glow
+    root.style.setProperty('--glow-accent', c + '0F');
+  } else {
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--accent2');
+    root.style.removeProperty('--glow-accent');
+  }
+}
+
+function setAccentColor(color){
+  CFG.accentColor = color || '';
+  CFG.designPackageId = '_custom'; CFG.designPackage = null;
+  cfgSave(); autoSyncProfile();
+  applyAccentColor();
+  renderAccentColorUI();
+}
+function resetAccentColor(){
+  CFG.accentColor = '';
+  cfgSave(); autoSyncProfile();
+  applyAccentColor();
+  renderAccentColorUI();
+}
+function renderAccentColorUI(){
+  const grid = document.getElementById('accent-color-presets');
+  if(!grid) return;
+  const isLight = document.documentElement.dataset.theme === 'light';
+  const cur = CFG.accentColor || '';
+  grid.innerHTML = ACCENT_PRESETS.map(p => {
+    const c = isLight ? p.light : p.dark;
+    const isActive = cur === c;
+    return `<div onclick="setAccentColor('${c}')" style="
+      width:100%;height:30px;border-radius:6px;cursor:pointer;
+      background:${c};
+      border:2px solid ${isActive ? 'var(--text)' : 'transparent'};
+      display:flex;align-items:center;justify-content:center;
+      font-size:8px;font-weight:700;color:${_contrastText(c)};
+      transition:border .15s">${p.label}</div>`;
+  }).join('');
+  const picker = document.getElementById('accent-custom-picker');
+  if(picker) picker.value = cur || (isLight ? '#1B5FE8' : '#C8F53C');
+}
+function _contrastText(hex){
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return (r*0.299 + g*0.587 + b*0.114) > 150 ? '#000' : '#fff';
+}
+function _darkenHex(hex, amt){
+  let r = Math.max(0, parseInt(hex.slice(1,3),16) - amt);
+  let g = Math.max(0, parseInt(hex.slice(3,5),16) - amt);
+  let b = Math.max(0, parseInt(hex.slice(5,7),16) - amt);
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEXT GLOW INTENSITY — 0 (off) to 100 (full)
+// ═══════════════════════════════════════════════════════════════
+function applyTextGlow(){
+  const v = (CFG.textGlow ?? 100) / 100;
+  document.documentElement.style.setProperty('--text-glow-intensity', v.toFixed(2));
+}
+function updateTextGlow(val){
+  CFG.textGlow = +val;
+  cfgSave();
+  applyTextGlow();
+  const lbl = document.getElementById('text-glow-val');
+  if(lbl) lbl.textContent = val + '%';
+}
+
 // Check if backdrop-filter is supported
 const GLASS_SUPPORTED = CSS.supports('backdrop-filter','blur(1px)') || CSS.supports('-webkit-backdrop-filter','blur(1px)');
 
@@ -125,6 +215,8 @@ function applyAppBackground(){
   body.classList.toggle('glass-clean', glassOn && !!CFG.glassClean);
   _updateGlassCssVars();
   _applyBgBlur();
+  applyAccentColor();
+  applyTextGlow();
 }
 
 // Set CSS variables from CFG
@@ -342,7 +434,14 @@ function renderErscheinungsbild(){
   if(bgBlurSlider) bgBlurSlider.value = CFG.bgImgBlur||0;
   const bgBlurVal = document.getElementById('bg-blur-val');
   if(bgBlurVal) bgBlurVal.textContent = (CFG.bgImgBlur||0)+'px';
+  // Text glow slider
+  const glowSlider = document.getElementById('text-glow-slider');
+  if(glowSlider) glowSlider.value = CFG.textGlow ?? 100;
+  const glowVal = document.getElementById('text-glow-val');
+  if(glowVal) glowVal.textContent = (CFG.textGlow ?? 100) + '%';
+
   renderFontColorUI();
+  renderAccentColorUI();
   renderDesignPackages();
   updateDesignSummary();
 }
@@ -419,6 +518,9 @@ function applyDesignPackage(pkgId){
     CFG.fontColor = pkg.font;
     CFG.fontColors = {primary:fc.primary, secondary:fc.secondary, tertiary:fc.tertiary};
   }
+  // Reset accent & glow to defaults for packages
+  CFG.accentColor = '';
+  CFG.textGlow = 100;
   cfgSave(); autoSyncProfile();
   applyFontColors();
   applyAppBackground();

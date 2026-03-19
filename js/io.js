@@ -23,6 +23,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
         if(dd.glassClean !== undefined) CFG.glassClean = !!dd.glassClean;
         if(dd.fontColor) CFG.fontColor = dd.fontColor;
         if(dd.fontColors) CFG.fontColors = dd.fontColors;
+        if(dd.accentColor) CFG.accentColor = dd.accentColor;
+        if(dd.textGlow !== undefined) CFG.textGlow = +dd.textGlow;
         applyAppBackground();
         applyFontColors();
       }catch(e){}
@@ -142,6 +144,8 @@ function _profileExportable(){
     glassClean:        !!CFG.glassClean,
     fontColor:         CFG.fontColor||'',
     fontColors:        CFG.fontColors||{},
+    accentColor:       CFG.accentColor||'',
+    textGlow:          CFG.textGlow ?? 100,
   };
 }
 function _profileApply(prof){
@@ -167,6 +171,8 @@ function _profileApply(prof){
   if(prof.glassClean        !== undefined) CFG.glassClean        = !!prof.glassClean;
   if(prof.fontColor         !== undefined) CFG.fontColor         = prof.fontColor||'';
   if(prof.fontColors        !== undefined) CFG.fontColors        = prof.fontColors||{};
+  if(prof.accentColor       !== undefined) CFG.accentColor       = prof.accentColor||'';
+  if(prof.textGlow          !== undefined) CFG.textGlow          = +prof.textGlow;
   cfgSave();
   applyAppBackground();
   applyFontColors();
