@@ -31,7 +31,6 @@ Object.assign(App.Data, {
   // Groups & Events — data
   getGroupExpenses, getGroupIncomes, getGroupTotal,
   calcSplitBalances, calcSettlements, getOwnShare, getGroupTopCategories,
-  getGroupShadowEntries,
   // Sparziele
   getSparzieleNonTax, getSparTax, sparGoalPct, sparTotalMonthly,
   // Home widgets
@@ -78,7 +77,7 @@ Object.assign(App.IO, {
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
   loadGroupEntries, saveGroupEntry, calculateGroupBalances,
-  confirmSettleUp, groupName, toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail,
+  confirmSettleUp, groupName, toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, getGroupShadowEntries,
   // Groups API layer
   groupsApiCall, groupsApiGet, groupsApiAppend, groupsApiUpdate, groupsApiFindRow,
   // Sparziele CRUD
