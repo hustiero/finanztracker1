@@ -104,6 +104,21 @@ function normalizeTickerForGF(t){
   // Already has colon (GOOGLEFINANCE format) or plain US ticker → keep as-is
   return t;
 }
+
+// Normalize ticker from GOOGLEFINANCE format (FRA:BMW) → Yahoo Finance format (BMW.DE)
+function normalizeTickerForYahoo(t){
+  t = t.trim().toUpperCase();
+  if(t.startsWith('VTX:')){ return t.replace('VTX:','') + '.SW'; }
+  if(t.startsWith('FRA:')){ return t.replace('FRA:','') + '.DE'; }
+  if(t.startsWith('LON:')){ return t.replace('LON:','') + '.L'; }
+  if(t.startsWith('EPA:')){ return t.replace('EPA:','') + '.PA'; }
+  if(t.startsWith('TSE:')){ return t.replace('TSE:','') + '.TO'; }
+  if(t.startsWith('AMS:')){ return t.replace('AMS:','') + '.AS'; }
+  if(t.startsWith('NASDAQ:')){ return t.replace('NASDAQ:',''); }
+  if(t.startsWith('NYSE:')){ return t.replace('NYSE:',''); }
+  // Already Yahoo format or plain US ticker → keep as-is
+  return t;
+}
 async function syncKurseSheet(extraTickers=[]){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>normalizeTickerForGF(s.ticker));
@@ -291,40 +306,78 @@ function setAktienView(v){
 
 // Fetches a live price for a single ticker.
 // Primary path: GOOGLEFINANCE via Apps Script (syncKurseSheet with extraTicker).
-//   This is the only path that works reliably in browsers due to CORS restrictions
-//   on direct third-party finance APIs.
-// Fallback: Yahoo Finance direct — kept for demo mode / no-backend setups, but
-//   will fail silently due to CORS in most browser contexts.
+//   Cloud mode is always tried first — it is the only reliable path in browsers.
+//   Includes one automatic retry with a 2 s delay so GOOGLEFINANCE formulas have
+//   time to resolve before the sheet is read back.
+// Fallback: Yahoo Finance via a cascade of public CORS proxies (demo mode / no backend).
+//   Each proxy gets up to 8 s before the next is tried.
+//   api.allorigins.win wraps the response in { contents: "<json-string>" } which
+//   is unwrapped automatically; corsproxy.io forwards the raw JSON.
 async function fetchStockPrice(ticker){
   if(!ticker) return null;
   const key = ticker.toUpperCase();
   const gfKey = normalizeTickerForGF(key);
-  const cached = stockPriceCache[key] || stockPriceCache[gfKey];
-  if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
 
-  // Primary: server-side GOOGLEFINANCE via Apps Script (flush + read in one call)
+  // Cache check — treat prices as fresh for 7 minutes
+  const cached = stockPriceCache[key] || stockPriceCache[gfKey];
+  if(cached && (Date.now()-cached.ts) < 7*60*1000) return cached;
+
+  // ── Primary: server-side GOOGLEFINANCE via Apps Script ──────────────────────
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
     await syncKurseSheet([gfKey]);
-    const afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
+    let afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
+    if(!afterSync){
+      // GOOGLEFINANCE formulas may need extra time to resolve; retry once after delay
+      await new Promise(r=>setTimeout(r, 2000));
+      await syncKurseSheet([gfKey]);
+      afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
+    }
     if(afterSync) return afterSync;
   }
 
-  // Last resort: Yahoo Finance via CORS proxy (usually blocked by browsers)
-  const yahooUrls = [
-    `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${key}?interval=1d&range=1d`)}`
+  // ── Fallback: Yahoo Finance via CORS proxy cascade ───────────────────────────
+  const yahooTicker = normalizeTickerForYahoo(gfKey);
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=1d&range=1d`;
+
+  const proxies = [
+    // allorigins.win wraps the response body as a JSON string in { contents: "..." }
+    `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`,
+    // corsproxy.io forwards the raw response
+    `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`
   ];
-  for(const url of yahooUrls){
+
+  for(const proxyUrl of proxies){
     try{
-      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if(!r.ok) continue;
-      const d = await r.json();
-      const meta = d?.chart?.result?.[0]?.meta;
-      if(!meta?.regularMarketPrice) continue;
-      const res = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose??meta.previousClose??null, currency: meta.currency||'', ts: Date.now() };
+      const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if(!r.ok){
+        console.warn(`fetchStockPrice: proxy HTTP ${r.status} — ${proxyUrl}`);
+        continue;
+      }
+      let json = await r.json();
+      // Unwrap allorigins.win envelope: { contents: "<json-string>", ... }
+      if(typeof json?.contents === 'string'){
+        try{ json = JSON.parse(json.contents); }
+        catch(e){ console.warn('fetchStockPrice: failed to parse proxy contents:', e); continue; }
+      }
+      const meta = json?.chart?.result?.[0]?.meta;
+      if(!meta?.regularMarketPrice){
+        console.warn(`fetchStockPrice: no price in proxy response — ${proxyUrl}`);
+        continue;
+      }
+      const res = {
+        price: meta.regularMarketPrice,
+        prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
+        currency: meta.currency || '',
+        ts: Date.now()
+      };
       stockPriceCache[key] = res;
       return res;
-    } catch(e){ continue; }
+    } catch(e){
+      console.warn(`fetchStockPrice: proxy error (${proxyUrl}):`, e.message || e);
+    }
   }
+
+  // All sources exhausted — return null without crashing
   return null;
 }
 
