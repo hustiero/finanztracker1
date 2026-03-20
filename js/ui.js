@@ -1923,6 +1923,12 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
+  // Groups — operate on ADMIN sheet (shared across users)
+  if (p.action === 'groupsGet')         return _groupsGet(ss, p);
+  if (p.action === 'groupsAppend')      return _groupsAppend(ss, p);
+  if (p.action === 'groupsUpdate')      return _groupsUpdate(ss, p);
+  if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(ss, p);
+  if (p.action === 'groupsFindRow')     return _groupsFindRow(ss, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);
@@ -2042,6 +2048,95 @@ function _proxySetFormulas(sheetId, p) {
   return { ok: true };
 }
 
+// ── Groups: operate on ADMIN sheet (shared data) ──────────
+// Convert column letter to number: A=1, B=2, ..., Z=26, AA=27
+function _colToNum(col) {
+  var n = 0;
+  for (var i = 0; i < col.length; i++) n = n * 26 + col.charCodeAt(i) - 64;
+  return n;
+}
+
+// Groups/Notifications/GE_* tabs live in the admin spreadsheet so
+// all members can read/write them regardless of their own user sheet.
+
+function _groupsGet(ss, p) {
+  try {
+    // p.range = 'SheetName!A2:L5000'
+    var parts = p.range.split('!');
+    var sheetName = parts[0];
+    var rangePart = parts[1] || 'A:Z';
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return { values: [] };
+    var lastRow = sh.getLastRow();
+    if (lastRow < 1) return { values: [] };
+    // Parse range: A2:L5000 or A:A or A:L
+    var match = rangePart.match(/([A-Z]+)(\\d+):([A-Z]+)(\\d+)/);
+    if (match) {
+      var startRow = parseInt(match[2]);
+      var endRow = Math.min(parseInt(match[4]), lastRow);
+      if (startRow > endRow) return { values: [] };
+      return { values: sh.getRange(match[1] + startRow + ':' + match[3] + endRow).getValues() };
+    }
+    // Column-only ranges (A:A, A:L)
+    var colMatch = rangePart.match(/^([A-Z]+):([A-Z]+)$/);
+    if (colMatch) {
+      var c1 = _colToNum(colMatch[1]);
+      var c2 = _colToNum(colMatch[2]);
+      var numCols = c2 - c1 + 1;
+      return { values: sh.getRange(1, c1, lastRow, numCols).getValues() };
+    }
+    // Fallback: full data
+    return { values: sh.getRange(1, 1, lastRow, sh.getLastColumn()).getValues() };
+  } catch(e) {
+    return { values: [], _note: e.toString() };
+  }
+}
+
+function _groupsAppend(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+  var rows = JSON.parse(p.values);
+  var lastRow = sh.getLastRow();
+  var startRow = lastRow < 1 ? 1 : lastRow + 1;
+  sh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+  return { ok: true };
+}
+
+function _groupsUpdate(ss, p) {
+  // p.range = 'SheetName!K5' or 'SheetName!A5:L5'
+  var parts = p.range.split('!');
+  var sheetName = parts[0];
+  var rangePart = parts[1];
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + sheetName };
+  sh.getRange(rangePart).setValues(JSON.parse(p.values));
+  return { ok: true };
+}
+
+function _groupsEnsureSheet(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) {
+    sh = ss.insertSheet(p.sheet);
+    if (p.headers) {
+      var h = JSON.parse(p.headers);
+      sh.getRange(1, 1, 1, h.length).setValues([h]);
+    }
+  }
+  return { ok: true };
+}
+
+function _groupsFindRow(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { row: null };
+  var lastRow = sh.getLastRow();
+  if (lastRow < 1) return { row: null };
+  var data = sh.getRange(1, 1, lastRow, 1).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]) === String(p.id)) return { row: i + 1 };
+  }
+  return { row: null };
+}
+
 function _adminList(ss) {
   const rows = ss.getSheetByName('Users').getDataRange().getValues();
   const users = [];
@@ -2070,8 +2165,8 @@ function _adminResetPw(ss, p) {
 
 function _initUserSheet(ss) {
   const def = ss.getSheets()[0]; def.setName('Ausgaben');
-  _hdr(def, ['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isFixkosten']);
-  [['Einnahmen',['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isLohn']],
+  _hdr(def, ['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isFixkosten','GroupID','SplitData']);
+  [['Einnahmen',['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isLohn','GroupID']],
    ['Daueraufträge',['ID','Was','Kategorie','Betrag','Intervall','Tag','Kommentar','Aktiv','nextDate','startDate','endDate','lastBooked']],
    ['Kategorien',['ID','Name','Typ','Farbe','Sortierung']],
    ['Einstellungen',['Schlüssel','Wert']],
