@@ -1923,6 +1923,12 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
+  // Groups — operate on ADMIN sheet (shared across users)
+  if (p.action === 'groupsGet')         return _groupsGet(ss, p);
+  if (p.action === 'groupsAppend')      return _groupsAppend(ss, p);
+  if (p.action === 'groupsUpdate')      return _groupsUpdate(ss, p);
+  if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(ss, p);
+  if (p.action === 'groupsFindRow')     return _groupsFindRow(ss, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);
@@ -2040,6 +2046,43 @@ function _proxyEnsureSheet(sheetId, p) {
 function _proxySetFormulas(sheetId, p) {
   SpreadsheetApp.openById(sheetId).getRange(p.range).setFormulas(JSON.parse(p.formulas));
   return { ok: true };
+}
+
+// ── Groups: operate on ADMIN sheet (shared data) ──────────
+function _groupsGet(ss, p) {
+  try {
+    return { values: ss.getRange(p.range).getValues() };
+  } catch(e) {
+    return { values: [], _note: e.toString() };
+  }
+}
+function _groupsAppend(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+  var rows = JSON.parse(p.values);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  return { ok: true };
+}
+function _groupsUpdate(ss, p) {
+  ss.getRange(p.range).setValues(JSON.parse(p.values));
+  return { ok: true };
+}
+function _groupsEnsureSheet(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) {
+    sh = ss.insertSheet(p.sheet);
+    if (p.headers) { var h = JSON.parse(p.headers); sh.getRange(1,1,1,h.length).setValues([h]); }
+  }
+  return { ok: true };
+}
+function _groupsFindRow(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { row: null };
+  var data = sh.getRange('A:A').getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]) === String(p.id)) return { row: i + 1 };
+  }
+  return { row: null };
 }
 
 function _adminList(ss) {
