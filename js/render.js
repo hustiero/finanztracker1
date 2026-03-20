@@ -463,10 +463,14 @@ function renderVerlaufEntryGroups(entries){
                 </div>
               </div>`;
             }
+            const isSplitOwn = !!e._isSplitEntry;
             const groupLabel = isGroup
-              ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>` : '';
+              ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>`
+              : isSplitOwn
+              ? `<span class="group-entry-author">${esc(groupName(e.groupId))} · Anteil von ${fmtAmt(e._fullAmt)}</span>`
+              : '';
             return `
-            <div class="card-row${isGroup?' group-foreign-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
+            <div class="card-row${isGroup?' group-foreign-entry':''}${isSplitOwn?' split-own-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
               <div class="card-row-icon" style="background:${catColor(e.cat)}22">
                 <span>${isRec?'↻':catEmoji(e.cat)}</span>
               </div>
@@ -500,17 +504,34 @@ function renderVerlaufL1(){
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
-  // Merge shadow entries (user's share of foreign group expenses)
-  if(CFG.showGroupEntries){
-    const shadows = getGroupShadowEntries();
-    entries = [...entries, ...shadows];
+
+  // Eigene Gruppenbuchungen: Betrag auf persönlichen Anteil reduzieren
+  const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.authUser||CFG.userName||'Ich');
+  entries = entries.map(e=>{
+    if(e._type==='ausgabe' && e.groupId && e.splitData && e.splitData.participants){
+      const myShare = e.splitData.participants[me];
+      if(myShare!==undefined && myShare!==e.amt){
+        return {...e, amt:myShare, _fullAmt:e.amt, _isSplitEntry:true};
+      }
+    }
+    return e;
+  });
+
+  // Shadow entries (fremde Gruppenbuchungen, dein Anteil) — immer mergen
+  const shadows = getGroupShadowEntries();
+  entries = [...entries, ...shadows];
+
+  // Gruppen ausblenden wenn Toggle aktiv
+  if(CFG.excludeGroupsFromVerlauf){
+    entries = entries.filter(e=>!e.groupId);
   }
+
   entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
   entries.sort((a,b)=>b.date.localeCompare(a.date));
   // Update group toggle button state
   const gtBtn = document.getElementById('verlauf-group-toggle');
-  if(gtBtn) gtBtn.classList.toggle('active', !!CFG.showGroupEntries);
+  if(gtBtn) gtBtn.classList.toggle('active', !CFG.excludeGroupsFromVerlauf);
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
   container.innerHTML = renderVerlaufEntryGroups(entries);
 }
@@ -1245,7 +1266,7 @@ function renderWidgetLohnzyklus(){
   return `<div>
     <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
+      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${z.varRemaining<0?'− ':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
       <span class="t-muted-sm">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
     </div>
     <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
@@ -1255,7 +1276,9 @@ function renderWidgetLohnzyklus(){
       <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
       <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varBudget)}</span></span>
     </div>
-    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: <span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.dailyRate)}/Tag</span> (${z.daysLeft} Tage verbleibend)</div>`:''}
+    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: ${z.daysLeft>0&&z.varRemaining>0
+      ?`<span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varRemaining/z.daysLeft)}/Tag</span> (${z.daysLeft} Tage verbleibend)`
+      :`<span style="color:var(--red);font-weight:600">Budget aufgebraucht</span>`}</div>`:''}
   </div>`;
 }
 
@@ -1397,7 +1420,14 @@ function renderWidgetHeuteAusgaben(){
   const dInc = DATA.incomes.filter(e=>e.date===t);
   const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
   // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
-  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>{
+    if(e.groupId && e.splitData && e.splitData.participants){
+      const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+      const myShare = e.splitData.participants[me];
+      return s + (myShare !== undefined ? myShare : e.amt);
+    }
+    return s + e.amt;
+  },0);
   const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
 
   // Tagesbudget from Zyklus — compare against variable spending only
@@ -1416,11 +1446,12 @@ function renderWidgetHeuteAusgaben(){
 
   if(dailyBudget!==null){
     const remaining = dailyBudget - todayVar;
+    const remainingDisplay = remaining >= 0
+      ? `noch <span class="t-mono">${curr()} ${fmtAmt(remaining)}</span>`
+      : `− <span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span> überzogen`;
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
       <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
-      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
-        ${remaining>=0?'noch ':'überzogen '}<span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span>
-      </span>
+      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">${remainingDisplay}</span>
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
 
