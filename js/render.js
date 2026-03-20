@@ -512,7 +512,8 @@ function renderVerlaufL1(){
   const recurStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
   const recurEnd   = bis || today();
   // Eigene Gruppenbuchungen: Betrag auf persönlichen Anteil reduzieren
-  const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.authUser||CFG.userName||'Ich');
+  const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+  const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'Ich');
 
   const plainExpenses = DATA.expenses
     .filter(e => !e.groupId)
@@ -521,7 +522,8 @@ function renderVerlaufL1(){
   const myGroupExpenses = DATA.expenses
     .filter(e => e.groupId && e.splitData?.participants)
     .map(e => {
-      const myShare = e.splitData.participants[me];
+      const parts = e.splitData.participants;
+      const myShare = parts[myId]!==undefined ? parts[myId] : (parts[myName]!==undefined ? parts[myName] : undefined);
       const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
       const fullAmt = e.splitData.totalAmount || e.amt;
       return {
@@ -1452,8 +1454,10 @@ function renderWidgetHeuteAusgaben(){
   // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
   const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>{
     if(e.groupId && e.splitData && e.splitData.participants){
-      const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-      const myShare = e.splitData.participants[me];
+      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+      const parts = e.splitData.participants;
+      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
       return s + (myShare !== undefined ? myShare : e.amt);
     }
     return s + e.amt;

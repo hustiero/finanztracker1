@@ -338,8 +338,10 @@ function getZyklusInfo(){
     ...recurInCycleToday.filter(e=>!isFixkostenEntry(e))
   ].reduce((s,e)=>{
     if(e.groupId && e.splitData && e.splitData.participants){
-      const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-      const myShare = e.splitData.participants[me];
+      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+      const parts = e.splitData.participants;
+      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
       return s + (myShare !== undefined ? myShare : e.amt);
     }
     return s + e.amt;
@@ -463,7 +465,7 @@ function calcSplitBalances(groupId){
   for(const e of expenses){
     if(!e.splitData) continue;
     const sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData;
-    const payer = sd.payerId || CFG.userName;
+    const payer = sd.payerId || (typeof _myGroupId==='function' ? _myGroupId() : CFG.authUser||CFG.userName);
     const total = sd.totalAmount || e.amt;
     // Payer paid the full amount
     if(balances[payer]===undefined) balances[payer]=0;
@@ -512,8 +514,11 @@ function getOwnShare(expense){
   if(!expense.splitData) return expense.amt;
   const sd = typeof expense.splitData==='string' ? JSON.parse(expense.splitData) : expense.splitData;
   const parts = sd.participants||{};
-  const me = CFG.userName||'';
-  return parts[me]!==undefined ? parts[me] : expense.amt;
+  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
+  const myName = CFG.userName||'';
+  if(parts[myId]!==undefined) return parts[myId];
+  if(parts[myName]!==undefined) return parts[myName];
+  return expense.amt;
 }
 
 // Top categories within a group

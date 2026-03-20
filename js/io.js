@@ -615,9 +615,12 @@ async function saveEntry(){
   // Eigenen Anteil berechnen für lokale Speicherung
   let myAmt = amt;
   if(splitData && splitData.participants){
-    const me = _myGroupName();
-    if(splitData.participants[me] !== undefined){
-      myAmt = Math.round(splitData.participants[me] * 100) / 100;
+    const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+    const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+    if(splitData.participants[myId] !== undefined){
+      myAmt = Math.round(splitData.participants[myId] * 100) / 100;
+    } else if(splitData.participants[myName] !== undefined){
+      myAmt = Math.round(splitData.participants[myName] * 100) / 100;
     }
   }
 

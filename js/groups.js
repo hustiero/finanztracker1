@@ -58,19 +58,29 @@ async function groupsApiFindRow(sheet, id){
 
 // ── 2. Helper: identity ──────────────────────────────────────
 
-/** Current user identity — checks both account-mode and profile name. */
-function _myGroupName(){
-  return CFG.authUser || CFG.userName || 'Ich';
+/**
+ * Canonical user identifier for all permission checks & data keys.
+ * Always returns CFG.authUser (the login username in account mode).
+ * Falls back to CFG.userName only for display-only contexts.
+ */
+function _myGroupId(){
+  return CFG.authUser || CFG.userName || '';
 }
 
-/** Is the current user admin of this group? */
+/** Display name for UI rendering (greeting, author labels). */
+function _myGroupName(){
+  return CFG.userName || CFG.authUser || 'Ich';
+}
+
+/** Is the current user admin of this group? Uses authorId for matching. */
 function isGroupAdmin(group){
   if(!group) return false;
   if(!group.adminId) return true; // legacy groups without adminId
-  const me = _myGroupName();
-  return group.adminId === me
-      || group.adminId === CFG.authUser
-      || group.adminId === CFG.userName;
+  const id = _myGroupId();
+  const name = _myGroupName();
+  return group.adminId === id
+      || group.adminId === name
+      || group.adminId === CFG.authUser;
 }
 
 // ── 3. Invite code generation ────────────────────────────────
@@ -126,11 +136,12 @@ async function loadGroups(){
   await ensureGroupsSheets();
   try{
     const res = await groupsApiGet('Groups!A2:J200');
-    const me = _myGroupName();
+    const myId = _myGroupId();
+    const myName = _myGroupName();
     DATA.groups = (res.values||[])
       .filter(r=>r[0] && r[5]!=='deleted')
       .map(_rowToGroup)
-      .filter(g => g.members.includes(me));
+      .filter(g => g.members.includes(myId) || g.members.includes(myName));
   }catch(e){
     if(!DATA.groups) DATA.groups = [];
     if(e.message && e.message.includes('Account-Modus')){
@@ -145,7 +156,7 @@ async function loadGroups(){
 async function saveGroup(name, type, members, currency){
   const id = genId('G');
   const created = today();
-  const adminId = _myGroupName();
+  const adminId = _myGroupId();
   const inviteCode = _genInviteCode();
   const group = {id,name,type,members,currency,status:'active',created,adminId,inviteCode,sharedSheetUrl:''};
   DATA.groups.push(group);
@@ -259,15 +270,16 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     if(g.status === 'deleted'){ toast('Gruppe wurde gelöscht','err'); return false; }
     if(g.status === 'archived'){ toast('Diese Gruppe ist archiviert','err'); return false; }
 
-    const me = _myGroupName();
-    if(g.members.includes(me)){
+    const myId = _myGroupId();
+    const myName = _myGroupName();
+    if(g.members.includes(myId) || g.members.includes(myName)){
       toast('Du bist bereits Mitglied','info');
       if(!DATA.groups.find(x=>x.id===groupId)) DATA.groups.push(g);
       joinedOk = true;
       return true;
     }
 
-    g.members.push(me);
+    g.members.push(myId);
     const sheetRow = rows.indexOf(row) + 2;
     await groupsApiUpdate(`Groups!D${sheetRow}`, [[JSON.stringify(g.members)]]);
 
@@ -321,7 +333,7 @@ async function regenerateInviteCode(groupId){
 
 function _readSplitForm(totalAmt, group){
   const splitMode = document.getElementById('f-split-mode')?.value||'equal';
-  const payerId = document.getElementById('f-split-payer')?.value||_myGroupName();
+  const payerId = document.getElementById('f-split-payer')?.value||_myGroupId();
   const participants = {};
 
   if(splitMode==='equal'){
@@ -363,6 +375,8 @@ async function settleUp(groupId, from, to, amount){
   const id    = genId('S');
   const date  = today();
   const what  = 'Ausgleich: '+from+' → '+to;
+  const myId  = _myGroupId();
+  const myName = _myGroupName();
   const splitData = {
     totalAmount: amount,
     payerId: from,
@@ -371,25 +385,27 @@ async function settleUp(groupId, from, to, amount){
   };
 
   const entry = {
-    id, groupId, authorName: from,
+    id, groupId, authorId: myId, authorName: myName,
     date, what, cat: 'Transfer', amt: amount,
     currency: CFG.currency||'CHF',
-    splitData, isMine: from===_myGroupName(),
+    splitData, isMine: true, editedAt: new Date().toISOString(),
     _type: 'groupEntry'
   };
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
+      const tab = _groupEntryTab(groupId);
+      await _ensureGroupEntryTab(groupId);
       const row = [
-        id, groupId, from, date, what, 'Transfer',
+        id, groupId, myId, myName, date, what, 'Transfer',
         amount, CFG.currency||'CHF',
-        JSON.stringify(splitData), ''
+        JSON.stringify(splitData), '', entry.editedAt
       ];
       await groupsApiCall({
         action:'groupsAppend',
-        sheet:'GroupEntries',
-        values:JSON.stringify([row])
+        sheet: tab,
+        values: JSON.stringify([row])
       });
       setSyncStatus('online');
     }catch(e){
@@ -403,7 +419,7 @@ async function settleUp(groupId, from, to, amount){
   DATA.groupEntries.push(entry);
 
   dataCacheSave();
-  toast('✓ Ausgleich gebucht','ok');
+  toast('Ausgleich gebucht','ok');
 
   const group = DATA.groups.find(g=>g.id===groupId);
   if(group) pushGroupNotification(group, entry);
@@ -423,8 +439,9 @@ async function settleUp(groupId, from, to, amount){
  */
 async function pushGroupNotification(group, entry){
   if(CFG.demo || !group || !group.members) return;
-  const me = _myGroupName();
-  const recipients = group.members.filter(m=>m!==me);
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const recipients = group.members.filter(m=>m!==myId && m!==myName);
   if(!recipients.length) return;
 
   const notif = {
@@ -458,12 +475,13 @@ async function loadGroupNotifications(){
   try{
     const res = await groupsApiGet('Notifications!A2:C5000').catch(()=>({values:[]}));
     const rows = res.values||[];
-    const me = _myGroupName();
+    const myId = _myGroupId();
+    const myName = _myGroupName();
     if(!CFG.notifications) CFG.notifications = [];
     const existingIds = new Set(CFG.notifications.map(n=>n.id));
 
     for(const row of rows){
-      if(row[0]!==me) continue; // not for us
+      if(row[0]!==myId && row[0]!==myName) continue; // not for us
       if(row[2]==='1') continue; // already read
       try{
         const n = JSON.parse(row[1]);
@@ -492,11 +510,12 @@ async function markGroupNotifsRead(){
   try{
     const res = await groupsApiGet('Notifications!A2:C5000').catch(()=>({values:[]}));
     const rows = res.values||[];
-    const me = _myGroupName();
+    const myId = _myGroupId();
+    const myName = _myGroupName();
 
     const updatePromises = [];
     for(let i=0;i<rows.length;i++){
-      if(rows[i][0]===me && rows[i][2]!=='1'){
+      if((rows[i][0]===myId || rows[i][0]===myName) && rows[i][2]!=='1'){
         const sheetRow = i+2;
         updatePromises.push(
           groupsApiUpdate(`Notifications!C${sheetRow}`, [['1']])
@@ -510,104 +529,265 @@ async function markGroupNotifsRead(){
   }
 }
 
-// ── 12. GroupEntries — load & save shared entries ────────────
+// ── 12. GroupEntries — per-group tabs, load & save & CRUD ────
 
 function _safeParseJSON(s){
   try{ return JSON.parse(s); }catch(e){ return null; }
 }
 
-/** Load group entries from admin sheet — single API call for all groups. */
+/** Tab name for a group's entries. */
+function _groupEntryTab(groupId){
+  return 'GE_' + groupId;
+}
+
+/** Per-group tab headers (12 columns). */
+const _GE_HEADERS = ['id','groupId','authorId','authorName','date','what','cat','amt','currency','splitData','deleted','editedAt'];
+
+/** Ensure the per-group entries tab exists. */
+async function _ensureGroupEntryTab(groupId){
+  return groupsApiCall({
+    action:'groupsEnsureSheet',
+    sheet: _groupEntryTab(groupId),
+    headers: JSON.stringify(_GE_HEADERS)
+  });
+}
+
+/** Parse a row from a per-group tab into a groupEntry object. */
+function _rowToGroupEntry(r, myId){
+  const group = DATA.groups.find(g=>g.id===r[1]);
+  return {
+    id:         r[0],
+    groupId:    r[1],
+    authorId:   r[2]||'',
+    authorName: r[3]||'',
+    date:       r[4]||'',
+    what:       r[5]||'',
+    cat:        r[6]||'',
+    amt:        parseFloat(r[7])||0,
+    currency:   r[8]||(group&&group.currency)||'CHF',
+    splitData:  r[9] ? _safeParseJSON(r[9]) : null,
+    isMine:     (r[2]||'')=== myId,
+    editedAt:   r[11]||'',
+    _type:      'groupEntry'
+  };
+}
+
+/** Parse a row from the LEGACY GroupEntries tab (old 10-column format). */
+function _legacyRowToGroupEntry(r, myId, myName){
+  const group = DATA.groups.find(g=>g.id===r[1]);
+  return {
+    id:         r[0],
+    groupId:    r[1],
+    authorId:   r[2]||'',          // legacy: authorName was in col C
+    authorName: r[2]||'',
+    date:       r[3]||'',
+    what:       r[4]||'',
+    cat:        r[5]||'',
+    amt:        parseFloat(r[6])||0,
+    currency:   r[7]||(group&&group.currency)||'CHF',
+    splitData:  r[8] ? _safeParseJSON(r[8]) : null,
+    isMine:     r[2]===myId || r[2]===myName || r[2]==='Ich',
+    editedAt:   '',
+    _type:      'groupEntry'
+  };
+}
+
+/**
+ * Load group entries — per-group tabs first, legacy fallback.
+ * Always does a fresh load (replaces DATA.groupEntries).
+ */
 async function loadGroupEntries(){
   if(CFG.demo || !DATA.groups || !DATA.groups.length) return;
 
-  // Ensure GroupEntries sheet exists
-  try{
-    await groupsApiCall({
-      action:'groupsEnsureSheet',
-      sheet:'GroupEntries',
-      headers:JSON.stringify(['id','groupId','authorName','date','what','cat','amt','currency','splitData','deleted'])
-    });
-  }catch(e){ console.warn('GroupEntries ensure:', e.message); }
-
-  const me = _myGroupName();
-  const activeGroupIds = new Set(
-    DATA.groups.filter(g=>g.status==='active' && g.members.includes(me)).map(g=>g.id)
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const activeGroups = DATA.groups.filter(g =>
+    g.status==='active' && (g.members.includes(myId) || g.members.includes(myName))
   );
-  if(!activeGroupIds.size) return;
+  if(!activeGroups.length) return;
 
-  try{
-    const res = await groupsApiCall({
-      action:'groupsGet',
-      range:'GroupEntries!A2:J5000'
-    }).catch(()=>({values:[]}));
+  // Fresh load — replace, don't merge
+  const allEntries = [];
+  const legacyGroupIds = [];
 
-    if(!DATA.groupEntries) DATA.groupEntries=[];
-    const existingIds = new Set(DATA.groupEntries.map(e=>e.id));
+  // Try per-group tabs first
+  for(const g of activeGroups){
+    const tab = _groupEntryTab(g.id);
+    try{
+      const res = await groupsApiCall({
+        action: 'groupsGet',
+        range: tab + '!A2:L5000'
+      }).catch(()=> null);
 
-    for(const r of (res.values||[])){
-      if(!r[0] || !activeGroupIds.has(r[1])) continue;
-      if(r[9]==='1') continue;
-      if(existingIds.has(r[0])) continue;
-
-      const group = DATA.groups.find(g=>g.id===r[1]);
-      DATA.groupEntries.push({
-        id:         r[0],
-        groupId:    r[1],
-        authorName: r[2]||'',
-        date:       r[3]||'',
-        what:       r[4]||'',
-        cat:        r[5]||'',
-        amt:        parseFloat(r[6])||0,
-        currency:   r[7]||(group&&group.currency)||'CHF',
-        splitData:  r[8] ? _safeParseJSON(r[8]) : null,
-        isMine:     r[2]===me,
-        _type:      'groupEntry'
-      });
+      if(res && res.values && res.values.length){
+        for(const r of res.values){
+          if(!r[0]) continue;
+          if(r[10]==='1') continue; // deleted
+          allEntries.push(_rowToGroupEntry(r, myId));
+        }
+      } else {
+        // Tab doesn't exist or is empty → try legacy
+        legacyGroupIds.push(g.id);
+      }
+    }catch(e){
+      // Tab doesn't exist → try legacy
+      legacyGroupIds.push(g.id);
     }
-  }catch(e){
-    if(!DATA.groupEntries) DATA.groupEntries=[];
-    console.warn('loadGroupEntries failed:', e.message);
   }
+
+  // Legacy fallback: read old GroupEntries tab for groups without per-group tabs
+  if(legacyGroupIds.length){
+    const legacySet = new Set(legacyGroupIds);
+    try{
+      const res = await groupsApiCall({
+        action: 'groupsGet',
+        range: 'GroupEntries!A2:J5000'
+      }).catch(()=>({values:[]}));
+
+      for(const r of (res.values||[])){
+        if(!r[0] || !legacySet.has(r[1])) continue;
+        if(r[9]==='1') continue; // deleted
+        allEntries.push(_legacyRowToGroupEntry(r, myId, myName));
+      }
+    }catch(e){
+      console.warn('Legacy GroupEntries load failed:', e.message);
+    }
+  }
+
+  DATA.groupEntries = allEntries;
 }
 
-/** Save an entry to the shared GroupEntries sheet on the admin backend. */
+/** Save an entry to the per-group tab on the admin backend. */
 async function saveGroupEntry(group, entry){
   if(CFG.demo) return;
-  const me = _myGroupName();
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const now = new Date().toISOString();
   const row = [
     entry.id,
     group.id,
-    me,
+    myId,
+    myName,
     entry.date,
     entry.what,
     entry.cat,
     entry.amt,
     group.currency||CFG.currency||'CHF',
     entry.splitData ? JSON.stringify(entry.splitData) : '',
-    ''
+    '',    // deleted
+    now    // editedAt
   ];
   try{
-    await groupsApiCall({
-      action:'groupsEnsureSheet',
-      sheet:'GroupEntries',
-      headers:JSON.stringify(['id','groupId','authorName','date','what','cat','amt','currency','splitData','deleted'])
-    });
+    await _ensureGroupEntryTab(group.id);
     await groupsApiCall({
       action:'groupsAppend',
-      sheet:'GroupEntries',
-      values:JSON.stringify([row])
+      sheet: _groupEntryTab(group.id),
+      values: JSON.stringify([row])
     });
     // Add to local DATA.groupEntries
     if(!DATA.groupEntries) DATA.groupEntries=[];
     DATA.groupEntries.push({
-      id:entry.id, groupId:group.id, authorName:me,
+      id:entry.id, groupId:group.id, authorId:myId, authorName:myName,
       date:entry.date, what:entry.what, cat:entry.cat,
       amt:entry.amt, currency:group.currency||CFG.currency||'CHF',
-      splitData:entry.splitData||null, isMine:true, _type:'groupEntry'
+      splitData:entry.splitData||null, isMine:true, editedAt:now,
+      _type:'groupEntry'
     });
   }catch(e){
     console.warn('saveGroupEntry failed:', e.message);
   }
+}
+
+/**
+ * Delete a group entry (soft-delete: sets deleted='1').
+ * Only the author or group admin can delete.
+ */
+async function deleteGroupEntry(entryId, groupId){
+  const group = DATA.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
+  if(!entry) return;
+
+  const myId = _myGroupId();
+  const canDelete = entry.authorId === myId || entry.isMine || isGroupAdmin(group);
+  if(!canDelete){ toast('Du kannst nur eigene Einträge löschen','err'); return; }
+  if(!confirm('Gruppen-Eintrag löschen?')) return;
+
+  // Optimistic local delete
+  DATA.groupEntries = (DATA.groupEntries||[]).filter(e=>e.id!==entryId);
+  markDirty('groups','verlauf');
+
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const tab = _groupEntryTab(groupId);
+      const row = await groupsApiFindRow(tab, entryId);
+      if(row){
+        await groupsApiUpdate(tab + '!K' + row, [['1']]); // deleted=1
+      }
+      setSyncStatus('online');
+      toast('Eintrag gelöscht','ok');
+    }catch(e){
+      // Revert on failure
+      DATA.groupEntries.push(entry);
+      markDirty('groups','verlauf');
+      setSyncStatus('error');
+      toast('Fehler beim Löschen: '+e.message,'err');
+    }
+  } else {
+    toast('Eintrag gelöscht (Demo)','ok');
+  }
+  dataCacheSave();
+}
+
+/**
+ * Update a group entry's fields.
+ * Only the author can edit.
+ */
+async function updateGroupEntry(entryId, groupId, updates){
+  const group = DATA.groups.find(g=>g.id===groupId);
+  if(!group) return;
+  const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
+  if(!entry) return;
+
+  const myId = _myGroupId();
+  if(entry.authorId !== myId && !entry.isMine && !isGroupAdmin(group)){
+    toast('Du kannst nur eigene Einträge bearbeiten','err'); return;
+  }
+
+  // Optimistic local update
+  const backup = {...entry};
+  Object.assign(entry, updates);
+  entry.editedAt = new Date().toISOString();
+  markDirty('groups','verlauf');
+
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const tab = _groupEntryTab(groupId);
+      const rowNum = await groupsApiFindRow(tab, entryId);
+      if(rowNum){
+        const row = [
+          entry.id, entry.groupId, entry.authorId, entry.authorName,
+          entry.date, entry.what, entry.cat, entry.amt,
+          entry.currency, entry.splitData ? JSON.stringify(entry.splitData) : '',
+          '', entry.editedAt
+        ];
+        await groupsApiUpdate(tab + '!A' + rowNum + ':L' + rowNum, [row]);
+      }
+      setSyncStatus('online');
+      toast('Eintrag aktualisiert','ok');
+    }catch(e){
+      // Revert on failure
+      Object.assign(entry, backup);
+      markDirty('groups','verlauf');
+      setSyncStatus('error');
+      toast('Fehler: '+e.message,'err');
+    }
+  } else {
+    toast('Aktualisiert (Demo)','ok');
+  }
+  dataCacheSave();
 }
 
 // ── 13. Group balances — debt calculation ────────────────────
@@ -620,43 +800,47 @@ function calculateGroupBalances(groupId){
   const group = DATA.groups.find(g=>g.id===groupId);
   if(!group) return [];
 
-  const me = _myGroupName();
+  const myId = _myGroupId();
+  const myName = _myGroupName();
 
-  // Own entries (DATA.expenses) — need authorName injected
+  // Own entries (DATA.expenses with groupId) — inject authorId/authorName
   const myEntries = DATA.expenses
     .filter(e=>e.groupId===groupId)
-    .map(e=>({...e, authorName: me}));
+    .map(e=>({...e, authorId: myId, authorName: myName}));
 
+  // Foreign entries from group tabs (DATA.groupEntries)
   const foreignEntries = (DATA.groupEntries||[])
     .filter(e=>e.groupId===groupId && !e.isMine);
 
+  // All group entries (own + foreign, combined)
+  const allEntries = [...myEntries, ...foreignEntries];
+
   // Separate settlements (isSettlement flag in splitData)
-  const settlements = foreignEntries.filter(
+  const settlements = allEntries.filter(
     e=>e.splitData && e.splitData.isSettlement
   );
-  const regularEntries = [
-    ...myEntries,
-    ...foreignEntries.filter(e=>!e.splitData || !e.splitData.isSettlement)
-  ];
+  const regularEntries = allEntries.filter(
+    e=>!e.splitData || !e.splitData.isSettlement
+  );
 
   const paid = {};
   const owes = {};
   group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
 
-  // Regular expenses
+  // Regular expenses — use authorId preferentially, fallback to authorName
   for(const entry of regularEntries){
-    const payer = entry.authorName || me;
+    const payer = entry.splitData?.payerId || entry.authorId || entry.authorName || myName;
     const split = entry.splitData;
     if(!split || !split.participants) continue;
-    paid[payer] = (paid[payer]||0) + (entry.amt||0);
+    paid[payer] = (paid[payer]||0) + (split.totalAmount||entry.amt||0);
     Object.entries(split.participants).forEach(([member, share])=>{
       owes[member] = (owes[member]||0) + share;
     });
   }
 
-  // Settlements reduce debts (payer paid → recipient owes less)
+  // Settlements reduce debts
   for(const s of settlements){
-    const payer = s.authorName;
+    const payer = s.splitData?.payerId || s.authorId || s.authorName;
     const participants = s.splitData.participants||{};
     Object.entries(participants).forEach(([member, share])=>{
       paid[payer]  = (paid[payer]||0) - share;
@@ -767,7 +951,8 @@ function openGroupEntryDetail(entryId){
 function getGroupShadowEntries(){
   const gv = CFG.groupVerlauf||{};
   const entries = DATA.groupEntries||[];
-  const me = _myGroupName();
+  const myId = _myGroupId();
+  const myName = _myGroupName();
   const shadows = [];
 
   for(const e of entries){
@@ -777,10 +962,13 @@ function getGroupShadowEntries(){
     const group = DATA.groups.find(g=>g.id===e.groupId);
     if(!group) continue;
 
+    // Look up user's share — try authorId first, then authorName
     let myShare = 0;
     if(e.splitData && e.splitData.participants){
       const parts = e.splitData.participants;
-      myShare = parts[me]!==undefined ? parts[me] : 0;
+      if(parts[myId]!==undefined) myShare = parts[myId];
+      else if(parts[myName]!==undefined) myShare = parts[myName];
+      else myShare = 0;
     } else {
       myShare = group.members.length>0 ? e.amt/group.members.length : e.amt;
     }
@@ -799,6 +987,7 @@ function getGroupShadowEntries(){
       groupName: group.name,
       paidBy:    e.authorName,
       currency:  e.currency||group.currency||CFG.currency||'CHF',
+      editedAt:  e.editedAt||'',
       _type:     'shadow',
       _shadowOf: e.id
     });
@@ -900,17 +1089,30 @@ async function openAdminGroupDetail(groupId){
   const g = _adminGroupsData.find(x=>x.id===groupId);
   if(!g) return;
 
-  // Lade GroupEntries für diese Gruppe
+  // Lade GroupEntries — per-group tab first, legacy fallback
   let entries = [];
   try{
-    const res = await groupsApiGet('GroupEntries!A2:J5000').catch(()=>({values:[]}));
-    entries = (res.values||[])
-      .filter(r=>r[0]&&r[1]===groupId&&r[9]!=='1')
-      .map(r=>({
-        id:r[0], authorName:r[2], date:r[3], what:r[4],
-        cat:r[5], amt:parseFloat(r[6])||0,
-        splitData: r[8]?_safeParseJSON(r[8]):null
-      }));
+    const tab = _groupEntryTab(groupId);
+    const res = await groupsApiGet(tab+'!A2:L5000').catch(()=>null);
+    if(res && res.values){
+      entries = res.values
+        .filter(r=>r[0]&&r[10]!=='1')
+        .map(r=>({
+          id:r[0], authorId:r[2]||'', authorName:r[3]||'', date:r[4]||'', what:r[5]||'',
+          cat:r[6]||'', amt:parseFloat(r[7])||0,
+          splitData: r[9]?_safeParseJSON(r[9]):null
+        }));
+    } else {
+      // Legacy fallback
+      const legacyRes = await groupsApiGet('GroupEntries!A2:J5000').catch(()=>({values:[]}));
+      entries = (legacyRes.values||[])
+        .filter(r=>r[0]&&r[1]===groupId&&r[9]!=='1')
+        .map(r=>({
+          id:r[0], authorId:r[2]||'', authorName:r[2]||'', date:r[3]||'', what:r[4]||'',
+          cat:r[5]||'', amt:parseFloat(r[6])||0,
+          splitData: r[8]?_safeParseJSON(r[8]):null
+        }));
+    }
   }catch(e){}
 
   const totalAmt = entries.reduce((s,e)=>s+e.amt,0);
