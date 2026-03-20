@@ -463,15 +463,17 @@ function renderVerlaufEntryGroups(entries){
                 </div>
               </div>`;
             }
-            const isSplitOwn = !!e._isSplit;
+            // Gruppen-Meta für eigene Split-Buchungen (unterhalb card-row-sub)
+            const splitTotal = e._fullAmt || (e.splitData && e.splitData.totalAmount) || 0;
+            const hasSplitInfo = e.groupId && e.splitData && splitTotal && splitTotal !== e.amt;
+            const isSplitOwn = !!e._isSplit || !!hasSplitInfo;
             const groupLabel = isGroup
               ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>`
               : '';
-            // Gruppen-Meta für eigene Split-Buchungen (unterhalb card-row-sub)
-            const groupMeta = (e.groupId && e._isSplit)
+            const groupMeta = hasSplitInfo
               ? `<div class="shadow-meta" style="margin-top:2px">
                    <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
-                   ${e._fullAmt ? `<span class="shadow-full" style="font-size:10px;color:var(--text3)">von ${curr()} ${fmtAmt(e._fullAmt)}</span>` : ''}
+                   <span class="shadow-full" style="font-size:10px;color:var(--text3)">von ${curr()} ${fmtAmt(splitTotal)}</span>
                  </div>`
               : e.groupId && !isGroup
               ? `<div class="shadow-meta" style="margin-top:2px">
@@ -521,11 +523,12 @@ function renderVerlaufL1(){
     .map(e => {
       const myShare = e.splitData.participants[me];
       const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
+      const fullAmt = e.splitData.totalAmount || e.amt;
       return {
         ...e,
         amt,
-        _fullAmt: e.amt,
-        _isSplit: amt !== e.amt,
+        _fullAmt: fullAmt,
+        _isSplit: amt !== fullAmt,
         _type: 'ausgabe'
       };
     });

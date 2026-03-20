@@ -612,17 +612,26 @@ async function saveEntry(){
     if(!splitData) return; // validation failed
   }
 
+  // Eigenen Anteil berechnen für lokale Speicherung
+  let myAmt = amt;
+  if(splitData && splitData.participants){
+    const me = _myGroupName();
+    if(splitData.participants[me] !== undefined){
+      myAmt = Math.round(splitData.participants[me] * 100) / 100;
+    }
+  }
+
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
-    const entry = {id,date,what,cat,amt,note,recurringId:'',isFixkosten:false};
+    const entry = {id,date,what,cat,amt:myAmt,note,recurringId:'',isFixkosten:false};
     if(groupId) entry.groupId = groupId;
     if(splitData) entry.splitData = splitData;
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
+        await apiAppend('Ausgaben',[[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -652,9 +661,9 @@ async function saveEntry(){
 
   toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   dataCacheSave();
-  // Push notification to group members (non-blocking)
+  // Push notification to group members (non-blocking) — show full amount
   if(group) pushGroupNotification(group, {what,amt,date});
-  // Save to shared GroupEntries sheet (non-blocking)
+  // Save to shared GroupEntries sheet (non-blocking) — use FULL amount (amt, not myAmt)
   if(group && currentEntryType==='ausgabe'){
     saveGroupEntry(group, {id,date,what,cat,amt,splitData});
   }
