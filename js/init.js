@@ -75,7 +75,7 @@ Object.assign(App.IO, {
   joinGroupByInvite, removeGroupMember, regenerateInviteCode,
   loadGroups, isGroupAdmin, generateInviteLink,
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
-  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup, toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
   loadGroupEntries, saveGroupEntry, calculateGroupBalances,
   confirmSettleUp, groupName, toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, getGroupShadowEntries,
   // Groups API layer
@@ -133,6 +133,7 @@ Object.assign(App.UI, {
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
   exportGroupReport, copyGroupInviteLink, generateInviteLink,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
   toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, confirmSettleUp,
   // Charts
   buildBarChart, buildBalanceChart,

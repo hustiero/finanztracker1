@@ -44,7 +44,7 @@ function goTab(tab){
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dauerauftraege:'Daueraufträge', dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
-    groups:'Gruppen', einstellungen:'Einstellungen', admin:'Admin'
+    groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
   if(tab==='home') renderHome();
@@ -1452,8 +1452,7 @@ async function renderAdmin(){
   const invEl = document.getElementById('admin-invite-link');
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
-  // Load admin groups panel
-  if(typeof renderAdminGroupsPanel === 'function') renderAdminGroupsPanel();
+  // Admin groups panel is now lazy-loaded via toggleAdminGroupsPanel()
 }
 
 // ─── User Management Overlay ─────────────────────────────────

@@ -702,12 +702,21 @@ function confirmSettleUp(groupId, from, to, amount){
 
 // ── 14. Verlauf toggle for group entries ─────────────────────
 
-/** Toggle group entries visibility in Verlauf (exclude/include all). */
+/** Toggle group entries visibility in Verlauf (global toggle). */
 function toggleGroupEntriesVisible(){
-  CFG.excludeGroupsFromVerlauf = !CFG.excludeGroupsFromVerlauf;
+  CFG.showGroupEntries = !CFG.showGroupEntries;
+  CFG.excludeGroupsFromVerlauf = !CFG.showGroupEntries; // sync both flags
   cfgSave();
+  // When enabling: auto-activate groupVerlauf for all active groups
+  if(CFG.showGroupEntries){
+    if(!CFG.groupVerlauf) CFG.groupVerlauf = {};
+    (DATA.groups||[]).forEach(g => {
+      if(g.status === 'active') CFG.groupVerlauf[g.id] = true;
+    });
+    cfgSave();
+  }
   const btn = document.getElementById('verlauf-group-toggle');
-  if(btn) btn.classList.toggle('active', !CFG.excludeGroupsFromVerlauf);
+  if(btn) btn.classList.toggle('active', CFG.showGroupEntries);
   renderVerlauf();
 }
 
@@ -797,6 +806,36 @@ function getGroupShadowEntries(){
 
 // ── 15. Admin groups panel ───────────────────────────────────
 
+let _adminGroupsLoaded = false;
+let _adminGroupsData = [];
+let _adminGroupsPanelOpen = false;
+
+async function toggleAdminGroupsPanel(){
+  _adminGroupsPanelOpen = !_adminGroupsPanelOpen;
+  const panel = document.getElementById('admin-groups-panel');
+  const chev  = document.getElementById('admin-groups-chevron');
+  if(panel) panel.style.display = _adminGroupsPanelOpen ? '' : 'none';
+  if(chev)  chev.style.transform = _adminGroupsPanelOpen ? 'rotate(90deg)' : '';
+  if(_adminGroupsPanelOpen && !_adminGroupsLoaded){
+    await renderAdminGroupsPanel();
+    _adminGroupsLoaded = true;
+  }
+}
+
+function filterAdminGroups(){
+  const q      = (document.getElementById('admin-groups-search')?.value||'').toLowerCase();
+  const status = document.getElementById('admin-groups-filter')?.value||'all';
+  const filtered = _adminGroupsData.filter(g => {
+    const matchStatus = status==='all' || g.status===status;
+    const matchQ = !q
+      || g.name.toLowerCase().includes(q)
+      || (g.adminId||'').toLowerCase().includes(q)
+      || g.members.some(m=>m.toLowerCase().includes(q));
+    return matchStatus && matchQ;
+  });
+  _renderAdminGroupsList(filtered);
+}
+
 async function renderAdminGroupsPanel(){
   const container = document.getElementById('admin-groups-list');
   if(!container) return;
@@ -804,46 +843,127 @@ async function renderAdminGroupsPanel(){
 
   try{
     const res = await groupsApiGet('Groups!A2:J200').catch(()=>({values:[]}));
-    const groups = (res.values||[]).filter(r=>r[0]).map(_rowToGroup).filter(g=>g.status!=='deleted');
-
-    if(!groups.length){
-      container.innerHTML = '<div class="t-muted" style="padding:12px 0;text-align:center">Keine Gruppen vorhanden.</div>';
-      return;
-    }
-
-    container.innerHTML = groups.map(g=>{
-      const memberCount = g.members.length;
-      const statusBadge = g.status==='archived'
-        ? '<span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 6px;border-radius:4px;margin-left:6px">Archiviert</span>'
-        : '<span style="font-size:10px;color:var(--accent);background:rgba(200,245,60,.1);padding:2px 6px;border-radius:4px;margin-left:6px">Aktiv</span>';
-      const typeBadge = g.type==='split'
-        ? '<span style="font-size:10px;color:#8b5cf6;margin-left:4px">Split</span>'
-        : '<span style="font-size:10px;color:var(--accent);margin-left:4px">Event</span>';
-
-      return `<div class="card" style="padding:12px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div>
-            <span style="font-weight:600;font-size:14px">${esc(g.name)}</span>
-            ${typeBadge}${statusBadge}
-          </div>
-          <div style="display:flex;gap:4px">
-            ${g.status==='active'?`<button class="grp-action-btn" onclick="adminArchiveGroup('${g.id}')" title="Archivieren" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);cursor:pointer;color:var(--text2)">Archiv</button>`:''}
-            <button class="grp-action-btn grp-action-del" onclick="adminDeleteGroup('${g.id}')" title="Löschen" style="font-size:11px;padding:3px 8px;border:1px solid rgba(255,77,109,.3);border-radius:5px;background:rgba(255,77,109,.06);cursor:pointer;color:#ff4d6d">Löschen</button>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap">
-          <span>Admin: ${esc(g.adminId||'–')}</span>
-          <span>${memberCount} Mitglieder</span>
-          <span>Erstellt: ${g.created?fmtDate(g.created):'–'}</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">
-          Mitglieder: ${g.members.map(m=>esc(m)).join(', ')}
-        </div>
-      </div>`;
-    }).join('');
+    // NUR Split- und Event-Gruppen (keine persönlichen Buchungsgruppen)
+    _adminGroupsData = (res.values||[])
+      .filter(r=>r[0])
+      .map(_rowToGroup)
+      .filter(g => g.status!=='deleted' && (g.type==='split'||g.type==='event'));
+    // Count-Label aktualisieren
+    const countLabel = document.getElementById('admin-groups-count-label');
+    if(countLabel) countLabel.textContent = _adminGroupsData.length + ' Gruppen geladen';
+    filterAdminGroups();
   }catch(e){
-    container.innerHTML = '<div class="t-muted" style="padding:12px 0;text-align:center">Fehler beim Laden: '+esc(e.message)+'</div>';
+    container.innerHTML = '<div class="t-muted" style="padding:12px 0;text-align:center">Fehler: '+esc(e.message)+'</div>';
   }
+}
+
+function _renderAdminGroupsList(groups){
+  const container = document.getElementById('admin-groups-list');
+  if(!container) return;
+  if(!groups.length){
+    container.innerHTML = '<div class="t-muted" style="padding:12px 0;text-align:center">Keine Gruppen gefunden.</div>';
+    return;
+  }
+  container.innerHTML = groups.map(g=>{
+    const memberCount = g.members.length;
+    const statusBadge = g.status==='archived'
+      ? '<span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 6px;border-radius:4px;margin-left:6px">Archiviert</span>'
+      : '<span style="font-size:10px;color:var(--accent);background:rgba(200,245,60,.1);padding:2px 6px;border-radius:4px;margin-left:6px">Aktiv</span>';
+    const typeBadge = g.type==='event'
+      ? '<span style="font-size:10px;color:var(--accent);margin-left:4px">Event</span>'
+      : '<span style="font-size:10px;color:#8b5cf6;margin-left:4px">Split</span>';
+    return `
+    <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer"
+         onclick="openAdminGroupDetail('${g.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span style="font-weight:600;font-size:14px">${esc(g.name)}</span>
+          ${typeBadge}${statusBadge}
+        </div>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div style="font-size:12px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+        <span>Admin: ${esc(g.adminId||'–')}</span>
+        <span>${memberCount} Mitglieder</span>
+        <span>Erstellt: ${g.created?fmtDate(g.created):'–'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        ${g.members.map(m=>esc(m)).join(' · ')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openAdminGroupDetail(groupId){
+  const g = _adminGroupsData.find(x=>x.id===groupId);
+  if(!g) return;
+
+  // Lade GroupEntries für diese Gruppe
+  let entries = [];
+  try{
+    const res = await groupsApiGet('GroupEntries!A2:J5000').catch(()=>({values:[]}));
+    entries = (res.values||[])
+      .filter(r=>r[0]&&r[1]===groupId&&r[9]!=='1')
+      .map(r=>({
+        id:r[0], authorName:r[2], date:r[3], what:r[4],
+        cat:r[5], amt:parseFloat(r[6])||0,
+        splitData: r[8]?_safeParseJSON(r[8]):null
+      }));
+  }catch(e){}
+
+  const totalAmt = entries.reduce((s,e)=>s+e.amt,0);
+
+  const body = `
+    <div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span style="font-size:12px;color:var(--text3)">
+          ${g.members.length} Mitglieder · ${entries.length} Buchungen ·
+          Total: ${curr()} ${fmtAmt(totalAmt)}
+        </span>
+      </div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">Mitglieder</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+        ${g.members.map(m=>`
+          <span style="background:var(--bg3);padding:3px 10px;border-radius:99px;font-size:12px">
+            ${esc(m)}${m===g.adminId?' 👑':''}
+          </span>`).join('')}
+      </div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">Letzte Buchungen</div>
+      <div style="max-height:280px;overflow-y:auto">
+        ${entries.length===0
+          ? '<div class="t-muted" style="padding:8px 0">Keine Buchungen.</div>'
+          : entries.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20).map(e=>`
+            <div style="display:flex;justify-content:space-between;
+                        padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+              <div>
+                <div style="font-weight:500">${esc(e.what)}</div>
+                <div style="font-size:11px;color:var(--text3)">
+                  ${esc(e.authorName)} · ${fmtDate(e.date)}
+                </div>
+              </div>
+              <div style="font-family:'DM Mono',monospace;font-weight:600">
+                ${curr()} ${fmtAmt(e.amt)}
+              </div>
+            </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        ${g.status==='active'
+          ? `<button onclick="adminArchiveGroup('${g.id}');closeGenericModal()"
+               style="flex:1;padding:9px;border:1px solid var(--border);
+                      border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--text)">
+               Archivieren
+             </button>`
+          : ''}
+        <button onclick="adminDeleteGroup('${g.id}');closeGenericModal()"
+          style="flex:1;padding:9px;border:1px solid rgba(255,77,109,.3);
+                 border-radius:8px;background:rgba(255,77,109,.06);
+                 color:#ff4d6d;font-size:13px;cursor:pointer">
+          Löschen
+        </button>
+      </div>
+    </div>`;
+
+  openGenericModal(g.name, body, '');
 }
 
 /** Admin: archive any group (no permission check — admin panel). */
@@ -854,9 +974,12 @@ async function adminArchiveGroup(id){
     if(row) await groupsApiUpdate(`Groups!F${row}`, [['archived']]);
     const local = DATA.groups.find(x=>x.id===id);
     if(local) local.status = 'archived';
+    // Update admin panel data
+    const ag = _adminGroupsData.find(x=>x.id===id);
+    if(ag) ag.status = 'archived';
     dataCacheSave();
     toast('✓ Archiviert','ok');
-    renderAdminGroupsPanel();
+    filterAdminGroups();
     markDirty('groups');
   }catch(e){ toast('Fehler: '+e.message,'err'); }
 }
@@ -868,11 +991,12 @@ async function adminDeleteGroup(id){
     const row = await groupsApiFindRow('Groups', id);
     if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);
     DATA.groups = DATA.groups.filter(x=>x.id!==id);
+    _adminGroupsData = _adminGroupsData.filter(x=>x.id!==id);
     DATA.expenses.forEach(e=>{ if(e.groupId===id){ delete e.groupId; delete e.splitData; } });
     DATA.incomes.forEach(e=>{ if(e.groupId===id) delete e.groupId; });
     dataCacheSave();
     toast('✓ Gelöscht','ok');
-    renderAdminGroupsPanel();
+    filterAdminGroups();
     markDirty('groups');
   }catch(e){ toast('Fehler: '+e.message,'err'); }
 }

@@ -463,11 +463,20 @@ function renderVerlaufEntryGroups(entries){
                 </div>
               </div>`;
             }
-            const isSplitOwn = !!e._isSplitEntry;
+            const isSplitOwn = !!e._isSplit;
             const groupLabel = isGroup
               ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>`
-              : isSplitOwn
-              ? `<span class="group-entry-author">${esc(groupName(e.groupId))} · Anteil von ${fmtAmt(e._fullAmt)}</span>`
+              : '';
+            // Gruppen-Meta für eigene Split-Buchungen (unterhalb card-row-sub)
+            const groupMeta = (e.groupId && e._isSplit)
+              ? `<div class="shadow-meta" style="margin-top:2px">
+                   <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
+                   ${e._fullAmt ? `<span class="shadow-full" style="font-size:10px;color:var(--text3)">von ${curr()} ${fmtAmt(e._fullAmt)}</span>` : ''}
+                 </div>`
+              : e.groupId && !isGroup
+              ? `<div class="shadow-meta" style="margin-top:2px">
+                   <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
+                 </div>`
               : '';
             return `
             <div class="card-row${isGroup?' group-foreign-entry':''}${isSplitOwn?' split-own-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
@@ -478,6 +487,7 @@ function renderVerlaufEntryGroups(entries){
                 <div class="card-row-title">${esc(e.what)}${isRec?' '+recLabel:''}</div>
                 <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':'' }${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
                 ${groupLabel}
+                ${groupMeta}
               </div>
               <div class="card-row-amount${isGroup?' foreign':''}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
               ${isRec||isGroup?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
@@ -499,27 +509,44 @@ function renderVerlaufL1(){
   const {von, bis} = verlaufGetRange();
   const recurStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
   const recurEnd   = bis || today();
+  // Eigene Gruppenbuchungen: Betrag auf persönlichen Anteil reduzieren
+  const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.authUser||CFG.userName||'Ich');
+
+  const plainExpenses = DATA.expenses
+    .filter(e => !e.groupId)
+    .map(e => ({...e, _type:'ausgabe'}));
+
+  const myGroupExpenses = DATA.expenses
+    .filter(e => e.groupId && e.splitData?.participants)
+    .map(e => {
+      const myShare = e.splitData.participants[me];
+      const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
+      return {
+        ...e,
+        amt,
+        _fullAmt: e.amt,
+        _isSplit: amt !== e.amt,
+        _type: 'ausgabe'
+      };
+    });
+
+  const groupExpensesNoSplit = DATA.expenses
+    .filter(e => e.groupId && !e.splitData?.participants)
+    .map(e => ({...e, _type:'ausgabe'}));
+
   let entries = [
-    ...DATA.expenses.map(e=>({...e,_type:'ausgabe'})),
+    ...plainExpenses,
+    ...myGroupExpenses,
+    ...groupExpensesNoSplit,
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
 
-  // Eigene Gruppenbuchungen: Betrag auf persönlichen Anteil reduzieren
-  const me = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.authUser||CFG.userName||'Ich');
-  entries = entries.map(e=>{
-    if(e._type==='ausgabe' && e.groupId && e.splitData && e.splitData.participants){
-      const myShare = e.splitData.participants[me];
-      if(myShare!==undefined && myShare!==e.amt){
-        return {...e, amt:myShare, _fullAmt:e.amt, _isSplitEntry:true};
-      }
-    }
-    return e;
-  });
-
-  // Shadow entries (fremde Gruppenbuchungen, dein Anteil) — immer mergen
-  const shadows = getGroupShadowEntries();
-  entries = [...entries, ...shadows];
+  // Shadow entries (fremde Gruppenbuchungen, dein Anteil)
+  if(CFG.showGroupEntries){
+    const shadows = getGroupShadowEntries();
+    entries = [...entries, ...shadows];
+  }
 
   // Gruppen ausblenden wenn Toggle aktiv
   if(CFG.excludeGroupsFromVerlauf){
@@ -531,7 +558,7 @@ function renderVerlaufL1(){
   entries.sort((a,b)=>b.date.localeCompare(a.date));
   // Update group toggle button state
   const gtBtn = document.getElementById('verlauf-group-toggle');
-  if(gtBtn) gtBtn.classList.toggle('active', !CFG.excludeGroupsFromVerlauf);
+  if(gtBtn) gtBtn.classList.toggle('active', !!CFG.showGroupEntries);
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
   container.innerHTML = renderVerlaufEntryGroups(entries);
 }

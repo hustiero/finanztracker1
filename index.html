@@ -790,9 +790,30 @@
         </div>
       </div>
       <div class="section pt-0" id="admin-groups-section">
-        <div class="section-title">Gruppen-Verwaltung</div>
-        <div id="admin-groups-list">
-          <div class="t-muted" style="text-align:center;padding:16px 0">Gruppen werden beim Öffnen geladen.</div>
+        <!-- Gruppenverwaltung — collapsed by default -->
+        <div class="admin-section-row" onclick="toggleAdminGroupsPanel()" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;cursor:pointer">
+          <div>
+            <div class="section-title" style="margin-bottom:2px">Gruppenverwaltung</div>
+            <div style="font-size:12px;color:var(--text3)" id="admin-groups-count-label">Split- und Event-Gruppen verwalten</div>
+          </div>
+          <svg id="admin-groups-chevron" viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:2;transition:transform .2s"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <!-- Expandierbarer Bereich -->
+        <div id="admin-groups-panel" style="display:none">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <input id="admin-groups-search" type="search" placeholder="Gruppe suchen…"
+              oninput="filterAdminGroups()"
+              style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px"/>
+            <select id="admin-groups-filter" onchange="filterAdminGroups()"
+              style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:12px">
+              <option value="all">Alle</option>
+              <option value="active">Aktiv</option>
+              <option value="archived">Archiviert</option>
+            </select>
+          </div>
+          <div id="admin-groups-list">
+            <div class="t-muted" style="text-align:center;padding:12px">Klicke auf «Gruppenverwaltung» um zu laden.</div>
+          </div>
         </div>
       </div>
     </div>
