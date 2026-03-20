@@ -126,9 +126,11 @@ async function loadGroups(){
   await ensureGroupsSheets();
   try{
     const res = await groupsApiGet('Groups!A2:J200');
+    const me = _myGroupName();
     DATA.groups = (res.values||[])
       .filter(r=>r[0] && r[5]!=='deleted')
-      .map(_rowToGroup);
+      .map(_rowToGroup)
+      .filter(g => g.members.includes(me));
   }catch(e){
     if(!DATA.groups) DATA.groups = [];
     if(e.message && e.message.includes('Account-Modus')){
@@ -529,7 +531,7 @@ async function loadGroupEntries(){
 
   const me = _myGroupName();
   const activeGroupIds = new Set(
-    DATA.groups.filter(g=>g.status==='active').map(g=>g.id)
+    DATA.groups.filter(g=>g.status==='active' && g.members.includes(me)).map(g=>g.id)
   );
   if(!activeGroupIds.size) return;
 

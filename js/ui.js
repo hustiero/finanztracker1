@@ -4,6 +4,7 @@
 let currentTab = 'home';
 
 function goTab(tab){
+  if(tab==='admin' && CFG.authRole!=='admin') return;
   // Home button while in edit mode → exit edit mode instead of re-navigating
   if(tab === 'home' && currentTab === 'home' && homeEditMode){
     homeEditMode = false;
@@ -1032,7 +1033,8 @@ let currentGroupId = null;
 function renderGroups(){
   const grid = document.getElementById('groups-grid');
   if(!grid) return;
-  let groups = DATA.groups.filter(g=>g.status!=='deleted');
+  const me = _myGroupName();
+  let groups = DATA.groups.filter(g=>g.status!=='deleted' && g.members.includes(me));
 
   if(groupFilter==='archived') groups = groups.filter(g=>g.status==='archived');
   else if(groupFilter==='all') groups = groups.filter(g=>g.status==='active');
@@ -1366,7 +1368,8 @@ async function confirmNewGroup(){
 function fillGroupDropdown(){
   const sel = document.getElementById('f-group');
   if(!sel) return;
-  const activeGroups = DATA.groups.filter(g=>g.status==='active');
+  const me = _myGroupName();
+  const activeGroups = DATA.groups.filter(g=>g.status==='active' && g.members.includes(me));
   sel.innerHTML = '<option value="">— Keine Gruppe —</option>' +
     activeGroups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.type==='split'?'Split':'Event'})</option>`).join('');
 }
