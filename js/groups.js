@@ -114,8 +114,11 @@ function _rowToGroup(r){
 
 // ── 5. Load groups from backend ──────────────────────────────
 
+// Session-level flag — avoid 2 redundant API calls on every loadGroups()
+let _groupsSheetsEnsured = false;
+
 async function ensureGroupsSheets(){
-  if(CFG.demo) return;
+  if(CFG.demo || _groupsSheetsEnsured) return;
   try{
     await groupsApiCall({
       action:'groupsEnsureSheet',
@@ -130,6 +133,8 @@ async function ensureGroupsSheets(){
   }catch(e){
     console.warn('ensureGroupsSheets:', e.message);
   }
+  // Mark done even on error — we'll get real errors on the actual read/write
+  _groupsSheetsEnsured = true;
 }
 
 async function loadGroups(){
@@ -250,16 +255,25 @@ function copyGroupInviteLink(groupId){
  * does NOT rely on local DATA.groups — the joiner may not have loaded it yet.
  */
 async function joinGroupByInvite(groupId, inviteCode, backendUrl){
-  // If a backend URL was provided (from the invite link), use it temporarily
+  // If a backend URL was provided (from the invite link), use it temporarily.
+  // We only apply it when the user has no backend configured yet, or when it
+  // matches the existing URL — never silently overwrite an existing URL.
   const origAdminUrl = CFG.adminUrl;
   const origScriptUrl = CFG.scriptUrl;
+  let urlChanged = false;
   if(backendUrl && backendUrl.includes('script.google.com')){
     if(CFG.sessionToken) CFG.adminUrl = backendUrl;
     else CFG.scriptUrl = backendUrl;
+    urlChanged = true;
   }
+  // Invalidate ensureGroupsSheets cache if we switched to a new backend
+  if(urlChanged) _groupsSheetsEnsured = false;
 
   let joinedOk = false;
   try{
+    // Ensure sheets exist on this backend before reading
+    await ensureGroupsSheets();
+
     const res = await groupsApiGet('Groups!A2:J200').catch(()=>({values:[]}));
     const rows = (res.values||[]).filter(r=>r[0]);
     const row = rows.find(r=>r[0]===groupId);
@@ -300,6 +314,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     if(!joinedOk){
       CFG.adminUrl  = origAdminUrl;
       CFG.scriptUrl = origScriptUrl;
+      _groupsSheetsEnsured = false;
     }
     cfgSave();
   }
