@@ -155,7 +155,7 @@ Object.assign(App.UI, {
   // Form helpers
   setType, fillDropdown, fillAllDropdowns, fillParentDropdown,
   selectColor, buildEmojiGrid, esc,
-  toggleRecurringFields, updateRecurToggleUI,
+  toggleRecurringFields, updateRecurToggleUI, toggleRecLohnField,
   toggleLohnField, updateLohnToggleUI,
   setAktienTradeType, updateAktienTotal,
   // Verlauf navigation

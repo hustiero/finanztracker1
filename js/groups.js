@@ -626,7 +626,7 @@ function calculateGroupBalances(groupId){
     .map(e=>({...e, authorName: me}));
 
   const foreignEntries = (DATA.groupEntries||[])
-    .filter(e=>e.groupId===groupId);
+    .filter(e=>e.groupId===groupId && !e.isMine);
 
   // Separate settlements (isSettlement flag in splitData)
   const settlements = foreignEntries.filter(
@@ -702,12 +702,12 @@ function confirmSettleUp(groupId, from, to, amount){
 
 // ── 14. Verlauf toggle for group entries ─────────────────────
 
-/** Toggle shadow entries visibility in Verlauf (global toggle). */
+/** Toggle group entries visibility in Verlauf (exclude/include all). */
 function toggleGroupEntriesVisible(){
-  CFG.showGroupEntries = !CFG.showGroupEntries;
+  CFG.excludeGroupsFromVerlauf = !CFG.excludeGroupsFromVerlauf;
   cfgSave();
   const btn = document.getElementById('verlauf-group-toggle');
-  if(btn) btn.classList.toggle('active', CFG.showGroupEntries);
+  if(btn) btn.classList.toggle('active', !CFG.excludeGroupsFromVerlauf);
   renderVerlauf();
 }
 

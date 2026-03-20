@@ -419,7 +419,7 @@ async function loadAll(){
     if(dauerRes.status==='fulfilled'){
       DATA.recurring = (dauerRes.value.values||[])
         .filter(r=>r[0])
-        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
+        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
     } else { if(!hadCache) DATA.recurring=[]; }
 
     // Sparziele
@@ -501,10 +501,13 @@ function setType(t){
   if(stdSec) stdSec.style.display = t==='aktien' ? 'none' : '';
   if(aktSec) aktSec.style.display = t==='aktien' ? '' : 'none';
   if(t==='aktien'){ renderAktienTradeForm(); return; }
-  // Show/hide recurring toggle only for Ausgabe
+  // Show recurring toggle for Ausgabe AND Einnahme (not Aktien)
   const recWrap = document.getElementById('f-recur-toggle-wrap');
-  if(recWrap) recWrap.style.display = t==='ausgabe'?'block':'none';
-  if(t!=='ausgabe' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  if(recWrap) recWrap.style.display = (t==='ausgabe'||t==='einnahme')?'block':'none';
+  if(t==='aktien' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  // Show/hide Lohn toggle in recurring section
+  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
+  if(recLohnWrap) recLohnWrap.style.display = (t==='einnahme'&&recurringMode)?'block':'none';
   // Show/hide Lohn toggle only for Einnahme
   const lohnWrap = document.getElementById('f-lohn-toggle-wrap');
   if(lohnWrap) lohnWrap.style.display = t==='einnahme'?'block':'none';
@@ -541,10 +544,18 @@ function updateRecurToggleUI(){
   if(sec) sec.style.display = recurringMode?'block':'none';
   if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
   if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';
+  // Show rec-lohn toggle when in einnahme recurring mode
+  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
+  if(recLohnWrap) recLohnWrap.style.display = (recurringMode && currentEntryType==='einnahme')?'block':'none';
+}
+
+function toggleRecLohnField(){
+  const sw = document.getElementById('f-rec-lohn-switch');
+  if(sw) sw.classList.toggle('on');
 }
 
 async function saveEntryOrRecurring(){
-  if(recurringMode && currentEntryType==='ausgabe'){
+  if(recurringMode && (currentEntryType==='ausgabe'||currentEntryType==='einnahme')){
     // Build recurring from shared form fields
     const what = document.getElementById('f-what').value.trim();
     const amt = parseFloat(document.getElementById('f-amt').value)||0;
@@ -555,24 +566,27 @@ async function saveEntryOrRecurring(){
     const endDate = document.getElementById('f-r-end')?.value||'';
     const affectsAvg = document.getElementById('f-r-affects-avg')?.checked||false;
     const note = document.getElementById('f-note').value.trim();
+    const type = currentEntryType;
+    const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
     if(!what){ toast('Bezeichnung erforderlich','err'); return; }
     const id = genId('D');
-    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg};
+    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
     DATA.recurring.push(rec);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
     // Reset form
     ['f-amt','f-what','f-note','f-r-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const cb=document.getElementById('f-r-affects-avg'); if(cb) cb.checked=false;
+    const rlSw=document.getElementById('f-rec-lohn-switch'); if(rlSw) rlSw.classList.remove('on');
     recurringMode=false; updateRecurToggleUI();
     toast('✓ Dauerauftrag gespeichert','ok');
     dataCacheSave();
-    markDirty('dauerauftraege','dashboard','home');
+    markDirty('dauerauftraege','dashboard','home','lohn');
   } else {
     saveEntry();
   }
@@ -796,14 +810,17 @@ async function saveRecurring(prefix='r'){
 
   if(!what){ toast('Bezeichnung erforderlich','err'); return; }
 
+  const type = document.getElementById(prefix+'-type')?.value||'ausgabe';
+  const isLohn = type==='einnahme' && (document.getElementById(prefix+'-lohn-switch')?.classList.contains('on')||false);
+
   const id = genId('D');
-  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg};
+  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
   DATA.recurring.push(rec);
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
@@ -813,7 +830,7 @@ async function saveRecurring(prefix='r'){
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
   toast('✓ Dauerauftrag hinzugefügt','ok');
   dataCacheSave();
-  markDirty('dauerauftraege','dashboard','home');
+  markDirty('dauerauftraege','dashboard','home','lohn');
 }
 
 function openRecModal(id){
@@ -837,15 +854,17 @@ async function updateRecurring(){
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
+  const type = DATA.recurring[idx].type||'ausgabe';
+  const isLohn = DATA.recurring[idx].isLohn||false;
   DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
   closeModal('rec-modal');
   dataCacheSave();
-  markDirty('dauerauftraege','dashboard','home');
+  markDirty('dauerauftraege','dashboard','home','lohn');
 
   if(!CFG.demo){
     try{
       const row = await apiFindRow('Daueraufträge', id);
-      if(row) await apiUpdate(`Daueraufträge!A${row}:K${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+      if(row) await apiUpdate(`Daueraufträge!A${row}:M${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
       setSyncStatus('online'); toast('✓ Aktualisiert','ok');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   } else toast('✓ Aktualisiert (Demo)','ok');

@@ -319,6 +319,13 @@
         <!-- Recurring extra fields (hidden by default) -->
         <div id="f-rec-section" style="display:none">
           <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+          <!-- Lohn toggle for Einnahme-Daueraufträge -->
+          <div id="f-rec-lohn-wrap" style="display:none;margin-bottom:12px">
+            <div class="lohn-toggle-row" onclick="toggleRecLohnField()">
+              <span class="lohn-toggle-label">Als Lohn/Gehalt markieren</span>
+              <div class="toggle-switch" id="f-rec-lohn-switch"></div>
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Intervall</label>
