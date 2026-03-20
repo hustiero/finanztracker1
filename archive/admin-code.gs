@@ -63,6 +63,38 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
+
+  // ─── Groups (Admin-Sheet) ──────────────────────────────────
+  // These actions read/write on ss (Admin-Sheet), NOT on user.sheetId.
+  // No admin role check needed — any authenticated user may use groups.
+  if (p.action === 'groupsGet') {
+    return { values: ss.getRange(p.range).getValues() };
+  }
+  if (p.action === 'groupsAppend') {
+    const sh = ss.getSheetByName(p.sheet);
+    if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+    const rows = JSON.parse(p.values);
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length)
+      .setValues(rows);
+    return { ok: true };
+  }
+  if (p.action === 'groupsUpdate') {
+    ss.getRange(p.range).setValues(JSON.parse(p.values));
+    return { ok: true };
+  }
+  if (p.action === 'groupsEnsureSheet') {
+    let sh = ss.getSheetByName(p.sheet);
+    if (!sh) {
+      sh = ss.insertSheet(p.sheet);
+      if (p.headers) {
+        const h = JSON.parse(p.headers);
+        sh.getRange(1, 1, 1, h.length).setValues([h]);
+        sh.setFrozenRows(1);
+      }
+    }
+    return { ok: true };
+  }
+
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);

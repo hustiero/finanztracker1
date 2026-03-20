@@ -419,7 +419,7 @@ async function loadAll(){
     if(dauerRes.status==='fulfilled'){
       DATA.recurring = (dauerRes.value.values||[])
         .filter(r=>r[0])
-        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1'}));
+        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
     } else { if(!hadCache) DATA.recurring=[]; }
 
     // Sparziele
@@ -434,6 +434,11 @@ async function loadAll(){
 
     // Groups — loaded from admin sheet via groups.js
     await loadGroups();
+
+    // GroupEntries — load shared entries (non-blocking)
+    loadGroupEntries().then(()=>{
+      if(DATA.groupEntries && DATA.groupEntries.length) markDirty('verlauf','groups');
+    }).catch(()=>{});
 
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
@@ -496,10 +501,13 @@ function setType(t){
   if(stdSec) stdSec.style.display = t==='aktien' ? 'none' : '';
   if(aktSec) aktSec.style.display = t==='aktien' ? '' : 'none';
   if(t==='aktien'){ renderAktienTradeForm(); return; }
-  // Show/hide recurring toggle only for Ausgabe
+  // Show recurring toggle for Ausgabe AND Einnahme (not Aktien)
   const recWrap = document.getElementById('f-recur-toggle-wrap');
-  if(recWrap) recWrap.style.display = t==='ausgabe'?'block':'none';
-  if(t!=='ausgabe' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  if(recWrap) recWrap.style.display = (t==='ausgabe'||t==='einnahme')?'block':'none';
+  if(t==='aktien' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
+  // Show/hide Lohn toggle in recurring section
+  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
+  if(recLohnWrap) recLohnWrap.style.display = (t==='einnahme'&&recurringMode)?'block':'none';
   // Show/hide Lohn toggle only for Einnahme
   const lohnWrap = document.getElementById('f-lohn-toggle-wrap');
   if(lohnWrap) lohnWrap.style.display = t==='einnahme'?'block':'none';
@@ -536,10 +544,18 @@ function updateRecurToggleUI(){
   if(sec) sec.style.display = recurringMode?'block':'none';
   if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
   if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';
+  // Show rec-lohn toggle when in einnahme recurring mode
+  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
+  if(recLohnWrap) recLohnWrap.style.display = (recurringMode && currentEntryType==='einnahme')?'block':'none';
+}
+
+function toggleRecLohnField(){
+  const sw = document.getElementById('f-rec-lohn-switch');
+  if(sw) sw.classList.toggle('on');
 }
 
 async function saveEntryOrRecurring(){
-  if(recurringMode && currentEntryType==='ausgabe'){
+  if(recurringMode && (currentEntryType==='ausgabe'||currentEntryType==='einnahme')){
     // Build recurring from shared form fields
     const what = document.getElementById('f-what').value.trim();
     const amt = parseFloat(document.getElementById('f-amt').value)||0;
@@ -550,24 +566,27 @@ async function saveEntryOrRecurring(){
     const endDate = document.getElementById('f-r-end')?.value||'';
     const affectsAvg = document.getElementById('f-r-affects-avg')?.checked||false;
     const note = document.getElementById('f-note').value.trim();
+    const type = currentEntryType;
+    const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
     if(!what){ toast('Bezeichnung erforderlich','err'); return; }
     const id = genId('D');
-    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg};
+    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
     DATA.recurring.push(rec);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
     // Reset form
     ['f-amt','f-what','f-note','f-r-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const cb=document.getElementById('f-r-affects-avg'); if(cb) cb.checked=false;
+    const rlSw=document.getElementById('f-rec-lohn-switch'); if(rlSw) rlSw.classList.remove('on');
     recurringMode=false; updateRecurToggleUI();
     toast('✓ Dauerauftrag gespeichert','ok');
     dataCacheSave();
-    markDirty('dauerauftraege','dashboard','home');
+    markDirty('dauerauftraege','dashboard','home','lohn');
   } else {
     saveEntry();
   }
@@ -593,17 +612,29 @@ async function saveEntry(){
     if(!splitData) return; // validation failed
   }
 
+  // Eigenen Anteil berechnen für lokale Speicherung
+  let myAmt = amt;
+  if(splitData && splitData.participants){
+    const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+    const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+    if(splitData.participants[myId] !== undefined){
+      myAmt = Math.round(splitData.participants[myId] * 100) / 100;
+    } else if(splitData.participants[myName] !== undefined){
+      myAmt = Math.round(splitData.participants[myName] * 100) / 100;
+    }
+  }
+
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
-    const entry = {id,date,what,cat,amt,note,recurringId:'',isFixkosten:false};
+    const entry = {id,date,what,cat,amt:myAmt,note,recurringId:'',isFixkosten:false};
     if(groupId) entry.groupId = groupId;
     if(splitData) entry.splitData = splitData;
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,amt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
+        await apiAppend('Ausgaben',[[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -633,8 +664,12 @@ async function saveEntry(){
 
   toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   dataCacheSave();
-  // Push notification to group members (non-blocking)
+  // Push notification to group members (non-blocking) — show full amount
   if(group) pushGroupNotification(group, {what,amt,date});
+  // Save to shared GroupEntries sheet (non-blocking) — use FULL amount (amt, not myAmt)
+  if(group && currentEntryType==='ausgabe'){
+    saveGroupEntry(group, {id,date,what,cat,amt,splitData});
+  }
   markDirty('verlauf','dashboard','home','lohn','groups');
 }
 
@@ -787,14 +822,17 @@ async function saveRecurring(prefix='r'){
 
   if(!what){ toast('Bezeichnung erforderlich','err'); return; }
 
+  const type = document.getElementById(prefix+'-type')?.value||'ausgabe';
+  const isLohn = type==='einnahme' && (document.getElementById(prefix+'-lohn-switch')?.classList.contains('on')||false);
+
   const id = genId('D');
-  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg};
+  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
   DATA.recurring.push(rec);
 
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
       setSyncStatus('online');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
@@ -804,7 +842,7 @@ async function saveRecurring(prefix='r'){
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
   toast('✓ Dauerauftrag hinzugefügt','ok');
   dataCacheSave();
-  markDirty('dauerauftraege','dashboard','home');
+  markDirty('dauerauftraege','dashboard','home','lohn');
 }
 
 function openRecModal(id){
@@ -828,15 +866,17 @@ async function updateRecurring(){
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
+  const type = DATA.recurring[idx].type||'ausgabe';
+  const isLohn = DATA.recurring[idx].isLohn||false;
   DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
   closeModal('rec-modal');
   dataCacheSave();
-  markDirty('dauerauftraege','dashboard','home');
+  markDirty('dauerauftraege','dashboard','home','lohn');
 
   if(!CFG.demo){
     try{
       const row = await apiFindRow('Daueraufträge', id);
-      if(row) await apiUpdate(`Daueraufträge!A${row}:K${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0']]);
+      if(row) await apiUpdate(`Daueraufträge!A${row}:M${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
       setSyncStatus('online'); toast('✓ Aktualisiert','ok');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   } else toast('✓ Aktualisiert (Demo)','ok');

@@ -431,22 +431,68 @@ function renderVerlaufEntryGroups(entries){
         <div class="card" style="margin:0 16px">
           ${items.map(e=>{
             const isRec    = e._type==='recurring';
+            const isShadow = e._type==='shadow';
+            const isGroup  = e._type==='groupEntry';
             const isFuture = isRec && e.date > today();
-            const onclick  = isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
+            const onclick  = isShadow
+              ? `onclick="openGroupEntryDetail('${e.id}')"`
+              : isGroup
+              ? `onclick="openGroupEntryDetail('${e.id}')"`
+              : isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
             const recLabel = isFuture
               ? `<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:3px">geplant</span>`
               : `<span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`;
+            // Shadow entry: shows group name, paid-by, and share amount
+            if(isShadow){
+              return `
+              <div class="card-row shadow-entry" ${onclick}>
+                <div class="card-row-icon shadow-icon" style="background:${catColor(e.cat)}15">
+                  <span>${catEmoji(e.cat)}</span>
+                </div>
+                <div class="card-row-body">
+                  <div class="card-row-title shadow-title">${esc(e.what)}</div>
+                  <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':''}${esc(e.cat)}</div>
+                  <div class="shadow-meta">
+                    <span class="shadow-group-chip">${esc(e.groupName)}</span>
+                    <span class="shadow-paidby">bezahlt von ${esc(e.paidBy)}</span>
+                  </div>
+                </div>
+                <div class="card-row-amount shadow-amount">
+                  <div>− ${fmtAmt(e.amt)}</div>
+                  <div class="shadow-full">von ${fmtAmt(e.fullAmt)}</div>
+                </div>
+              </div>`;
+            }
+            // Gruppen-Meta für eigene Split-Buchungen (unterhalb card-row-sub)
+            const splitTotal = e._fullAmt || (e.splitData && e.splitData.totalAmount) || 0;
+            const hasSplitInfo = e.groupId && e.splitData && splitTotal && splitTotal !== e.amt;
+            const isSplitOwn = !!e._isSplit || !!hasSplitInfo;
+            const groupLabel = isGroup
+              ? `<span class="group-entry-author">👤 ${esc(e.authorName)} · ${esc(groupName(e.groupId))}</span>`
+              : '';
+            const groupMeta = hasSplitInfo
+              ? `<div class="shadow-meta" style="margin-top:2px">
+                   <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
+                   <span class="shadow-full" style="font-size:10px;color:var(--text3)">von ${curr()} ${fmtAmt(splitTotal)}</span>
+                 </div>`
+              : e.groupId && !isGroup
+              ? `<div class="shadow-meta" style="margin-top:2px">
+                   <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
+                 </div>`
+              : '';
             return `
-            <div class="card-row" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
+            <div class="card-row${isGroup?' group-foreign-entry':''}${isSplitOwn?' split-own-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
               <div class="card-row-icon" style="background:${catColor(e.cat)}22">
                 <span>${isRec?'↻':catEmoji(e.cat)}</span>
               </div>
               <div class="card-row-body">
                 <div class="card-row-title">${esc(e.what)}${isRec?' '+recLabel:''}</div>
                 <div class="card-row-sub">${parentOf(e.cat)?esc(parentOf(e.cat))+' › ':'' }${esc(e.cat)}${e.note?' · '+esc(e.note):''}</div>
+                ${groupLabel}
+                ${groupMeta}
               </div>
-              <div class="card-row-amount">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
-              ${isRec?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
+              <div class="card-row-amount${isGroup?' foreign':''}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
+              ${isRec||isGroup?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
             </div>`;
           }).join('')}
         </div>
@@ -463,18 +509,61 @@ function renderVerlaufL1(){
   const container = document.getElementById('verlauf-l1-content');
   if(!container) return;
   const {von, bis} = verlaufGetRange();
-  // Use the filter's upper bound (not just today) so upcoming Daueraufträge within
-  // the selected time window appear as scheduled "geplant" entries.
   const recurStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
   const recurEnd   = bis || today();
+  // Eigene Gruppenbuchungen: Betrag auf persönlichen Anteil reduzieren
+  const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+  const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'Ich');
+
+  const plainExpenses = DATA.expenses
+    .filter(e => !e.groupId)
+    .map(e => ({...e, _type:'ausgabe'}));
+
+  const myGroupExpenses = DATA.expenses
+    .filter(e => e.groupId && e.splitData?.participants)
+    .map(e => {
+      const parts = e.splitData.participants;
+      const myShare = parts[myId]!==undefined ? parts[myId] : (parts[myName]!==undefined ? parts[myName] : undefined);
+      const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
+      const fullAmt = e.splitData.totalAmount || e.amt;
+      return {
+        ...e,
+        amt,
+        _fullAmt: fullAmt,
+        _isSplit: amt !== fullAmt,
+        _type: 'ausgabe'
+      };
+    });
+
+  const groupExpensesNoSplit = DATA.expenses
+    .filter(e => e.groupId && !e.splitData?.participants)
+    .map(e => ({...e, _type:'ausgabe'}));
+
   let entries = [
-    ...DATA.expenses.map(e=>({...e,_type:'ausgabe'})),
+    ...plainExpenses,
+    ...myGroupExpenses,
+    ...groupExpensesNoSplit,
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
+
+  // Shadow entries (fremde Gruppenbuchungen, dein Anteil)
+  if(CFG.showGroupEntries){
+    const shadows = getGroupShadowEntries();
+    entries = [...entries, ...shadows];
+  }
+
+  // Gruppen ausblenden wenn Toggle aktiv
+  if(CFG.excludeGroupsFromVerlauf){
+    entries = entries.filter(e=>!e.groupId);
+  }
+
   entries = verlaufFilterEntries(entries);
   entries = sucheTransaktionen(verlaufSearch, entries);
   entries.sort((a,b)=>b.date.localeCompare(a.date));
+  // Update group toggle button state
+  const gtBtn = document.getElementById('verlauf-group-toggle');
+  if(gtBtn) gtBtn.classList.toggle('active', !!CFG.showGroupEntries);
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
   container.innerHTML = renderVerlaufEntryGroups(entries);
 }
@@ -1209,7 +1298,7 @@ function renderWidgetLohnzyklus(){
   return `<div>
     <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
+      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${z.varRemaining<0?'− ':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
       <span class="t-muted-sm">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
     </div>
     <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
@@ -1219,7 +1308,9 @@ function renderWidgetLohnzyklus(){
       <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
       <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varBudget)}</span></span>
     </div>
-    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: <span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.dailyRate)}/Tag</span> (${z.daysLeft} Tage verbleibend)</div>`:''}
+    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: ${z.daysLeft>0&&z.varRemaining>0
+      ?`<span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varRemaining/z.daysLeft)}/Tag</span> (${z.daysLeft} Tage verbleibend)`
+      :`<span style="color:var(--red);font-weight:600">Budget aufgebraucht</span>`}</div>`:''}
   </div>`;
 }
 
@@ -1361,7 +1452,16 @@ function renderWidgetHeuteAusgaben(){
   const dInc = DATA.incomes.filter(e=>e.date===t);
   const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
   // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
-  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>{
+    if(e.groupId && e.splitData && e.splitData.participants){
+      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+      const parts = e.splitData.participants;
+      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
+      return s + (myShare !== undefined ? myShare : e.amt);
+    }
+    return s + e.amt;
+  },0);
   const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
 
   // Tagesbudget from Zyklus — compare against variable spending only
@@ -1380,11 +1480,12 @@ function renderWidgetHeuteAusgaben(){
 
   if(dailyBudget!==null){
     const remaining = dailyBudget - todayVar;
+    const remainingDisplay = remaining >= 0
+      ? `noch <span class="t-mono">${curr()} ${fmtAmt(remaining)}</span>`
+      : `− <span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span> überzogen`;
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
       <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
-      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">
-        ${remaining>=0?'noch ':'überzogen '}<span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span>
-      </span>
+      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">${remainingDisplay}</span>
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
 

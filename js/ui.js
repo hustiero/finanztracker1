@@ -4,6 +4,7 @@
 let currentTab = 'home';
 
 function goTab(tab){
+  if(tab==='admin' && CFG.authRole!=='admin') return;
   // Home button while in edit mode → exit edit mode instead of re-navigating
   if(tab === 'home' && currentTab === 'home' && homeEditMode){
     homeEditMode = false;
@@ -44,7 +45,7 @@ function goTab(tab){
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dauerauftraege:'Daueraufträge', dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
-    groups:'Gruppen', einstellungen:'Einstellungen', admin:'Admin'
+    groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
   if(tab==='home') renderHome();
@@ -1032,7 +1033,9 @@ let currentGroupId = null;
 function renderGroups(){
   const grid = document.getElementById('groups-grid');
   if(!grid) return;
-  let groups = DATA.groups.filter(g=>g.status!=='deleted');
+  const myId = _myGroupId();
+  const myNm = _myGroupName();
+  let groups = DATA.groups.filter(g=>g.status!=='deleted' && (g.members.includes(myId) || g.members.includes(myNm)));
 
   if(groupFilter==='archived') groups = groups.filter(g=>g.status==='archived');
   else if(groupFilter==='all') groups = groups.filter(g=>g.status==='active');
@@ -1051,8 +1054,9 @@ function renderGroups(){
 
     if(g.type==='split'){
       const balances = calcSplitBalances(g.id);
-      const me = CFG.userName||'Ich';
-      const myBal = balances[me]||0;
+      const _myId = _myGroupId();
+      const _myNm = _myGroupName();
+      const myBal = balances[_myId]||balances[_myNm]||0;
       const balClass = myBal>0.01?'grp-bal-pos':myBal<-0.01?'grp-bal-neg':'grp-bal-zero';
       const balText = myBal>0.01?'Du bekommst '+fmtAmt(myBal):myBal<-0.01?'Du schuldest '+fmtAmt(Math.abs(myBal)):'Ausgeglichen';
       return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${g.id}')">
@@ -1136,6 +1140,19 @@ function _renderEventDetail(g, el){
     </div>`;
   }
 
+  // Verlauf integration toggle
+  const gvOn = !!(CFG.groupVerlauf||{})[g.id];
+  html += `<div class="grp-verlauf-toggle-row">
+    <div class="grp-verlauf-toggle-info">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div>
+        <div style="font-size:13px;font-weight:600">Im Verlauf anzeigen</div>
+        <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
+      </div>
+    </div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+  </div>`;
+
   // Top categories
   if(topCats.length){
     html += '<div class="grp-section-title">Top Kategorien</div><div class="grp-top-cats">';
@@ -1151,16 +1168,41 @@ function _renderEventDetail(g, el){
     html += '</div>';
   }
 
-  // Transactions
+  // Transactions (own + foreign) — with delete button for own entries
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+  const allTx = [
+    ...expenses.map(e=>({...e, _author:'', _isOwn:true, _source:'local'})),
+    ...foreignEntries.map(e=>({...e, _author:e.authorName, _isOwn:false, _source:'group'}))
+  ].sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Also include own entries from groupEntries (for entries saved to group tab)
+  const ownGroupEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+  const localIds = new Set(expenses.map(e=>e.id));
+  ownGroupEntries.forEach(e=>{
+    if(!localIds.has(e.id)){
+      allTx.push({...e, _author:'', _isOwn:true, _source:'group'});
+    }
+  });
+  allTx.sort((a,b)=>b.date.localeCompare(a.date));
+
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
-  if(!expenses.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
-  expenses.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
-    html += `<div class="grp-tx-row">
+  if(!allTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
+  allTx.forEach(e=>{
+    const authorTag = e._author ? ` · ${esc(e._author)}` : '';
+    const canDelete = e._isOwn || isAdmin;
+    const isSettlement = e.splitData && e.splitData.isSettlement;
+    const editedTag = e.editedAt ? ' · bearbeitet' : '';
+    html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}${authorTag}${editedTag}</div>
       </div>
-      <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+      </div>
     </div>`;
   });
   html += '</div>';
@@ -1209,6 +1251,19 @@ function _renderSplitDetail(g, el){
     </div>`;
   }
 
+  // Verlauf integration toggle
+  const gvOn = !!(CFG.groupVerlauf||{})[g.id];
+  html += `<div class="grp-verlauf-toggle-row">
+    <div class="grp-verlauf-toggle-info">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div>
+        <div style="font-size:13px;font-weight:600">Im Verlauf anzeigen</div>
+        <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
+      </div>
+    </div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+  </div>`;
+
   // Members section with admin controls
   html += '<div class="grp-section-title">Mitglieder</div><div class="grp-members-list">';
   g.members.forEach(m=>{
@@ -1232,34 +1287,66 @@ function _renderSplitDetail(g, el){
   }
   html += '</div>';
 
-  // Settlements
-  if(settlements.length && g.status==='active'){
-    html += '<div class="grp-section-title">Ausgleich</div><div class="grp-settlements">';
-    settlements.forEach(s=>{
-      html += `<div class="grp-settle-row">
-        <div class="grp-settle-info">
-          <strong>${esc(s.from)}</strong> zahlt <strong>${fmtAmt(s.amount)}</strong> an <strong>${esc(s.to)}</strong>
+  // Settlements — using calculateGroupBalances for combined local+foreign entries
+  const debts = calculateGroupBalances(g.id);
+  const splitMyId = _myGroupId();
+  const splitMyName = _myGroupName();
+  if(debts.length && g.status==='active'){
+    html += '<div class="grp-section-title">Abrechnung</div><div class="grp-settlements">';
+    debts.forEach(debt=>{
+      const isMe = debt.from===splitMyId || debt.from===splitMyName;
+      html += `<div class="debt-row${isMe?' debt-mine':''}">
+        <div class="debt-info">
+          <span class="debt-from">${esc(debt.from)}</span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span class="debt-to">${esc(debt.to)}</span>
         </div>
-        <button class="grp-settle-btn" onclick="settleUp('${g.id}','${esc(s.from)}','${esc(s.to)}',${s.amount})">Buchen</button>
+        <div class="debt-right">
+          <span class="debt-amt">${curr()} ${fmtAmt(debt.amount)}</span>
+          ${isMe?`<button class="btn-settle" onclick="confirmSettleUp('${g.id}','${esc(debt.from)}','${esc(debt.to)}',${debt.amount})">Begleichen</button>`:''}
+        </div>
       </div>`;
     });
     html += '</div>';
-  } else if(!settlements.length && Object.keys(balances).length){
-    html += '<div class="grp-section-title">Ausgleich</div><div class="t-muted" style="padding:8px 0">Alle Schulden sind ausgeglichen!</div>';
+  } else if(!debts.length && Object.keys(balances).length){
+    html += '<div class="grp-section-title">Abrechnung</div><div style="padding:8px 16px;font-size:13px;color:var(--green);font-weight:600">Alles beglichen</div>';
   }
 
-  // Transactions
+  // Transactions (own + foreign) — with delete button for own entries
+  const foreignTx = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+  const allSplitTx = [
+    ...expenses.map(e=>({...e, _author:'', _isOwn:true, _source:'local'})),
+    ...foreignTx.map(e=>({...e, _author:e.authorName, _isOwn:false, _source:'group'}))
+  ];
+
+  // Include own entries from groupEntries that aren't in local expenses
+  const ownGE = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+  const localExpIds = new Set(expenses.map(e=>e.id));
+  ownGE.forEach(e=>{
+    if(!localExpIds.has(e.id)){
+      allSplitTx.push({...e, _author:'', _isOwn:true, _source:'group'});
+    }
+  });
+  allSplitTx.sort((a,b)=>b.date.localeCompare(a.date));
+
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
-  if(!expenses.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
-  expenses.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
+  if(!allSplitTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
+  allSplitTx.forEach(e=>{
     const sd = e.splitData;
     const payer = sd ? (typeof sd==='string'?JSON.parse(sd):sd).payerId : '';
-    html += `<div class="grp-tx-row">
+    const authorTag = e._author ? ` · ${esc(e._author)}` : '';
+    const canDelete = e._isOwn || isAdmin;
+    const isSettlement = sd && sd.isSettlement;
+    const editedTag = e.editedAt ? ' · bearbeitet' : '';
+    html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}${authorTag}${editedTag}</div>
       </div>
-      <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+      </div>
     </div>`;
   });
   html += '</div>';
@@ -1283,7 +1370,7 @@ function openNewGroupModal(){
     </div>
     <div id="grp-members-wrap">
       <label class="form-label">Teilnehmer <span class="t-text3">(kommagetrennt)</span></label>
-      <input id="grp-members" class="form-input" type="text" placeholder="${esc(CFG.userName||'Ich')}, Max, Anna" value="${esc(CFG.userName||'Ich')}">
+      <input id="grp-members" class="form-input" type="text" placeholder="${esc(_myGroupId()||'Ich')}, Max, Anna" value="${esc(_myGroupId()||'Ich')}">
     </div>
     <div class="form-group">
       <label class="form-label">Währung</label>
@@ -1306,7 +1393,7 @@ async function confirmNewGroup(){
   const currency = document.getElementById('grp-currency')?.value.trim()||CFG.currency||'CHF';
   if(!name){ toast('Name erforderlich','err'); return; }
   const members = type==='event'
-    ? [CFG.userName||'Ich']
+    ? [_myGroupId()||'Ich']
     : membersRaw.split(',').map(s=>s.trim()).filter(Boolean);
   if(type==='split' && members.length<2){ toast('Mind. 2 Teilnehmer für Split','err'); return; }
   const group = await saveGroup(name, type, members, currency);
@@ -1320,7 +1407,9 @@ async function confirmNewGroup(){
 function fillGroupDropdown(){
   const sel = document.getElementById('f-group');
   if(!sel) return;
-  const activeGroups = DATA.groups.filter(g=>g.status==='active');
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const activeGroups = DATA.groups.filter(g=>g.status==='active' && (g.members.includes(myId) || g.members.includes(myName)));
   sel.innerHTML = '<option value="">— Keine Gruppe —</option>' +
     activeGroups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.type==='split'?'Split':'Event'})</option>`).join('');
 }
@@ -1334,7 +1423,8 @@ function onGroupSelect(groupId){
     sec.style.display='';
     // Fill payer dropdown
     const payerSel = document.getElementById('f-split-payer');
-    if(payerSel) payerSel.innerHTML = group.members.map(m=>`<option value="${esc(m)}"${m===(CFG.userName||'Ich')?' selected':''}>${esc(m)}</option>`).join('');
+    const myPayerId = _myGroupId();
+    if(payerSel) payerSel.innerHTML = group.members.map(m=>`<option value="${esc(m)}"${m===myPayerId?' selected':''}>${esc(m)}</option>`).join('');
     document.getElementById('f-split-mode').value='equal';
     _renderSplitShares(group);
   } else {
@@ -1406,8 +1496,7 @@ async function renderAdmin(){
   const invEl = document.getElementById('admin-invite-link');
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
-  // Load admin groups panel
-  if(typeof renderAdminGroupsPanel === 'function') renderAdminGroupsPanel();
+  // Admin groups panel is now lazy-loaded via toggleAdminGroupsPanel()
 }
 
 // ─── User Management Overlay ─────────────────────────────────
@@ -1834,6 +1923,12 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
+  // Groups — operate on ADMIN sheet (shared across users)
+  if (p.action === 'groupsGet')         return _groupsGet(ss, p);
+  if (p.action === 'groupsAppend')      return _groupsAppend(ss, p);
+  if (p.action === 'groupsUpdate')      return _groupsUpdate(ss, p);
+  if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(ss, p);
+  if (p.action === 'groupsFindRow')     return _groupsFindRow(ss, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);
@@ -1953,6 +2048,95 @@ function _proxySetFormulas(sheetId, p) {
   return { ok: true };
 }
 
+// ── Groups: operate on ADMIN sheet (shared data) ──────────
+// Convert column letter to number: A=1, B=2, ..., Z=26, AA=27
+function _colToNum(col) {
+  var n = 0;
+  for (var i = 0; i < col.length; i++) n = n * 26 + col.charCodeAt(i) - 64;
+  return n;
+}
+
+// Groups/Notifications/GE_* tabs live in the admin spreadsheet so
+// all members can read/write them regardless of their own user sheet.
+
+function _groupsGet(ss, p) {
+  try {
+    // p.range = 'SheetName!A2:L5000'
+    var parts = p.range.split('!');
+    var sheetName = parts[0];
+    var rangePart = parts[1] || 'A:Z';
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return { values: [] };
+    var lastRow = sh.getLastRow();
+    if (lastRow < 1) return { values: [] };
+    // Parse range: A2:L5000 or A:A or A:L
+    var match = rangePart.match(/([A-Z]+)(\\d+):([A-Z]+)(\\d+)/);
+    if (match) {
+      var startRow = parseInt(match[2]);
+      var endRow = Math.min(parseInt(match[4]), lastRow);
+      if (startRow > endRow) return { values: [] };
+      return { values: sh.getRange(match[1] + startRow + ':' + match[3] + endRow).getValues() };
+    }
+    // Column-only ranges (A:A, A:L)
+    var colMatch = rangePart.match(/^([A-Z]+):([A-Z]+)$/);
+    if (colMatch) {
+      var c1 = _colToNum(colMatch[1]);
+      var c2 = _colToNum(colMatch[2]);
+      var numCols = c2 - c1 + 1;
+      return { values: sh.getRange(1, c1, lastRow, numCols).getValues() };
+    }
+    // Fallback: full data
+    return { values: sh.getRange(1, 1, lastRow, sh.getLastColumn()).getValues() };
+  } catch(e) {
+    return { values: [], _note: e.toString() };
+  }
+}
+
+function _groupsAppend(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+  var rows = JSON.parse(p.values);
+  var lastRow = sh.getLastRow();
+  var startRow = lastRow < 1 ? 1 : lastRow + 1;
+  sh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+  return { ok: true };
+}
+
+function _groupsUpdate(ss, p) {
+  // p.range = 'SheetName!K5' or 'SheetName!A5:L5'
+  var parts = p.range.split('!');
+  var sheetName = parts[0];
+  var rangePart = parts[1];
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + sheetName };
+  sh.getRange(rangePart).setValues(JSON.parse(p.values));
+  return { ok: true };
+}
+
+function _groupsEnsureSheet(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) {
+    sh = ss.insertSheet(p.sheet);
+    if (p.headers) {
+      var h = JSON.parse(p.headers);
+      sh.getRange(1, 1, 1, h.length).setValues([h]);
+    }
+  }
+  return { ok: true };
+}
+
+function _groupsFindRow(ss, p) {
+  var sh = ss.getSheetByName(p.sheet);
+  if (!sh) return { row: null };
+  var lastRow = sh.getLastRow();
+  if (lastRow < 1) return { row: null };
+  var data = sh.getRange(1, 1, lastRow, 1).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]) === String(p.id)) return { row: i + 1 };
+  }
+  return { row: null };
+}
+
 function _adminList(ss) {
   const rows = ss.getSheetByName('Users').getDataRange().getValues();
   const users = [];
@@ -1981,8 +2165,8 @@ function _adminResetPw(ss, p) {
 
 function _initUserSheet(ss) {
   const def = ss.getSheets()[0]; def.setName('Ausgaben');
-  _hdr(def, ['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isFixkosten']);
-  [['Einnahmen',['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isLohn']],
+  _hdr(def, ['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isFixkosten','GroupID','SplitData']);
+  [['Einnahmen',['ID','Datum','Beschreibung','Kategorie','Betrag','Notiz','Deleted','isLohn','GroupID']],
    ['Daueraufträge',['ID','Was','Kategorie','Betrag','Intervall','Tag','Kommentar','Aktiv','nextDate','startDate','endDate','lastBooked']],
    ['Kategorien',['ID','Name','Typ','Farbe','Sortierung']],
    ['Einstellungen',['Schlüssel','Wert']],
@@ -2024,7 +2208,8 @@ function copyAdminCodeGs() {
 // ═══════════════════════════════════════════════════════════════
 const NAV_LABELS = {
   dashboard:'Jahresüb.', verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
-  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.'
+  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.',
+  groups:'Gruppen', sparen:'Sparen'
 };
 
 function renderNav(){

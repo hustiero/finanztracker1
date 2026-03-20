@@ -57,6 +57,7 @@ const DATA = {
   categories: [], // {id,name,type,color,sort,parent}
   sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
   groups: [],     // {id,name,type('event'|'split'),members[],currency,status,created,adminId,inviteCode,sharedSheetUrl}
+  groupEntries: [], // {id,groupId,authorName,date,what,cat,amt,currency,splitData,isMine,_type:'groupEntry'}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
@@ -278,12 +279,21 @@ function getZyklusInfo(){
   const lt = CFG.lohnTag||25;
   // Salary: incomes marked as Lohn, OR (backward compat) incomes in first 3 days of cycle without isLohn flag
   const win3 = dateStr(new Date(start.getTime()+2*86400000));
-  const lohn = DATA.incomes.filter(e=>{
+  let lohn = DATA.incomes.filter(e=>{
     if(e.date<startStr||e.date>endStr) return false;
     if(e.isLohn===true) return true;
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
   }).reduce((s,e)=>s+e.amt,0);
+  // Fallback: virtuellen Lohn aus Einnahmen-Dauerauftrag holen
+  if(lohn===0){
+    const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
+    if(lohnRec){
+      const recOcc = getRecurringOccurrences(startStr, endStr, false, false)
+        .filter(e=>e._recurId===lohnRec.id);
+      if(recOcc.length) lohn = lohnRec.amt;
+    }
+  }
   // Fixed costs: use the FULL cycle range (capToToday=false) so a Dauerauftrag added on
   // the 16th for the 26th immediately reduces the daily rate — the user doesn't have to
   // wait until the payment date for the budget to reflect it.
@@ -301,12 +311,16 @@ function getZyklusInfo(){
     : new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,lt);
   const prevStartStr=dateStr(prevStart), prevEndStr=dateStr(prevEnd);
   const prevWin3=dateStr(new Date(prevStart.getTime()+2*86400000));
-  const prevLohn=DATA.incomes.filter(e=>{
+  let prevLohn=DATA.incomes.filter(e=>{
     if(e.date<prevStartStr||e.date>prevEndStr) return false;
     if(e.isLohn===true) return true;
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
     return false;
   }).reduce((s,e)=>s+e.amt,0);
+  if(prevLohn===0){
+    const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
+    if(lohnRec) prevLohn = lohnRec.amt;
+  }
   const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr, true, true);
   const prevFixKosten = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&isFixkostenEntry(e)),...prevRecur.filter(e=>isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
   const prevVarSpent  = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&!isFixkostenEntry(e)),...prevRecur.filter(e=>!isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
@@ -322,7 +336,16 @@ function getZyklusInfo(){
   const varSpent = [
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
     ...recurInCycleToday.filter(e=>!isFixkostenEntry(e))
-  ].reduce((s,e)=>s+e.amt,0);
+  ].reduce((s,e)=>{
+    if(e.groupId && e.splitData && e.splitData.participants){
+      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
+      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
+      const parts = e.splitData.participants;
+      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
+      return s + (myShare !== undefined ? myShare : e.amt);
+    }
+    return s + e.amt;
+  },0);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
   return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0,prevCarryover,mSparziel};
@@ -442,7 +465,7 @@ function calcSplitBalances(groupId){
   for(const e of expenses){
     if(!e.splitData) continue;
     const sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData;
-    const payer = sd.payerId || CFG.userName;
+    const payer = sd.payerId || (typeof _myGroupId==='function' ? _myGroupId() : CFG.authUser||CFG.userName);
     const total = sd.totalAmount || e.amt;
     // Payer paid the full amount
     if(balances[payer]===undefined) balances[payer]=0;
@@ -491,8 +514,11 @@ function getOwnShare(expense){
   if(!expense.splitData) return expense.amt;
   const sd = typeof expense.splitData==='string' ? JSON.parse(expense.splitData) : expense.splitData;
   const parts = sd.participants||{};
-  const me = CFG.userName||'';
-  return parts[me]!==undefined ? parts[me] : expense.amt;
+  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
+  const myName = CFG.userName||'';
+  if(parts[myId]!==undefined) return parts[myId];
+  if(parts[myName]!==undefined) return parts[myName];
+  return expense.amt;
 }
 
 // Top categories within a group
@@ -507,4 +533,6 @@ function getGroupTopCategories(groupId, limit=5){
     .slice(0, limit)
     .map(([name,total])=>({name,total}));
 }
+
+// getGroupShadowEntries() is defined in groups.js (needs _myGroupName())
 

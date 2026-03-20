@@ -319,6 +319,13 @@
         <!-- Recurring extra fields (hidden by default) -->
         <div id="f-rec-section" style="display:none">
           <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+          <!-- Lohn toggle for Einnahme-Daueraufträge -->
+          <div id="f-rec-lohn-wrap" style="display:none;margin-bottom:12px">
+            <div class="lohn-toggle-row" onclick="toggleRecLohnField()">
+              <span class="lohn-toggle-label">Als Lohn/Gehalt markieren</span>
+              <div class="toggle-switch" id="f-rec-lohn-switch"></div>
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Intervall</label>
@@ -404,10 +411,15 @@
       <!-- Verlauf-Header: Type-Switch → Search → Zeitraum -->
       <div style="padding:12px 16px 0">
         <!-- L1+L2: Typ-Switch Alle / Ausgaben / Einnahmen -->
-        <div id="verlauf-type-bar" class="type-toggle mb-10">
-          <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
-          <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
-          <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+        <div id="verlauf-type-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div class="type-toggle" style="flex:1">
+            <button class="type-btn active" id="v-btn-alle" onclick="verlaufSetType('alle')">Alle</button>
+            <button class="type-btn" id="v-btn-ausgaben" onclick="verlaufSetType('ausgaben')">Ausgaben</button>
+            <button class="type-btn" id="v-btn-einnahmen" onclick="verlaufSetType('einnahmen')">Einnahmen</button>
+          </div>
+          <button id="verlauf-group-toggle" class="verlauf-grp-toggle" onclick="toggleGroupEntriesVisible()" title="Gruppen-Einträge anzeigen">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </button>
         </div>
         <!-- L3: Zurück-Button + Kategoriename + Suche-Icon -->
         <div id="verlauf-l3-bar" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
@@ -669,7 +681,7 @@
     <div id="tab-groups" class="tab-page" style="display:none">
       <div id="groups-main">
         <!-- Filter bar -->
-        <div style="padding:0 16px 8px;display:flex;gap:8px;align-items:center">
+        <div style="padding:16px 16px 8px;display:flex;gap:8px;align-items:center">
           <button class="grp-filter-btn active" data-filter="all" onclick="setGroupFilter('all')">Alle</button>
           <button class="grp-filter-btn" data-filter="event" onclick="setGroupFilter('event')">Events</button>
           <button class="grp-filter-btn" data-filter="split" onclick="setGroupFilter('split')">Split</button>
@@ -778,9 +790,30 @@
         </div>
       </div>
       <div class="section pt-0" id="admin-groups-section">
-        <div class="section-title">Gruppen-Verwaltung</div>
-        <div id="admin-groups-list">
-          <div class="t-muted" style="text-align:center;padding:16px 0">Gruppen werden beim Öffnen geladen.</div>
+        <!-- Gruppenverwaltung — collapsed by default -->
+        <div class="admin-section-row" onclick="toggleAdminGroupsPanel()" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;cursor:pointer">
+          <div>
+            <div class="section-title" style="margin-bottom:2px">Gruppenverwaltung</div>
+            <div style="font-size:12px;color:var(--text3)" id="admin-groups-count-label">Split- und Event-Gruppen verwalten</div>
+          </div>
+          <svg id="admin-groups-chevron" viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:2;transition:transform .2s"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <!-- Expandierbarer Bereich -->
+        <div id="admin-groups-panel" style="display:none">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <input id="admin-groups-search" type="search" placeholder="Gruppe suchen…"
+              oninput="filterAdminGroups()"
+              style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px"/>
+            <select id="admin-groups-filter" onchange="filterAdminGroups()"
+              style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:12px">
+              <option value="all">Alle</option>
+              <option value="active">Aktiv</option>
+              <option value="archived">Archiviert</option>
+            </select>
+          </div>
+          <div id="admin-groups-list">
+            <div class="t-muted" style="text-align:center;padding:12px">Klicke auf «Gruppenverwaltung» um zu laden.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1003,6 +1036,29 @@
               </div>
               <input id="text-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateTextGlow(+this.value)">
               <div style="font-size:11px;color:var(--text3);margin-top:4px">Regelt den Leuchteffekt hinter Titeln und Dashboard-Werten</div>
+            </div>
+            <!-- Farben & Elemente -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Farben &amp; Elemente</div>
+              <!-- Button text color -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Button-Text</span>
+                <span id="dv-btn-text-label" style="font-size:10px;color:var(--text3);flex:1">Auto-Kontrast</span>
+                <input id="dv-btn-text-picker" type="color" value="#000000" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setBtnTextColor(this.value)">
+                <button onclick="resetBtnTextColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Auto</button>
+              </div>
+              <!-- Card background -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Karten-Hintergrund</span>
+                <input id="dv-card-bg-picker" type="color" value="#1C1C21" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent;margin-left:auto" onchange="setCardBgColor(this.value)">
+                <button onclick="resetCardBgColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
+              <!-- Panel background -->
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Panel-Hintergrund</span>
+                <input id="dv-panel-bg-picker" type="color" value="#1C1C21" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent;margin-left:auto" onchange="setPanelBgColor(this.value)">
+                <button onclick="resetPanelBgColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
             </div>
           </div>
           <div class="card" style="padding:14px">

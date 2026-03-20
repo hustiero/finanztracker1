@@ -75,7 +75,10 @@ Object.assign(App.IO, {
   joinGroupByInvite, removeGroupMember, regenerateInviteCode,
   loadGroups, isGroupAdmin, generateInviteLink,
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
-  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup, toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
+  loadGroupEntries, saveGroupEntry, deleteGroupEntry, updateGroupEntry, calculateGroupBalances,
+  confirmSettleUp, groupName, toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, getGroupShadowEntries,
+  _myGroupId, _myGroupName,
   // Groups API layer
   groupsApiCall, groupsApiGet, groupsApiAppend, groupsApiUpdate, groupsApiFindRow,
   // Sparziele CRUD
@@ -131,6 +134,9 @@ Object.assign(App.UI, {
   fillGroupDropdown, onGroupSelect, onSplitModeChange,
   exportGroupReport, copyGroupInviteLink, generateInviteLink,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
+  toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
+  toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, confirmSettleUp,
+  deleteGroupEntry, updateGroupEntry,
   // Charts
   buildBarChart, buildBalanceChart,
   buildPortfolioPieChart, buildPreisVergleichChart, buildPortfolioVerlauf,
@@ -152,7 +158,7 @@ Object.assign(App.UI, {
   // Form helpers
   setType, fillDropdown, fillAllDropdowns, fillParentDropdown,
   selectColor, buildEmojiGrid, esc,
-  toggleRecurringFields, updateRecurToggleUI,
+  toggleRecurringFields, updateRecurToggleUI, toggleRecLohnField,
   toggleLohnField, updateLohnToggleUI,
   setAktienTradeType, updateAktienTotal,
   // Verlauf navigation
@@ -195,6 +201,10 @@ Object.assign(App.Design, {
   applyDesignPackage, renderDesignPackages, migrateOldDesignToPkg,
   applyAccentColor, setAccentColor, resetAccentColor, renderAccentColorUI,
   applyTextGlow, updateTextGlow,
+  applyDesignVars, renderDesignVarsUI,
+  setBtnTextColor, resetBtnTextColor,
+  setCardBgColor, resetCardBgColor,
+  setPanelBgColor, resetPanelBgColor,
 });
 
 // ── Render scheduler map (Step 8) ─────────────────────────────
