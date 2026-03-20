@@ -2208,7 +2208,8 @@ function copyAdminCodeGs() {
 // ═══════════════════════════════════════════════════════════════
 const NAV_LABELS = {
   dashboard:'Jahresüb.', verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
-  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.'
+  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.',
+  groups:'Gruppen', sparen:'Sparen'
 };
 
 function renderNav(){

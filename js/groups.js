@@ -449,7 +449,7 @@ async function pushGroupNotification(group, entry){
     type: 'group_activity',
     groupId: group.id,
     groupName: group.name,
-    actorName: me,
+    actorName: _myGroupName(),
     entryWhat: entry.what||'',
     entryAmt: entry.amt||0,
     entryDate: entry.date||today(),
@@ -840,8 +840,9 @@ function calculateGroupBalances(groupId){
 
   // Settlements reduce debts
   for(const s of settlements){
-    const payer = s.splitData?.payerId || s.authorId || s.authorName;
-    const participants = s.splitData.participants||{};
+    const payer = s.splitData?.payerId || s.authorId || s.authorName || '';
+    if(!payer) continue;
+    const participants = s.splitData?.participants||{};
     Object.entries(participants).forEach(([member, share])=>{
       paid[payer]  = (paid[payer]||0) - share;
       owes[member] = (owes[member]||0) - share;
