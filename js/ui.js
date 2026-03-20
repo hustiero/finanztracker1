@@ -1033,8 +1033,9 @@ let currentGroupId = null;
 function renderGroups(){
   const grid = document.getElementById('groups-grid');
   if(!grid) return;
-  const me = _myGroupName();
-  let groups = DATA.groups.filter(g=>g.status!=='deleted' && g.members.includes(me));
+  const myId = _myGroupId();
+  const myNm = _myGroupName();
+  let groups = DATA.groups.filter(g=>g.status!=='deleted' && (g.members.includes(myId) || g.members.includes(myNm)));
 
   if(groupFilter==='archived') groups = groups.filter(g=>g.status==='archived');
   else if(groupFilter==='all') groups = groups.filter(g=>g.status==='active');
@@ -1053,8 +1054,9 @@ function renderGroups(){
 
     if(g.type==='split'){
       const balances = calcSplitBalances(g.id);
-      const me = CFG.userName||'Ich';
-      const myBal = balances[me]||0;
+      const _myId = _myGroupId();
+      const _myNm = _myGroupName();
+      const myBal = balances[_myId]||balances[_myNm]||0;
       const balClass = myBal>0.01?'grp-bal-pos':myBal<-0.01?'grp-bal-neg':'grp-bal-zero';
       const balText = myBal>0.01?'Du bekommst '+fmtAmt(myBal):myBal<-0.01?'Du schuldest '+fmtAmt(Math.abs(myBal)):'Ausgeglichen';
       return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${g.id}')">
@@ -1166,22 +1168,41 @@ function _renderEventDetail(g, el){
     html += '</div>';
   }
 
-  // Transactions (own + foreign)
+  // Transactions (own + foreign) — with delete button for own entries
+  const myId = _myGroupId();
+  const myName = _myGroupName();
   const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
   const allTx = [
-    ...expenses.map(e=>({...e, _author:''})),
-    ...foreignEntries.map(e=>({...e, _author:e.authorName}))
+    ...expenses.map(e=>({...e, _author:'', _isOwn:true, _source:'local'})),
+    ...foreignEntries.map(e=>({...e, _author:e.authorName, _isOwn:false, _source:'group'}))
   ].sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Also include own entries from groupEntries (for entries saved to group tab)
+  const ownGroupEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+  const localIds = new Set(expenses.map(e=>e.id));
+  ownGroupEntries.forEach(e=>{
+    if(!localIds.has(e.id)){
+      allTx.push({...e, _author:'', _isOwn:true, _source:'group'});
+    }
+  });
+  allTx.sort((a,b)=>b.date.localeCompare(a.date));
+
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
   if(!allTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
   allTx.forEach(e=>{
-    const authorTag = e._author ? ` · 👤 ${esc(e._author)}` : '';
+    const authorTag = e._author ? ` · ${esc(e._author)}` : '';
+    const canDelete = e._isOwn || isAdmin;
+    const isSettlement = e.splitData && e.splitData.isSettlement;
+    const editedTag = e.editedAt ? ' · bearbeitet' : '';
     html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}${authorTag}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)} · ${esc(e.cat)}${authorTag}${editedTag}</div>
       </div>
-      <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+      </div>
     </div>`;
   });
   html += '</div>';
@@ -1268,11 +1289,12 @@ function _renderSplitDetail(g, el){
 
   // Settlements — using calculateGroupBalances for combined local+foreign entries
   const debts = calculateGroupBalances(g.id);
-  const me = _myGroupName();
+  const splitMyId = _myGroupId();
+  const splitMyName = _myGroupName();
   if(debts.length && g.status==='active'){
     html += '<div class="grp-section-title">Abrechnung</div><div class="grp-settlements">';
     debts.forEach(debt=>{
-      const isMe = debt.from===me;
+      const isMe = debt.from===splitMyId || debt.from===splitMyName;
       html += `<div class="debt-row${isMe?' debt-mine':''}">
         <div class="debt-info">
           <span class="debt-from">${esc(debt.from)}</span>
@@ -1287,27 +1309,44 @@ function _renderSplitDetail(g, el){
     });
     html += '</div>';
   } else if(!debts.length && Object.keys(balances).length){
-    html += '<div class="grp-section-title">Abrechnung</div><div style="padding:8px 16px;font-size:13px;color:var(--green);font-weight:600">Alles beglichen ✓</div>';
+    html += '<div class="grp-section-title">Abrechnung</div><div style="padding:8px 16px;font-size:13px;color:var(--green);font-weight:600">Alles beglichen</div>';
   }
 
-  // Transactions (own + foreign)
+  // Transactions (own + foreign) — with delete button for own entries
   const foreignTx = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
   const allSplitTx = [
-    ...expenses.map(e=>({...e, _author:''})),
-    ...foreignTx.map(e=>({...e, _author:e.authorName}))
-  ].sort((a,b)=>b.date.localeCompare(a.date));
+    ...expenses.map(e=>({...e, _author:'', _isOwn:true, _source:'local'})),
+    ...foreignTx.map(e=>({...e, _author:e.authorName, _isOwn:false, _source:'group'}))
+  ];
+
+  // Include own entries from groupEntries that aren't in local expenses
+  const ownGE = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+  const localExpIds = new Set(expenses.map(e=>e.id));
+  ownGE.forEach(e=>{
+    if(!localExpIds.has(e.id)){
+      allSplitTx.push({...e, _author:'', _isOwn:true, _source:'group'});
+    }
+  });
+  allSplitTx.sort((a,b)=>b.date.localeCompare(a.date));
+
   html += '<div class="grp-section-title">Buchungen</div><div class="grp-tx-list">';
   if(!allSplitTx.length) html += '<div class="t-muted">Noch keine Buchungen.</div>';
   allSplitTx.forEach(e=>{
     const sd = e.splitData;
     const payer = sd ? (typeof sd==='string'?JSON.parse(sd):sd).payerId : '';
-    const authorTag = e._author ? ` · 👤 ${esc(e._author)}` : '';
+    const authorTag = e._author ? ` · ${esc(e._author)}` : '';
+    const canDelete = e._isOwn || isAdmin;
+    const isSettlement = sd && sd.isSettlement;
+    const editedTag = e.editedAt ? ' · bearbeitet' : '';
     html += `<div class="grp-tx-row${e._author?' group-foreign-entry':''}">
       <div class="grp-tx-left">
         <div class="grp-tx-what">${esc(e.what)}</div>
-        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}${authorTag}</div>
+        <div class="grp-tx-meta">${fmtDate(e.date)}${payer?' · bezahlt von '+esc(payer):''}${authorTag}${editedTag}</div>
       </div>
-      <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+      </div>
     </div>`;
   });
   html += '</div>';
@@ -1331,7 +1370,7 @@ function openNewGroupModal(){
     </div>
     <div id="grp-members-wrap">
       <label class="form-label">Teilnehmer <span class="t-text3">(kommagetrennt)</span></label>
-      <input id="grp-members" class="form-input" type="text" placeholder="${esc(CFG.userName||'Ich')}, Max, Anna" value="${esc(CFG.userName||'Ich')}">
+      <input id="grp-members" class="form-input" type="text" placeholder="${esc(_myGroupId()||'Ich')}, Max, Anna" value="${esc(_myGroupId()||'Ich')}">
     </div>
     <div class="form-group">
       <label class="form-label">Währung</label>
@@ -1354,7 +1393,7 @@ async function confirmNewGroup(){
   const currency = document.getElementById('grp-currency')?.value.trim()||CFG.currency||'CHF';
   if(!name){ toast('Name erforderlich','err'); return; }
   const members = type==='event'
-    ? [CFG.userName||'Ich']
+    ? [_myGroupId()||'Ich']
     : membersRaw.split(',').map(s=>s.trim()).filter(Boolean);
   if(type==='split' && members.length<2){ toast('Mind. 2 Teilnehmer für Split','err'); return; }
   const group = await saveGroup(name, type, members, currency);
@@ -1368,8 +1407,9 @@ async function confirmNewGroup(){
 function fillGroupDropdown(){
   const sel = document.getElementById('f-group');
   if(!sel) return;
-  const me = _myGroupName();
-  const activeGroups = DATA.groups.filter(g=>g.status==='active' && g.members.includes(me));
+  const myId = _myGroupId();
+  const myName = _myGroupName();
+  const activeGroups = DATA.groups.filter(g=>g.status==='active' && (g.members.includes(myId) || g.members.includes(myName)));
   sel.innerHTML = '<option value="">— Keine Gruppe —</option>' +
     activeGroups.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.type==='split'?'Split':'Event'})</option>`).join('');
 }
@@ -1383,7 +1423,8 @@ function onGroupSelect(groupId){
     sec.style.display='';
     // Fill payer dropdown
     const payerSel = document.getElementById('f-split-payer');
-    if(payerSel) payerSel.innerHTML = group.members.map(m=>`<option value="${esc(m)}"${m===(CFG.userName||'Ich')?' selected':''}>${esc(m)}</option>`).join('');
+    const myPayerId = _myGroupId();
+    if(payerSel) payerSel.innerHTML = group.members.map(m=>`<option value="${esc(m)}"${m===myPayerId?' selected':''}>${esc(m)}</option>`).join('');
     document.getElementById('f-split-mode').value='equal';
     _renderSplitShares(group);
   } else {

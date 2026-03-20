@@ -1329,6 +1329,8 @@ body.glass-on .section-title{font-weight:700}
 .grp-tx-what{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grp-tx-meta{font-size:11px;color:var(--text3);margin-top:1px}
 .grp-tx-amt{font-size:13px;font-family:'DM Mono',monospace;font-weight:600;flex-shrink:0;margin-left:10px}
+.grp-entry-del-btn{background:none;border:1px solid rgba(255,77,109,.3);color:#ff4d6d;font-size:12px;width:24px;height:24px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;opacity:.7;transition:opacity .15s}
+.grp-entry-del-btn:hover,.grp-entry-del-btn:active{opacity:1;background:rgba(255,77,109,.08)}
 
 /* Split balances & settlements */
 .grp-balances{padding:0 16px}
