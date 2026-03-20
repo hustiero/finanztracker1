@@ -241,13 +241,12 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
   const origAdminUrl = CFG.adminUrl;
   const origScriptUrl = CFG.scriptUrl;
   if(backendUrl && backendUrl.includes('script.google.com')){
-    // For account mode: set adminUrl; for script mode: set scriptUrl
     if(CFG.sessionToken) CFG.adminUrl = backendUrl;
     else CFG.scriptUrl = backendUrl;
   }
 
+  let joinedOk = false;
   try{
-    // Fetch all groups from backend to find the one we're joining
     const res = await groupsApiGet('Groups!A2:J200').catch(()=>({values:[]}));
     const rows = (res.values||[]).filter(r=>r[0]);
     const row = rows.find(r=>r[0]===groupId);
@@ -261,19 +260,15 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     const me = _myGroupName();
     if(g.members.includes(me)){
       toast('Du bist bereits Mitglied','info');
-      // Still make sure group is in local DATA
       if(!DATA.groups.find(x=>x.id===groupId)) DATA.groups.push(g);
+      joinedOk = true;
       return true;
     }
 
-    // Add member
     g.members.push(me);
-
-    // Write back to backend
-    const sheetRow = rows.indexOf(row) + 2; // +2 for header + 0-index
+    const sheetRow = rows.indexOf(row) + 2;
     await groupsApiUpdate(`Groups!D${sheetRow}`, [[JSON.stringify(g.members)]]);
 
-    // Merge into local DATA
     const existing = DATA.groups.find(x=>x.id===groupId);
     if(existing) Object.assign(existing, g);
     else DATA.groups.push(g);
@@ -281,12 +276,17 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     dataCacheSave();
     toast('✓ Gruppe beigetreten: '+g.name,'ok');
     markDirty('groups');
+    joinedOk = true;
     return true;
   }catch(e){
     toast('Fehler beim Beitreten: '+e.message,'err');
     return false;
   }finally{
-    // Persist the backend URL if join was successful
+    // Restore original URLs on failure; keep new URL on success
+    if(!joinedOk){
+      CFG.adminUrl  = origAdminUrl;
+      CFG.scriptUrl = origScriptUrl;
+    }
     cfgSave();
   }
 }
@@ -354,29 +354,62 @@ function _hideSplitSection(){
 }
 
 // ── 10. Settle up ────────────────────────────────────────────
+// Settlements are stored ONLY in GroupEntries (admin sheet),
+// NOT in DATA.expenses — so they don't pollute personal stats.
 
 async function settleUp(groupId, from, to, amount){
-  const id = genId('A');
-  const date = today();
-  const what = 'Ausgleich: '+from+' → '+to;
-  const splitData = {totalAmount:amount, payerId:from, participants:{[to]:amount}};
-  const entry = {id,date,what,cat:'Transfer',amt:amount,note:'Settlement',recurringId:'',isFixkosten:false,groupId,splitData};
-  DATA.expenses.push(entry);
+  const id    = genId('S');
+  const date  = today();
+  const what  = 'Ausgleich: '+from+' → '+to;
+  const splitData = {
+    totalAmount: amount,
+    payerId: from,
+    participants: {[to]: amount},
+    isSettlement: true
+  };
+
+  const entry = {
+    id, groupId, authorName: from,
+    date, what, cat: 'Transfer', amt: amount,
+    currency: CFG.currency||'CHF',
+    splitData, isMine: from===_myGroupName(),
+    _type: 'groupEntry'
+  };
+
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await apiAppend('Ausgaben',[[id,date,what,'Transfer',amount,'Settlement','','0',groupId,JSON.stringify(splitData)]]);
+      const row = [
+        id, groupId, from, date, what, 'Transfer',
+        amount, CFG.currency||'CHF',
+        JSON.stringify(splitData), ''
+      ];
+      await groupsApiCall({
+        action:'groupsAppend',
+        sheet:'GroupEntries',
+        values:JSON.stringify([row])
+      });
       setSyncStatus('online');
-    }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+    }catch(e){
+      setSyncStatus('error');
+      toast('Sync-Fehler: '+e.message,'err');
+      return;
+    }
   }
+
+  if(!DATA.groupEntries) DATA.groupEntries=[];
+  DATA.groupEntries.push(entry);
+
   dataCacheSave();
   toast('✓ Ausgleich gebucht','ok');
-  // Push notification to other group members
+
   const group = DATA.groups.find(g=>g.id===groupId);
-  if(group) pushGroupNotification(group, {...entry, _settlementType:'settlement', _settlementText: from+' hat '+fmtAmt(amount)+' an '+to+' beglichen'});
+  if(group) pushGroupNotification(group, entry);
+
   markDirty('groups','verlauf');
-  // Re-render group detail if open
-  if(currentGroupId===groupId) openGroupDetail(groupId);
+  if(typeof currentGroupId!=='undefined' && currentGroupId===groupId){
+    openGroupDetail(groupId);
+  }
 }
 
 // ── 11. Group notifications ──────────────────────────────────
@@ -458,12 +491,18 @@ async function markGroupNotifsRead(){
     const res = await groupsApiGet('Notifications!A2:C5000').catch(()=>({values:[]}));
     const rows = res.values||[];
     const me = _myGroupName();
+
+    const updatePromises = [];
     for(let i=0;i<rows.length;i++){
       if(rows[i][0]===me && rows[i][2]!=='1'){
-        const sheetRow = i+2; // +2 for header+0-index
-        await groupsApiUpdate(`Notifications!C${sheetRow}`, [['1']]);
+        const sheetRow = i+2;
+        updatePromises.push(
+          groupsApiUpdate(`Notifications!C${sheetRow}`, [['1']])
+            .catch(e=>console.warn('markRead row', sheetRow, e.message))
+        );
       }
     }
+    if(updatePromises.length) await Promise.all(updatePromises);
   }catch(e){
     console.warn('markGroupNotifsRead failed:', e.message);
   }
@@ -471,42 +510,61 @@ async function markGroupNotifsRead(){
 
 // ── 12. GroupEntries — load & save shared entries ────────────
 
-/** Load group entries from admin sheet (GroupEntries tab). */
+function _safeParseJSON(s){
+  try{ return JSON.parse(s); }catch(e){ return null; }
+}
+
+/** Load group entries from admin sheet — single API call for all groups. */
 async function loadGroupEntries(){
   if(CFG.demo || !DATA.groups || !DATA.groups.length) return;
+
+  // Ensure GroupEntries sheet exists
+  try{
+    await groupsApiCall({
+      action:'groupsEnsureSheet',
+      sheet:'GroupEntries',
+      headers:JSON.stringify(['id','groupId','authorName','date','what','cat','amt','currency','splitData','deleted'])
+    });
+  }catch(e){ console.warn('GroupEntries ensure:', e.message); }
+
   const me = _myGroupName();
-  for(const group of DATA.groups){
-    if(group.status!=='active') continue;
-    try{
-      const res = await groupsApiCall({
-        action:'groupsGet',
-        range:'GroupEntries!A2:J2000'
-      }).catch(()=>({values:[]}));
-      const rows = (res.values||[]).filter(r=>
-        r[0] && r[1]===group.id && r[9]!=='1'
-      );
-      if(!DATA.groupEntries) DATA.groupEntries=[];
-      for(const r of rows){
-        const entry = {
-          id:         r[0],
-          groupId:    r[1],
-          authorName: r[2]||'',
-          date:       r[3]||'',
-          what:       r[4]||'',
-          cat:        r[5]||'',
-          amt:        parseFloat(r[6])||0,
-          currency:   r[7]||group.currency||'CHF',
-          splitData:  r[8] ? JSON.parse(r[8]) : null,
-          isMine:     r[2]===me,
-          _type:      'groupEntry'
-        };
-        if(!DATA.groupEntries.find(e=>e.id===entry.id)){
-          DATA.groupEntries.push(entry);
-        }
-      }
-    }catch(e){
-      console.warn('loadGroupEntries:', group.name, e.message);
+  const activeGroupIds = new Set(
+    DATA.groups.filter(g=>g.status==='active').map(g=>g.id)
+  );
+  if(!activeGroupIds.size) return;
+
+  try{
+    const res = await groupsApiCall({
+      action:'groupsGet',
+      range:'GroupEntries!A2:J5000'
+    }).catch(()=>({values:[]}));
+
+    if(!DATA.groupEntries) DATA.groupEntries=[];
+    const existingIds = new Set(DATA.groupEntries.map(e=>e.id));
+
+    for(const r of (res.values||[])){
+      if(!r[0] || !activeGroupIds.has(r[1])) continue;
+      if(r[9]==='1') continue;
+      if(existingIds.has(r[0])) continue;
+
+      const group = DATA.groups.find(g=>g.id===r[1]);
+      DATA.groupEntries.push({
+        id:         r[0],
+        groupId:    r[1],
+        authorName: r[2]||'',
+        date:       r[3]||'',
+        what:       r[4]||'',
+        cat:        r[5]||'',
+        amt:        parseFloat(r[6])||0,
+        currency:   r[7]||(group&&group.currency)||'CHF',
+        splitData:  r[8] ? _safeParseJSON(r[8]) : null,
+        isMine:     r[2]===me,
+        _type:      'groupEntry'
+      });
     }
+  }catch(e){
+    if(!DATA.groupEntries) DATA.groupEntries=[];
+    console.warn('loadGroupEntries failed:', e.message);
   }
 }
 
@@ -560,24 +618,51 @@ function calculateGroupBalances(groupId){
   const group = DATA.groups.find(g=>g.id===groupId);
   if(!group) return [];
 
-  const myEntries = DATA.expenses.filter(e=>e.groupId===groupId);
-  const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===groupId);
-  const allEntries = [...myEntries, ...foreignEntries];
+  const me = _myGroupName();
+
+  // Own entries (DATA.expenses) — need authorName injected
+  const myEntries = DATA.expenses
+    .filter(e=>e.groupId===groupId)
+    .map(e=>({...e, authorName: me}));
+
+  const foreignEntries = (DATA.groupEntries||[])
+    .filter(e=>e.groupId===groupId);
+
+  // Separate settlements (isSettlement flag in splitData)
+  const settlements = foreignEntries.filter(
+    e=>e.splitData && e.splitData.isSettlement
+  );
+  const regularEntries = [
+    ...myEntries,
+    ...foreignEntries.filter(e=>!e.splitData || !e.splitData.isSettlement)
+  ];
 
   const paid = {};
   const owes = {};
   group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
 
-  for(const entry of allEntries){
-    const payer = entry.authorName || _myGroupName();
+  // Regular expenses
+  for(const entry of regularEntries){
+    const payer = entry.authorName || me;
     const split = entry.splitData;
-    if(!split) continue;
-    paid[payer] = (paid[payer]||0) + entry.amt;
-    Object.entries(split.participants||{}).forEach(([member, share])=>{
+    if(!split || !split.participants) continue;
+    paid[payer] = (paid[payer]||0) + (entry.amt||0);
+    Object.entries(split.participants).forEach(([member, share])=>{
       owes[member] = (owes[member]||0) + share;
     });
   }
 
+  // Settlements reduce debts (payer paid → recipient owes less)
+  for(const s of settlements){
+    const payer = s.authorName;
+    const participants = s.splitData.participants||{};
+    Object.entries(participants).forEach(([member, share])=>{
+      paid[payer]  = (paid[payer]||0) - share;
+      owes[member] = (owes[member]||0) - share;
+    });
+  }
+
+  // Greedy debt simplification
   const balances = {};
   group.members.forEach(m=>{
     balances[m] = (paid[m]||0) - (owes[m]||0);
@@ -659,6 +744,55 @@ function openGroupEntryDetail(entryId){
       </div>
     </div>`;
   openGenericModal(isShadow?'Gruppen-Anteil':'Gruppen-Buchung', body, '');
+}
+
+// ── 14b. Shadow entries — user's share of foreign group expenses ──
+
+/**
+ * Generate shadow entries from DATA.groupEntries where the current
+ * user has a share. Only for groups with CFG.groupVerlauf[id] = true.
+ * Settlements (isSettlement) are excluded.
+ */
+function getGroupShadowEntries(){
+  const gv = CFG.groupVerlauf||{};
+  const entries = DATA.groupEntries||[];
+  const me = _myGroupName();
+  const shadows = [];
+
+  for(const e of entries){
+    if(e.isMine) continue;
+    if(!gv[e.groupId]) continue;
+    if(e.splitData && e.splitData.isSettlement) continue;
+    const group = DATA.groups.find(g=>g.id===e.groupId);
+    if(!group) continue;
+
+    let myShare = 0;
+    if(e.splitData && e.splitData.participants){
+      const parts = e.splitData.participants;
+      myShare = parts[me]!==undefined ? parts[me] : 0;
+    } else {
+      myShare = group.members.length>0 ? e.amt/group.members.length : e.amt;
+    }
+
+    if(myShare<=0) continue;
+
+    shadows.push({
+      id:        e.id,
+      date:      e.date,
+      what:      e.what,
+      cat:       e.cat,
+      amt:       Math.round(myShare*100)/100,
+      fullAmt:   e.amt,
+      note:      e.note||'',
+      groupId:   e.groupId,
+      groupName: group.name,
+      paidBy:    e.authorName,
+      currency:  e.currency||group.currency||CFG.currency||'CHF',
+      _type:     'shadow',
+      _shadowOf: e.id
+    });
+  }
+  return shadows;
 }
 
 // ── 15. Admin groups panel ───────────────────────────────────

@@ -437,8 +437,8 @@ async function loadAll(){
 
     // GroupEntries — load shared entries (non-blocking)
     loadGroupEntries().then(()=>{
-      if(DATA.groupEntries.length) markDirty('verlauf','groups');
-    });
+      if(DATA.groupEntries && DATA.groupEntries.length) markDirty('verlauf','groups');
+    }).catch(()=>{});
 
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
