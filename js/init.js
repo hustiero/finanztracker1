@@ -123,7 +123,7 @@ Object.assign(App.UI, {
   renderWidgetAktienTop, renderWidgetAktienVerteilung, renderWidgetAktienPosition,
   renderWidgetAktienDashboard,
   // Aktien sub-renderers
-  renderAktienCharts, renderAktienDashboardTop, renderAktienList,
+  renderAktienCharts, renderAktienDashboardTop, renderAktienList, renderFxRates,
   renderAktienTradeForm, renderAktienTabelle,
   renderAktieDetail, renderAdminDesignPresets,
   // User management

@@ -213,16 +213,20 @@ async function syncKurseSheet(extraTickers=[]){
         }catch(e2){ console.warn('syncKurseSheet FX pass 2 error:', e2); }
       }
       // Auto-correct s.currency from GOOGLEFINANCE-reported currency
-      let currFixed = false;
-      for(const s of SDATA.stocks){
-        if(!s.ticker) continue;
-        const cached = getCachedStock(s.ticker);
-        if(cached?.currency && cached.currency.toUpperCase() !== (s.currency||'').toUpperCase()){
-          s.currency = cached.currency.toUpperCase();
-          currFixed = true;
+      try{
+        let currFixed = false;
+        for(const s of SDATA.stocks){
+          if(!s.ticker) continue;
+          const cached = getCachedStock(s.ticker);
+          const reportedCurr = (cached?.currency||'').toUpperCase();
+          const savedCurr = (s.currency||'').toUpperCase();
+          if(reportedCurr && reportedCurr !== savedCurr){
+            s.currency = reportedCurr;
+            currFixed = true;
+          }
         }
-      }
-      if(currFixed) sdataSave();
+        if(currFixed) sdataSave();
+      }catch(e3){ console.warn('syncKurseSheet currency auto-correct error:', e3); }
     }
   }catch(e){ console.warn('syncKurseSheet error:', e); }
 }
@@ -767,6 +771,37 @@ function renderAktienDashboardTop(){
   </div>`;
 }
 
+function renderFxRates(){
+  const el = document.getElementById('aktien-fx-rates');
+  if(!el) return;
+  const userCurr = curr().toUpperCase();
+  // Collect unique foreign currencies from active portfolio positions
+  const foreignCurrencies = [...new Set(
+    SDATA.stocks
+      .filter(s => calcPosition(s.id).qty > 0.0001)
+      .map(s => {
+        const cached = s.ticker ? getCachedStock(s.ticker) : null;
+        return (cached?.currency || s.currency || '').toUpperCase();
+      })
+      .filter(c => c && c !== userCurr)
+  )].sort();
+  if(!foreignCurrencies.length){ el.innerHTML = ''; return; }
+  const rows = foreignCurrencies.map(fc => {
+    const key = fc + userCurr;
+    const rate = fxRateCache[key];
+    const hasRate = !!rate;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--text2)">1 ${fc} →</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:${hasRate?'var(--text)':'var(--text3)'}">${hasRate ? fmtPrice(rate)+' '+userCurr : 'Laden…'}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+  <div style="margin:0 16px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:6px;text-transform:uppercase">Wechselkurse</div>
+    ${rows}
+  </div>`;
+}
+
 let _kurseCacheLoaded = false; // load from Sheet only once per session
 
 async function renderAktien(){
@@ -777,6 +812,7 @@ async function renderAktien(){
     await loadKurseCache();
   }
   renderAktienDashboardTop();
+  renderFxRates();
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
   const histStocks = positions.filter(s => s.pos.qty <= 0.0001 && SDATA.trades.some(t=>t.stockId===s.id));
@@ -831,10 +867,14 @@ async function renderAktien(){
         await new Promise(r=>setTimeout(r,2000));
         await syncKurseSheet();
       }
+      // Rebuild positions with fresh currency data after sync
+      const freshPositions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
+      const freshActive = freshPositions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
       renderAktienDashboardTop();
-      if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
-      if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
-      if(aktienTabView==='charts') renderAktienCharts(activeStocks);
+      renderFxRates();
+      if(aktienTabView==='karten') renderAktienList(freshActive, listEl, summaryEl);
+      if(aktienTabView==='tabelle') renderAktienTabelle(freshActive);
+      if(aktienTabView==='charts') renderAktienCharts(freshActive);
       // Only persist and snapshot when fresh prices were actually loaded
       await saveKurseCache();
       await appendPortfolioSnapshot();
