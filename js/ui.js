@@ -1434,9 +1434,19 @@ async function confirmNewGroup(){
   const membersRaw = document.getElementById('grp-members')?.value||CFG.userName||'Ich';
   const currency = document.getElementById('grp-currency')?.value.trim()||CFG.currency||'CHF';
   if(!name){ toast('Name erforderlich','err'); return; }
+  const myId = _myGroupId();
   const members = type==='event'
-    ? [_myGroupId()||'Ich']
-    : membersRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    ? [myId||'Ich']
+    : (()=>{
+        const list = membersRaw.split(',').map(s=>s.trim()).filter(Boolean);
+        // Replace any occurrence of userName/display-name with authUser so the
+        // creator is always stored by their canonical account username, not the
+        // device-local display name.
+        if(myId && CFG.userName && myId !== CFG.userName){
+          return list.map(m => m === CFG.userName ? myId : m);
+        }
+        return list;
+      })();
   if(type==='split' && members.length<2){ toast('Mind. 2 Teilnehmer für Split','err'); return; }
   const group = await saveGroup(name, type, members, currency);
   if(!group) return;
