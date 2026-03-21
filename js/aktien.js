@@ -704,6 +704,15 @@ function renderAktienTabelle(stocks){
 let aktienTabView='karten'; // 'karten' | 'tabelle' | 'charts'
 function setAktienTabView(v){ aktienTabView=v; renderAktien(); }
 
+async function refreshAllPrices(){
+  const btn = document.getElementById('aktien-refresh-btn');
+  if(btn){ btn.disabled=true; btn.textContent='…'; }
+  // Mark all cached entries stale so renderAktien() triggers a fresh fetch
+  Object.keys(stockPriceCache).forEach(k=>{ if(stockPriceCache[k]) stockPriceCache[k].stale=true; });
+  await renderAktien();
+  if(btn){ btn.disabled=false; btn.textContent='↻'; }
+}
+
 function renderAktienDashboardTop(){
   const dashEl = document.getElementById('aktien-dashboard-top');
   if(!dashEl) return;
@@ -787,15 +796,26 @@ async function renderAktien(){
   if(aktienTabView==='tabelle') renderAktienTabelle(show);
   if(aktienTabView==='charts') renderAktienCharts(show);
 
-  // Fetch live prices in background
+  // Fetch live prices — one single Apps Script call for all tickers at once
   if(aktienView==='aktiv'){
-    const toFetch = activeStocks.filter(s=>{
+    const needsFetch = activeStocks.some(s=>{
       if(!s.ticker) return false;
       const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
-      return !c || c.stale; // fetch if no cache at all, or if loaded entry is stale
+      return !c || c.stale;
     });
-    if(toFetch.length){
-      await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
+    if(needsFetch){
+      await syncKurseSheet(); // fetches ALL SDATA.stocks + FX in one Apps Script round-trip
+      // Retry once if GOOGLEFINANCE was slow to resolve
+      const stillMissing = activeStocks.some(s=>{
+        if(!s.ticker) return false;
+        const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
+        return !c || c.stale;
+      });
+      if(stillMissing){
+        await new Promise(r=>setTimeout(r,2000));
+        await syncKurseSheet();
+      }
+      renderAktienDashboardTop();
       if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
       if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
       if(aktienTabView==='charts') renderAktienCharts(activeStocks);
@@ -969,7 +989,9 @@ function renderAktieDetail(stockId){
 async function refreshStockPrice(stockId){
   const s = SDATA.stocks.find(s=>s.id===stockId);
   if(!s?.ticker) return;
-  delete getCachedStock(s.ticker);
+  const key = s.ticker.toUpperCase();
+  delete stockPriceCache[key];
+  delete stockPriceCache[normalizeTickerForGF(key)];
   await fetchStockPrice(s.ticker);
   renderAktieDetail(stockId);
 }
@@ -990,8 +1012,16 @@ async function testTickerFromNew(){
   delete stockPriceCache[ticker];
   const data = await fetchStockPrice(ticker);
   if(res){
-    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
-    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+    if(data?.price){
+      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
+      res.style.color = 'var(--green)';
+      // Auto-fill currency from GOOGLEFINANCE's actual reported currency
+      if(data.currency){
+        const sel = document.getElementById('na-currency');
+        const opt = sel && [...sel.options].find(o=>o.value.toUpperCase()===data.currency.toUpperCase());
+        if(opt) sel.value = opt.value;
+      }
+    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
   }
 }
 
@@ -1012,8 +1042,16 @@ async function testTickerFromEdit(){
   delete stockPriceCache[ticker];
   const data = await fetchStockPrice(ticker);
   if(res){
-    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
-    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+    if(data?.price){
+      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
+      res.style.color = 'var(--green)';
+      // Auto-fill currency from GOOGLEFINANCE's actual reported currency
+      if(data.currency){
+        const sel = document.getElementById('ea-currency');
+        const opt = sel && [...sel.options].find(o=>o.value.toUpperCase()===data.currency.toUpperCase());
+        if(opt) sel.value = opt.value;
+      }
+    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
   }
 }
 
@@ -1032,14 +1070,14 @@ function saveEditAktie(){
   // Invalidate price cache if ticker changed
   if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    apiFindRow('Aktien',id).then(row=>{
+    apiFindRow('Aktien',f.id).then(row=>{
       if(row) apiUpdate(`Aktien!B${row}:E${row}`,[[s.title,s.isin,s.ticker,s.currency]]);
     }).catch(e=>toast('Sheet-Sync: '+e.message,'err'));
   }
   closeModal('edit-aktie-modal');
   toast('✓ Aktie aktualisiert','ok');
   document.getElementById('aktie-detail-title').textContent = s.title;
-  renderAktieDetail(id);
+  renderAktieDetail(f.id);
   renderAktien();
 }
 

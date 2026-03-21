@@ -662,10 +662,11 @@
           <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
           <button class="type-btn income" id="aktien-btn-hist" onclick="setAktienView('historisch')">Historisch</button>
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;align-items:center">
           <button id="aktien-view-karten" class="filter-chip active" onclick="setAktienTabView('karten')">Karten</button>
           <button id="aktien-view-tabelle" class="filter-chip" onclick="setAktienTabView('tabelle')">Tabelle</button>
           <button id="aktien-view-charts" class="filter-chip" onclick="setAktienTabView('charts')">Charts</button>
+          <button id="aktien-refresh-btn" onclick="refreshAllPrices()" title="Kurse aktualisieren" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:15px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">↻</button>
         </div>
       </div>
       <div id="aktien-summary-bar"></div>
