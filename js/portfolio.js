@@ -83,14 +83,15 @@ function getAktuellerKurs(ticker) { return getCachedStock(ticker)?.price ?? null
 // resolveLive — central helper used by all renderers
 // Returns live price + FX info for one stock so callers don't repeat this pattern
 function resolveLive(ticker, stockCurr) {
-  const live   = ticker ? getCachedStock(ticker) : null;
-  const sc     = (live?.currency || stockCurr || '').toUpperCase();
-  const uc     = curr().toUpperCase();
+  const live    = ticker ? getCachedStock(ticker) : null;
+  const sc      = (live?.currency || stockCurr || '').toUpperCase();
+  const uc      = curr().toUpperCase();
   const needsFx = sc && sc !== uc;
-  const fxRate  = needsFx ? getFxRate(sc) : 1;
+  const fxOk    = !needsFx || hasFxRate(sc);   // false → FX rate not yet loaded
+  const fxRate  = needsFx ? getFxRate(sc) : 1;  // getFxRate returns 1 when missing
   const lp      = live?.price ?? null;
-  const lpUser  = lp != null ? lp * fxRate : null;
-  return { live, lp, lpUser, sc, needsFx, fxRate };
+  const lpUser  = (lp != null && fxOk) ? lp * fxRate : null; // null when FX unknown
+  return { live, lp, lpUser, sc, needsFx, fxOk, fxRate };
 }
 
 // ── Position calculation ──────────────────────────────────────────────────────
@@ -142,8 +143,8 @@ function getGewinnVerlust(stockId) {
   const pos = calcPosition(stockId);
   const s   = SDATA.stocks.find(s => s.id === stockId);
   if (!s || pos.qty < 0.0001) return { amt: 0, pct: 0, hasLive: false };
-  const { lp, fxRate } = resolveLive(s.ticker, s.currency);
-  if (lp == null) return { amt: 0, pct: 0, hasLive: false };
+  const { lp, fxRate, fxOk } = resolveLive(s.ticker, s.currency);
+  if (lp == null || !fxOk) return { amt: 0, pct: 0, hasLive: false };
   return {
     amt:     (lp - pos.avgPrice) * pos.qty * fxRate,
     pct:     pos.avgPrice > 0 ? (lp / pos.avgPrice - 1) * 100 : 0,
@@ -648,12 +649,17 @@ function renderAktienTabelle(stocks) {
     <table class="trade-tbl" style="min-width:420px">
       <thead><tr><th>Ticker</th><th>Anzahl</th><th>Ø Kauf</th><th>Kurs live</th><th>+/- %</th><th>Wert (${curr()})</th></tr></thead>
       <tbody>${active.map(s => {
-        const { lp, lpUser, sc, needsFx, fxRate } = resolveLive(s.ticker, s.currency);
+        const { lp, lpUser, sc, needsFx, fxOk } = resolveLive(s.ticker, s.currency);
         const gv       = getGewinnVerlust(s.id);
         const wertRaw  = getPositionsWertRaw(s.id);
         const color    = !gv.hasLive ? 'var(--text)' : gv.pct >= 0 ? 'var(--green)' : 'var(--red)';
         const isStale  = getCachedStock(s.ticker)?.stale;
-        const liveTxt  = lpUser != null ? (needsFx ? `${fmtPrice(lpUser)} (${fmtPrice(lp)} ${sc})` : fmtPrice(lpUser)) : '—';
+        // Only show CHF conversion when FX rate is confirmed
+        const liveTxt  = lp != null
+          ? (needsFx
+              ? (fxOk ? `${fmtPrice(lpUser)} (${fmtPrice(lp)} ${sc})` : `${fmtPrice(lp)} ${sc}`)
+              : fmtPrice(lpUser))
+          : '—';
         return `<tr style="cursor:pointer" onclick="openAktieDetail('${s.id}')">
           <td><div class="t-bold">${esc(s.ticker || s.title)}</div>
               <div class="t-muted-sm">${esc(s.title)}${needsFx ? ' · ' + sc : ''}</div></td>
@@ -753,20 +759,25 @@ async function refreshAllPrices() {
 function renderAktienList(stocks, listEl, summaryEl) {
   let totalPnl = 0, hasPnl = false, totalWert = 0;
   listEl.innerHTML = stocks.map(s => {
-    const { lp, lpUser, sc, needsFx } = resolveLive(s.ticker, s.currency);
+    const { lp, lpUser, sc, needsFx, fxOk, fxRate } = resolveLive(s.ticker, s.currency);
     let pnlAmt = null, pnlPct = null;
-    if (lpUser != null && s.pos.qty > 0.0001) {
-      const fxR    = getFxRate(sc);
-      pnlAmt  = (lpUser - s.pos.avgPrice * fxR) * s.pos.qty;
+    // Only compute P&L when FX rate is confirmed — otherwise value would be wrong
+    if (lpUser != null && fxOk && s.pos.qty > 0.0001) {
+      pnlAmt  = (lpUser - s.pos.avgPrice * fxRate) * s.pos.qty;
       pnlPct  = s.pos.avgPrice > 0 ? (lp / s.pos.avgPrice - 1) * 100 : 0;
       totalPnl += pnlAmt; hasPnl = true;
     }
     const wertRaw = getPositionsWertRaw(s.id);
     totalWert += wertRaw.value;
-    const pc   = pnlClass(pnlAmt);
-    const ps   = pnlSign(pnlAmt);
+    const pc      = pnlClass(pnlAmt);
+    const ps      = pnlSign(pnlAmt);
     const isStale = getCachedStock(s.ticker)?.stale;
-    const liveLabel = lp != null ? (needsFx ? `${fmtPrice(lp)} ${sc} · ${curr()} ${fmtPrice(lpUser)}` : `${fmtPrice(lp)} ${sc}`) : null;
+    // Show CHF conversion only when FX rate is available
+    const liveLabel = lp != null
+      ? (needsFx
+          ? (fxOk ? `${fmtPrice(lp)} ${sc} · ${curr()} ${fmtPrice(lpUser)}` : `${fmtPrice(lp)} ${sc}`)
+          : `${fmtPrice(lp)} ${sc}`)
+      : null;
     return `
     <div class="aktie-card" onclick="openAktieDetail('${s.id}')">
       <div class="aktie-card-top">
@@ -782,8 +793,9 @@ function renderAktienList(stocks, listEl, summaryEl) {
         ${liveLabel != null ? `
         <div class="aktie-stat"><div class="aktie-stat-lbl" ${isStale ? 'style="color:var(--text3)"' : ''}>${isStale ? 'Letzter Kurs (veraltet)' : 'Kurs live'}</div>
           <div class="aktie-stat-val" ${isStale ? 'style="font-size:11px;color:var(--text3)"' : 'style="font-size:11px"'}>${esc(liveLabel)}</div></div>
+        ${pnlAmt != null ? `
         <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
-          <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt || 0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>
+          <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>` : ''}
         ` : s.ticker ? `<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
           <div class="aktie-stat-val aktie-pnl-na">Laden…</div></div>` : ''}
         <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
@@ -829,10 +841,10 @@ function renderAktieDetail(stockId) {
   if (!s) return;
   const trades = SDATA.trades.filter(t => t.stockId === stockId).sort((a, b) => b.date.localeCompare(a.date));
   const pos    = calcPosition(stockId);
-  const { lp, lpUser, sc, needsFx, fxRate } = resolveLive(s.ticker, s.currency);
+  const { lp, lpUser, sc, needsFx, fxOk, fxRate } = resolveLive(s.ticker, s.currency);
   const live   = s.ticker ? getCachedStock(s.ticker) : null;
   let pnlAmt = null, pnlPct = null;
-  if (lpUser != null && pos.qty > 0.0001) {
+  if (lpUser != null && fxOk && pos.qty > 0.0001) {
     pnlAmt = (lpUser - pos.avgPrice * fxRate) * pos.qty;
     pnlPct = pos.avgPrice > 0 ? (lp / pos.avgPrice - 1) * 100 : 0;
   }
@@ -853,13 +865,17 @@ function renderAktieDetail(stockId) {
         <div class="aktie-stat-val">${fmtPrice(pos.totalCost)} ${s.currency || ''}</div></div>
       <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
         <div class="aktie-stat-val" style="font-weight:700">${curr()} ${fmtAmt(wert)}</div></div>
-      ${lpUser != null ? `
+      ${lp != null ? `
       <div class="aktie-stat"><div class="aktie-stat-lbl" style="${live?.stale ? 'color:var(--text3)' : ''}">${live?.stale ? 'Letzter Kurs (veraltet)' : 'Kurs live'}</div>
-        <div class="aktie-stat-val" style="${live?.stale ? 'color:var(--text3)' : ''}">${needsFx ? `${fmtPrice(lp)} ${sc} · ${curr()} ${fmtPrice(lpUser)}` : fmtPrice(lpUser) + ' ' + curr()}</div>
+        <div class="aktie-stat-val" style="${live?.stale ? 'color:var(--text3)' : ''}">
+          ${needsFx
+            ? (fxOk ? `${fmtPrice(lp)} ${sc} · ${curr()} ${fmtPrice(lpUser)}` : `${fmtPrice(lp)} ${sc}`)
+            : fmtPrice(lpUser) + ' ' + curr()}
+        </div>
         ${live?.stale && live?.ts ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">Stand: ${fmtDate(new Date(live.ts))}</div>` : ''}
       </div>
-      <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L (${curr()})</div>
-        <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt || 0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>`
+      ${pnlAmt != null ? `<div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L (${curr()})</div>
+        <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>` : ''}`
       : s.ticker ? `<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
         <div class="aktie-stat-val aktie-pnl-na" style="cursor:pointer" onclick="refreshStockPrice('${s.id}')">Laden…</div></div>` : ''}
     </div>
