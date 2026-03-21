@@ -71,9 +71,9 @@ Object.assign(App.IO, {
   // Oberkategorien CRUD
   createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
   // Groups CRUD (delegated to js/groups.js)
-  saveGroup, updateGroup, deleteGroup, archiveGroup, settleUp,
+  saveGroup, updateGroup, deleteGroup, archiveGroup, closeGroup, leaveGroup, kickMember, settleUp,
   joinGroupByInvite, removeGroupMember, regenerateInviteCode,
-  loadGroups, isGroupAdmin, generateInviteLink,
+  loadGroups, isGroupAdmin, isGroupQuitt, hasLeftGroup, generateInviteLink,
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup, toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
   loadGroupEntries, saveGroupEntry, deleteGroupEntry, updateGroupEntry, calculateGroupBalances,
@@ -135,7 +135,7 @@ Object.assign(App.UI, {
   exportGroupReport, copyGroupInviteLink, generateInviteLink,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup,
   toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
-  toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, confirmSettleUp,
+  toggleGroupEntriesVisible, toggleGroupVerlauf, openGroupEntryDetail, confirmSettleUp, _executeSettleUp,
   deleteGroupEntry, updateGroupEntry,
   // Charts
   buildBarChart, buildBalanceChart,
