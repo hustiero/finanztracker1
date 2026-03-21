@@ -723,9 +723,15 @@ function renderAktienDashboardTop(){
   </div>`;
 }
 
+let _kurseCacheLoaded = false; // load from Sheet only once per session
+
 async function renderAktien(){
-  // Restore cached prices from Sheet before first render so the UI is not empty
-  await loadKurseCache();
+  // On first call: restore cached prices so the UI shows last-known values immediately.
+  // Subsequent calls (close detail, switch view, …) skip this to avoid blocking the UI.
+  if(!_kurseCacheLoaded){
+    _kurseCacheLoaded = true;
+    await loadKurseCache();
+  }
   renderAktienDashboardTop();
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
@@ -774,10 +780,10 @@ async function renderAktien(){
       if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
       if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
       if(aktienTabView==='charts') renderAktienCharts(activeStocks);
+      // Only persist and snapshot when fresh prices were actually loaded
+      await saveKurseCache();
+      await appendPortfolioSnapshot();
     }
-    // Persist refreshed prices + FX rates to Sheet and save portfolio snapshot
-    await saveKurseCache();
-    await appendPortfolioSnapshot();
   }
 }
 
