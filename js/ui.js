@@ -67,8 +67,6 @@ function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.r
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
 // ── FAB Speed-Dial stubs (kept for backward-compat) ──────────────────────────
-function openFabMenu(){ goTab('eingabe'); }
-function closeFabMenu(){}
 
 // Aktie / Trade erfassen Flow
 function openAddAktieFlow(){
@@ -237,13 +235,46 @@ function checkDueRecurrings(){
   if(!CFG.notifications) CFG.notifications = [];
   const now = new Date();
   const todayDay = now.getDate();
+  const todayMo  = now.getMonth();   // 0-based
+  const todayWd  = now.getDay();     // 0=Sun … 6=Sat
 
   DATA.recurring.filter(r=>r.active).forEach(r=>{
-    // Informational notification on execution day (booking happens automatically)
-    if(r.day === todayDay){
+    const interval = r.interval || 'monatlich';
+    let isDue = false;
+
+    if(interval === 'monatlich'){
+      // r.day is the day-of-month
+      const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      isDue = r.day === Math.min(todayDay, lastDay);
+    } else if(interval === 'wöchentlich'){
+      // Check if today matches the weekday of r.start
+      if(r.start){
+        const startWd = new Date(r.start+'T12:00:00').getDay();
+        isDue = todayWd === startWd;
+      }
+    } else if(interval === 'jährlich'){
+      // Check month and day of r.start
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        isDue = s.getMonth()===todayMo && s.getDate()===todayDay;
+      }
+    } else if(interval === 'halbjährlich'){
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        const moOffset = (now.getMonth()-s.getMonth()+12)%12;
+        isDue = s.getDate()===todayDay && (moOffset===0 || moOffset===6);
+      }
+    } else if(interval === 'quartalsweise'){
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        const moOffset = (now.getMonth()-s.getMonth()+12)%12;
+        isDue = s.getDate()===todayDay && (moOffset===0||moOffset===3||moOffset===6||moOffset===9);
+      }
+    }
+
+    if(isDue){
       const notifId = `rec-${r.id}-${todayStr}`;
-      const exists = CFG.notifications.find(n=>n.id===notifId);
-      if(!exists){
+      if(!CFG.notifications.find(n=>n.id===notifId)){
         CFG.notifications.push({
           id: notifId,
           type: 'dauerauftrag_info',
@@ -1118,11 +1149,14 @@ function _renderEventDetail(g, el){
       <div class="grp-detail-sub">Event · ${fmtAmt(total)} total${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
       ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>`:''}
+      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
   </div>`;
@@ -1229,11 +1263,14 @@ function _renderSplitDetail(g, el){
       <div class="grp-detail-sub">Split · ${g.members.length} Teilnehmer${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
       ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>`:''}
+      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
   </div>`;
@@ -1824,6 +1861,49 @@ function _handle(p) {
       }
     }
     return _json({ prices: results });
+  }
+  // ── Groups (stored in this sheet's Groups + Notifications tabs) ──
+  if (p.action === 'groupsEnsureSheet') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) {
+      gsh = ss.insertSheet(p.sheet);
+      if (p.headers) { var h = JSON.parse(p.headers); gsh.getRange(1,1,1,h.length).setValues([h]); gsh.setFrozenRows(1); }
+    }
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsGet') {
+    var parts = p.range.split('!'); var sheetName = parts[0]; var rangePart = parts[1] || 'A:Z';
+    var gsh = ss.getSheetByName(sheetName);
+    if (!gsh) return _json({ values: [] });
+    var lastRow = gsh.getLastRow();
+    if (lastRow < 1) return _json({ values: [] });
+    var m = rangePart.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+    if (m) {
+      var sr = parseInt(m[2]); var er = Math.min(parseInt(m[4]), lastRow);
+      if (sr > er) return _json({ values: [] });
+      return _json({ values: gsh.getRange(m[1]+sr+':'+m[3]+er).getValues() });
+    }
+    return _json({ values: gsh.getRange(1,1,lastRow,gsh.getLastColumn()).getValues() });
+  }
+  if (p.action === 'groupsAppend') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) return _json({ error: 'Sheet nicht gefunden: ' + p.sheet });
+    var rows = JSON.parse(p.values);
+    var startRow = Math.max(gsh.getLastRow(), 1) + 1;
+    gsh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsUpdate') {
+    var parts = p.range.split('!');
+    ss.getSheetByName(parts[0]).getRange(parts[1]).setValues(JSON.parse(p.values));
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsFindRow') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) return _json({ row: null });
+    var vals = gsh.getDataRange().getValues();
+    for (var i = 0; i < vals.length; i++) { if (String(vals[i][0]) === String(p.id)) return _json({ row: i+1 }); }
+    return _json({ row: null });
   }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
 }

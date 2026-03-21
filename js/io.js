@@ -1308,7 +1308,10 @@ async function saveSparGoal(editId, isTax){
     const deadline = document.getElementById('spar-deadline')?.value||'';
     const priority = parseInt(document.getElementById('spar-priority')?.value)||99;
     const open = !deadline && target<=0;
-    goal = {id:editId||genId('SZ'),name,target,start:saved,saved,deadline,open,priority,taxPct:0,taxAmt:0,isTax:false};
+    // On edit: preserve original start (starting balance); only set start=saved for new goals
+    const existingGoal = editId ? DATA.sparziele.find(g=>g.id===editId) : null;
+    const start = existingGoal ? (existingGoal.start ?? existingGoal.saved) : saved;
+    goal = {id:editId||genId('SZ'),name,target,start,saved,deadline,open,priority,taxPct:0,taxAmt:0,isTax:false};
   }
 
   if(editId){
@@ -1323,6 +1326,7 @@ async function saveSparGoal(editId, isTax){
   toast('Gespeichert');
 
   // Sync to Sheet
+  setSyncStatus('syncing');
   try{
     // Ensure the Sparziele sheet exists
     await apiCall({action:'ensureSheet', sheet:'Sparziele', headers:JSON.stringify(['ID','Name','Zielbetrag','Startbetrag','Gespart','Deadline','Typ','Priorität','SteuerPct','SteuerBetrag','Deleted'])});
@@ -1346,25 +1350,14 @@ async function deleteSparGoal(id){
   closeGenericModal();
   renderSparen();
   toast('Gelöscht');
+  setSyncStatus('syncing');
   try{
     const rowNum = await apiFindRow('Sparziele', id);
     if(rowNum) await apiUpdate(`Sparziele!K${rowNum}`, [['1']]);
     setSyncStatus('online');
-  }catch(e){ setSyncStatus('error'); }
+  }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
 }
 
-// Update saved amount (deposit into goal)
-async function addToSparGoal(id, amount){
-  const g = DATA.sparziele.find(x=>x.id===id);
-  if(!g) return;
-  g.saved = Math.round((g.saved + amount)*100)/100;
-  renderSparen();
-  try{
-    const rowNum = await apiFindRow('Sparziele', id);
-    if(rowNum) await apiUpdate(`Sparziele!E${rowNum}`, [[g.saved]]);
-    setSyncStatus('online');
-  }catch(e){ setSyncStatus('error'); }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: GROUPS — CRUD (delegated to js/groups.js)

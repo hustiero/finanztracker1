@@ -1251,9 +1251,27 @@ function renderWidgetGreeting(){
   const name = CFG.userName ? `, ${CFG.userName}` : '';
   const wday = now.toLocaleDateString('de-CH',{weekday:'long'});
   const dat  = now.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'});
+  // Quick today stat
+  const t = today();
+  const todayVar = DATA.expenses.filter(e=>e.date===t&&!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const z = getZyklusInfo();
+  const budget = z.dailyRate;
+  let statHtml = '';
+  if(budget!==null){
+    const over = todayVar > budget;
+    statHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text3)">
+      Heute: <span style="font-family:'DM Mono',monospace;font-weight:600;color:${over?'var(--red)':'var(--green)'}">${curr()} ${fmtAmt(todayVar)}</span>
+      <span style="color:var(--text3)"> / Budget ${curr()} ${fmtAmt(budget)}</span>
+    </div>`;
+  } else if(todayVar>0){
+    statHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text3)">
+      Heute ausgegeben: <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text)">${curr()} ${fmtAmt(todayVar)}</span>
+    </div>`;
+  }
   return `<div style="padding:4px 0">
     <div style="font-size:20px;font-weight:700;letter-spacing:-.3px">${greet}${name}</div>
     <div style="font-size:13px;color:var(--text3);margin-top:4px">${wday}, ${dat}</div>
+    ${statHtml}
   </div>`;
 }
 
@@ -1305,7 +1323,7 @@ function renderWidgetLohnzyklus(){
       <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
-      <span>Ausgegeben: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
+      <span>Variabel: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
       <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varBudget)}</span></span>
     </div>
     ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: ${z.daysLeft>0&&z.varRemaining>0
@@ -1433,15 +1451,18 @@ function renderWidgetMonatverlauf(){
     <div style="display:flex;align-items:flex-end;gap:4px;height:${barH+20}px;padding-bottom:18px;position:relative">
       ${totals.map((t,i)=>{
         const h = Math.max(4,Math.round(t/max*barH));
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%">
-          <div style="width:100%;height:${h}px;background:${i===5?'var(--accent)':'var(--bg3)'};border-radius:3px 3px 0 0"></div>
-          <div style="font-size:9px;color:var(--text3);white-space:nowrap">${months[i].label}</div>
+        const isCur = i===5;
+        const m = months[i];
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%;cursor:pointer"
+          onclick="mvMonth=${m.mo};mvYear=${m.yr};goTab('monat');renderMonat()">
+          <div style="width:100%;height:${h}px;background:${isCur?'var(--accent)':'var(--bg3)'};border-radius:3px 3px 0 0;opacity:${isCur?1:.8}"></div>
+          <div style="font-size:9px;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};white-space:nowrap">${m.label}</div>
         </div>`;
       }).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
-      <span>Max: ${curr()} ${fmtAmt(max)}</span>
-      <span>Akt.: ${curr()} ${fmtAmt(totals[5])}</span>
+      <span>Ø <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(totals.reduce((a,v)=>a+v,0)/totals.filter(v=>v>0).length||1)}</span></span>
+      <span>Akt.: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(totals[5])}</span></span>
     </div>
   </div>`;
 }
@@ -1450,8 +1471,7 @@ function renderWidgetHeuteAusgaben(){
   const t = today();
   const dExp = DATA.expenses.filter(e=>e.date===t);
   const dInc = DATA.incomes.filter(e=>e.date===t);
-  const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
-  // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
+  // Variable spending today (excluding fixkosten — what daily budget tracks)
   const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>{
     if(e.groupId && e.splitData && e.splitData.participants){
       const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
@@ -1462,9 +1482,12 @@ function renderWidgetHeuteAusgaben(){
     }
     return s + e.amt;
   },0);
-  const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
+  const todayFix  = dExp.filter(e=>isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const todayIn   = dInc.reduce((s,e)=>s+e.amt,0);
+  // Virtual recurring for today (not yet materialized)
+  const dRec = getRecurringOccurrences(t, t, false, true);
 
-  // Tagesbudget from Zyklus — compare against variable spending only
+  // Daily budget and color — both display and comparison use variable spending
   const z = getZyklusInfo();
   const dailyBudget = z.dailyRate;
   const overBudget = dailyBudget!==null && todayVar > dailyBudget;
@@ -1472,8 +1495,11 @@ function renderWidgetHeuteAusgaben(){
 
   let html = `<div>
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">HEUTE</div>
-    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:6px">${curr()}&nbsp;${fmtAmt(todayOut)}</div>`;
+    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:4px">${curr()}&nbsp;${fmtAmt(todayVar)}</div>`;
 
+  if(todayFix>0){
+    html += `<div style="font-size:11px;color:var(--text3);margin-bottom:4px">+ ${curr()} ${fmtAmt(todayFix)} Fixkosten</div>`;
+  }
   if(todayIn>0){
     html += `<div style="font-size:12px;color:var(--green);margin-bottom:4px">+${curr()} ${fmtAmt(todayIn)} Einnahmen</div>`;
   }
@@ -1489,10 +1515,10 @@ function renderWidgetHeuteAusgaben(){
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
 
-  if(!dExp.length && !dInc.length){
+  if(!dExp.length && !dInc.length && !dRec.length){
     html += `<div style="font-size:13px;color:var(--text3)">Noch keine Buchungen heute.</div>`;
   } else {
-    html += `<div style="margin:0 -14px;border-top:1px solid var(--border)">${buildDayGroup(t, dExp, dInc)}</div>`;
+    html += `<div style="margin:0 -14px;border-top:1px solid var(--border)">${buildDayGroup(t, dExp, dInc, dRec)}</div>`;
   }
   html += `</div>`;
   return html;
@@ -1624,7 +1650,9 @@ function renderWidgetJahresSparquote(yr){
   const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
   const doneM=yMonths.filter(m=>!m.cur);
   const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
-  const proj=avgM*12;
+  // Projection: already saved (completed months) + average × remaining months (incl. current)
+  const pastSaved=doneM.reduce((s,m)=>s+m.net,0);
+  const proj=doneM.length>0 ? pastSaved+avgM*(12-doneM.length) : yearSaved;
   return `<div onclick="goTab('sparen')" style="cursor:pointer">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="widget-title mb-0">Jahres-Sparquote ${yr}</div>
