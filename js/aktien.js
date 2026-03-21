@@ -29,7 +29,9 @@ function updateAktienTotal(){
   const price = parseFloat(document.getElementById('at-price')?.value)||0;
   const total = qty * price;
   const el = document.getElementById('at-total');
-  if(el) el.value = total>0 ? `${curr()} ${fmtAmt(total)}` : '';
+  const tradeStock = SDATA.stocks.find(s=>s.id===document.getElementById('at-stock')?.value);
+  const tradeCurr = tradeStock?.currency || curr();
+  if(el) el.value = total>0 ? `${tradeCurr} ${fmtAmt(total)}` : '';
 }
 
 function openNewAktieModalFromEingabe(){
@@ -210,6 +212,17 @@ async function syncKurseSheet(extraTickers=[]){
           }
         }catch(e2){ console.warn('syncKurseSheet FX pass 2 error:', e2); }
       }
+      // Auto-correct s.currency from GOOGLEFINANCE-reported currency
+      let currFixed = false;
+      for(const s of SDATA.stocks){
+        if(!s.ticker) continue;
+        const cached = getCachedStock(s.ticker);
+        if(cached?.currency && cached.currency.toUpperCase() !== (s.currency||'').toUpperCase()){
+          s.currency = cached.currency.toUpperCase();
+          currFixed = true;
+        }
+      }
+      if(currFixed) sdataSave();
     }
   }catch(e){ console.warn('syncKurseSheet error:', e); }
 }
@@ -350,14 +363,16 @@ function getGewinnVerlust(stockId){
 
 // Gesamter Portfolio-GV (Summe aller Positionen mit Live-Kurs) — in user currency
 function getGesamtGewinnVerlust(){
-  let amt=0, cost=0, hasAny=false;
+  let amt=0, cost=0, hasAny=false, fxMissing=false;
   SDATA.stocks.forEach(s=>{
     const pos=calcPosition(s.id); if(pos.qty<0.0001) return;
     const lp=s.ticker?getAktuellerKurs(s.ticker):null; if(!lp) return;
     const stockCurr = getCachedStock(s.ticker)?.currency || s.currency;
+    if(!hasFxRate(stockCurr)){ fxMissing=true; return; }
     const fxRate = getFxRate(stockCurr);
     amt+=(lp-pos.avgPrice)*pos.qty*fxRate; cost+=pos.totalCost*fxRate; hasAny=true;
   });
+  if(fxMissing) return {amt:0, pct:0, hasLive:false};
   return {amt, pct:cost>0?amt/cost*100:0, hasLive:hasAny};
 }
 
@@ -517,7 +532,8 @@ function buildPreisVergleichChart(stocks){
     const lp=live?.price;
     const stockCurr=(live?.currency||s.currency||'').toUpperCase();
     const fxRate=getFxRate(stockCurr);
-    return {label:s.ticker||s.title,avg:s.pos.avgPrice*fxRate,live:lp!=null?lp*fxRate:null,color:aktieColor(s.id),origCurr:stockCurr!==curr().toUpperCase()?stockCurr:''};
+    const isFxApprox=stockCurr&&stockCurr!==curr().toUpperCase()&&!hasFxRate(stockCurr);
+    return {label:s.ticker||s.title,avg:s.pos.avgPrice*fxRate,live:lp!=null?lp*fxRate:null,color:aktieColor(s.id),origCurr:stockCurr!==curr().toUpperCase()?stockCurr:'',isFxApprox};
   }).filter(d=>d.avg>0);
   if(!items.length) return '';
   const maxVal=Math.max(...items.flatMap(d=>[d.avg,d.live||0]))||1;
@@ -537,7 +553,7 @@ function buildPreisVergleichChart(stocks){
           <div style="flex:1;height:10px;background:var(--bg3);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${(d.avg/maxVal*100).toFixed(1)}%;background:${d.color};border-radius:3px;opacity:.8"></div>
           </div>
-          <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);min-width:50px">${fmtPrice(d.avg)}</div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);min-width:50px">${d.isFxApprox?'≈ ':''}${fmtPrice(d.avg)}</div>
         </div>
         ${d.live!=null?`
         <div style="display:flex;align-items:center;gap:6px">
@@ -545,7 +561,7 @@ function buildPreisVergleichChart(stocks){
           <div style="flex:1;height:10px;background:var(--bg3);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${(d.live/maxVal*100).toFixed(1)}%;background:${d.live>=d.avg?'var(--green)':'var(--red)'};border-radius:3px"></div>
           </div>
-          <div style="font-size:10px;font-family:'DM Mono',monospace;min-width:50px;color:${d.live>=d.avg?'var(--green)':'var(--red)'}">${fmtPrice(d.live)}</div>
+          <div style="font-size:10px;font-family:'DM Mono',monospace;min-width:50px;color:${d.live>=d.avg?'var(--green)':'var(--red)'}">${d.isFxApprox?'≈ ':''}${fmtPrice(d.live)}</div>
         </div>`:
         `<div style="font-size:9px;color:var(--text3);padding-left:58px">Kein Live-Kurs</div>`}
       </div>
