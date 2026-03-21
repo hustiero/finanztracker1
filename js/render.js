@@ -515,34 +515,12 @@ function renderVerlaufL1(){
   const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
   const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'Ich');
 
+  // Personal expenses only (group entries now live in DATA.groupEntries)
   const plainExpenses = DATA.expenses
-    .filter(e => !e.groupId)
-    .map(e => ({...e, _type:'ausgabe'}));
-
-  const myGroupExpenses = DATA.expenses
-    .filter(e => e.groupId && e.splitData?.participants)
-    .map(e => {
-      const parts = e.splitData.participants;
-      const myShare = parts[myId]!==undefined ? parts[myId] : (parts[myName]!==undefined ? parts[myName] : undefined);
-      const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
-      const fullAmt = e.splitData.totalAmount || e.amt;
-      return {
-        ...e,
-        amt,
-        _fullAmt: fullAmt,
-        _isSplit: amt !== fullAmt,
-        _type: 'ausgabe'
-      };
-    });
-
-  const groupExpensesNoSplit = DATA.expenses
-    .filter(e => e.groupId && !e.splitData?.participants)
     .map(e => ({...e, _type:'ausgabe'}));
 
   let entries = [
     ...plainExpenses,
-    ...myGroupExpenses,
-    ...groupExpensesNoSplit,
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
     ...getRecurringOccurrences(recurStart, recurEnd, false, true)
   ];
@@ -1452,16 +1430,7 @@ function renderWidgetHeuteAusgaben(){
   const dInc = DATA.incomes.filter(e=>e.date===t);
   const todayOut = dExp.reduce((s,e)=>s+e.amt,0);
   // Variable spending today (excluding fixkosten like auto-materialized Daueraufträge)
-  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>{
-    if(e.groupId && e.splitData && e.splitData.participants){
-      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
-      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-      const parts = e.splitData.participants;
-      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
-      return s + (myShare !== undefined ? myShare : e.amt);
-    }
-    return s + e.amt;
-  },0);
+  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
   const todayIn  = dInc.reduce((s,e)=>s+e.amt,0);
 
   // Tagesbudget from Zyklus — compare against variable spending only

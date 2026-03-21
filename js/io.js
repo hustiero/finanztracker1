@@ -626,27 +626,43 @@ async function saveEntry(){
 
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
+  // Group entries go ONLY to Gruppen-Sheet (new architecture)
+  if(group && currentEntryType==='ausgabe'){
+    await saveGroupEntry(group, {id,date,what,cat,amt,splitData});
+    // Reset form
+    document.getElementById('f-amt').value='';
+    document.getElementById('f-what').value='';
+    document.getElementById('f-note').value='';
+    document.getElementById('f-date').value=today();
+    if(groupSel) groupSel.value='';
+    _hideSplitSection();
+    lohnMode = false; updateLohnToggleUI();
+    toast('Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
+    dataCacheSave();
+    pushGroupNotification(group, {what,amt,date});
+    markDirty('verlauf','dashboard','home','lohn','groups');
+    return;
+  }
+
+  // Personal entries (no group)
   if(currentEntryType==='ausgabe'){
     const entry = {id,date,what,cat,amt:myAmt,note,recurringId:'',isFixkosten:false};
-    if(groupId) entry.groupId = groupId;
-    if(splitData) entry.splitData = splitData;
     DATA.expenses.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
+        await apiAppend('Ausgaben',[[id,date,what,cat,myAmt,note,'','0','','']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
   } else {
     const isLohn = document.getElementById('f-lohn-switch')?.classList.contains('on')||false;
     const entry = {id,date,what,cat,amt,note,isLohn};
-    if(groupId) entry.groupId = groupId;
     DATA.incomes.push(entry);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']]);
+        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0','']]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -659,17 +675,10 @@ async function saveEntry(){
   document.getElementById('f-date').value=today();
   if(groupSel) groupSel.value='';
   _hideSplitSection();
-  // Reset lohn toggle
   lohnMode = false; updateLohnToggleUI();
 
-  toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
+  toast('Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   dataCacheSave();
-  // Push notification to group members (non-blocking) — show full amount
-  if(group) pushGroupNotification(group, {what,amt,date});
-  // Save to shared GroupEntries sheet (non-blocking) — use FULL amount (amt, not myAmt)
-  if(group && currentEntryType==='ausgabe'){
-    saveGroupEntry(group, {id,date,what,cat,amt,splitData});
-  }
   markDirty('verlauf','dashboard','home','lohn','groups');
 }
 
