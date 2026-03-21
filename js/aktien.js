@@ -172,8 +172,20 @@ function normalizeTickerForYahoo(t){
   // Already Yahoo format or plain US ticker → keep as-is
   return t;
 }
+let _syncKurseRunning = null; // holds the current sync promise for deduplication
+
 async function syncKurseSheet(extraTickers=[]){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  // If a sync is already in progress, wait for it instead of starting a parallel one
+  if(_syncKurseRunning){
+    await _syncKurseRunning;
+    return;
+  }
+  _syncKurseRunning = _syncKurseSheetInner(extraTickers);
+  try{ await _syncKurseRunning; }finally{ _syncKurseRunning = null; }
+}
+
+async function _syncKurseSheetInner(extraTickers){
   const tickers = SDATA.stocks.filter(s=>s.ticker).map(s=>normalizeTickerForGF(s.ticker));
   const userCurr = curr().toUpperCase();
   const stockCurrencies = [...new Set(SDATA.stocks.map(s=>(s.currency||'').toUpperCase()))].filter(c=>c&&c!==userCurr);
@@ -803,8 +815,15 @@ function renderFxRates(){
 }
 
 let _kurseCacheLoaded = false; // load from Sheet only once per session
+let _renderAktienRunning = false; // concurrency guard
 
 async function renderAktien(){
+  if(_renderAktienRunning) return; // prevent overlapping async renders
+  _renderAktienRunning = true;
+  try{ await _renderAktienInner(); }finally{ _renderAktienRunning = false; }
+}
+
+async function _renderAktienInner(){
   // On first call: restore cached prices so the UI shows last-known values immediately.
   // Subsequent calls (close detail, switch view, …) skip this to avoid blocking the UI.
   if(!_kurseCacheLoaded){
@@ -1038,8 +1057,13 @@ function renderAktieDetail(stockId){
     </div>`}
   </div>`;
 
-  // Refresh live price in background
-  if(s.ticker) fetchStockPrice(s.ticker).then(p=>{ if(p){ renderAktieDetail(stockId); } });
+  // Refresh live price in background — only if not already cached (prevents infinite re-render loop)
+  if(s.ticker){
+    const alreadyCached = getCachedStock(s.ticker);
+    if(!alreadyCached || alreadyCached.stale || (Date.now() - (alreadyCached.ts||0)) > 7*60*1000){
+      fetchStockPrice(s.ticker).then(p=>{ if(p && currentAktieId===stockId){ renderAktieDetail(stockId); } });
+    }
+  }
 }
 
 async function refreshStockPrice(stockId){
