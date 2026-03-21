@@ -45,33 +45,58 @@ function _handle(p) {
   if (p.action === 'fetchPrices') {
     var tickers = JSON.parse(p.tickers || '[]');
     var results = {};
-    // Use GOOGLEFINANCE server-side: set formulas, flush, read back
     var sh = ss.getSheetByName('Kurse');
     if (!sh) {
       sh = ss.insertSheet('Kurse');
       sh.getRange(1,1,1,3).setValues([['Ticker','Kurs','Währung']]);
     }
     if (tickers.length > 0) {
-      // Clear old data and write tickers
-      var dataRange = sh.getRange(2, 1, Math.max(sh.getLastRow(), tickers.length + 1), 3);
-      dataRange.clearContent();
+      // Clear old data
+      var clearRows = Math.max(sh.getLastRow(), tickers.length + 2);
+      sh.getRange(2, 1, clearRows, 3).clearContent();
       sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
-      // Set GOOGLEFINANCE formulas
-      var formulas = tickers.map(function(t, i) {
+
+      // Try batch setFormulas first; fall back to row-by-row if any ticker causes a parse error
+      var formulas = tickers.map(function(t) {
+        // Strip anything that could break the formula string (only keep safe chars)
+        var safe = t.replace(/["\\]/g, '').trim();
         return [
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","currency"),"")'
+          '=IFERROR(GOOGLEFINANCE("' + safe + '","price"),"")',
+          '=IFERROR(GOOGLEFINANCE("' + safe + '","currency"),"")'
         ];
       });
-      sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
+
+      try {
+        sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
+      } catch(e) {
+        // Batch failed — write row by row so one bad ticker doesn't kill the rest
+        for (var r = 0; r < formulas.length; r++) {
+          try {
+            sh.getRange(r + 2, 2, 1, 2).setFormulas([formulas[r]]);
+          } catch(e2) {
+            sh.getRange(r + 2, 2, 1, 2).setValues([['', '']]);
+          }
+        }
+      }
+
+      // Wait for GOOGLEFINANCE to resolve (flush twice with a longer pause)
+      SpreadsheetApp.flush();
+      Utilities.sleep(4000);
       SpreadsheetApp.flush();
       Utilities.sleep(2000);
-      SpreadsheetApp.flush();
-      // Read back computed values
+
+      // Read back values; retry once more if all prices are still empty
       var vals = sh.getRange(2, 1, tickers.length, 3).getValues();
+      var gotAny = vals.some(function(r){ return parseFloat(r[1]) > 0; });
+      if (!gotAny) {
+        SpreadsheetApp.flush();
+        Utilities.sleep(3000);
+        vals = sh.getRange(2, 1, tickers.length, 3).getValues();
+      }
+
       for (var i = 0; i < vals.length; i++) {
-        var ticker = String(vals[i][0] || '').toUpperCase();
-        var price = parseFloat(vals[i][1]);
+        var ticker  = String(vals[i][0] || '').toUpperCase();
+        var price   = parseFloat(vals[i][1]);
         var currency = String(vals[i][2] || '');
         if (ticker && !isNaN(price) && price > 0) {
           results[ticker] = { price: price, currency: currency, prevClose: null };
