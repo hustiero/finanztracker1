@@ -29,7 +29,7 @@ async function groupsApiCall(params){
   const data = await r.json();
   if(data.error){
     if((data.error||'').includes('Sitzung abgelaufen')){
-      CFG.sessionToken=''; CFG.authUser=''; CFG.authRole=''; cfgSave();
+      CFG.sessionToken=''; CFG.authRole=''; cfgSave();
       toast('Sitzung abgelaufen – bitte neu anmelden','err');
       setTimeout(()=>location.reload(), 2500);
     }
