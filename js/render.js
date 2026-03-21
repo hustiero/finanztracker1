@@ -1070,7 +1070,7 @@ const WIDGET_CATALOG = [
   { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
   { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
   { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
-  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in CHF und % (benötigt Live-Kurse)' },
+  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in Zielwährung und % (benötigt Live-Kurse)' },
   { key:'aktienTop',        label:'Top-Performer',            sub:'Aktie mit höchstem prozentualen Gewinn' },
   { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
   { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
@@ -1927,57 +1927,7 @@ function renderWidgetAktienPosition(){
   </div>`;
 }
 
-// Tagesveränderung des gesamten Portfolios (benötigt prevClose in stockPriceCache)
-function getPortfolioTodayChange(){
-  let totalChange = 0, hasData = false;
-  SDATA.stocks.forEach(s => {
-    const pos = calcPosition(s.id); if(pos.qty < 0.0001) return;
-    const cached = s.ticker ? getCachedStock(s.ticker) : null;
-    if(!cached?.price || !cached?.prevClose) return;
-    const fxRate = getFxRate(cached.currency || s.currency);
-    totalChange += (cached.price - cached.prevClose) * pos.qty * fxRate;
-    hasData = true;
-  });
-  return { amt: totalChange, hasData };
-}
-
-function renderWidgetAktienDashboard(){
-  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  const total = getGesamtPortfoliowert();
-  const gv = getGesamtGewinnVerlust();
-  const todayChg = getPortfolioTodayChange();
-  const posCount = active.length;
-  if(!posCount) return `<div>
-    <div class="widget-title">Aktien-Dashboard</div>
-    <div class="t-muted">Keine aktiven Positionen.</div>
-  </div>`;
-  const gvColor = gv.hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text2)';
-  const gvSign = gv.amt>=0?'+':'';
-  const todayColor = !todayChg.hasData ? 'var(--text2)' : todayChg.amt>=0 ? 'var(--green)' : 'var(--red)';
-  const todaySign = todayChg.amt>=0?'+':'';
-  const todayArrow = !todayChg.hasData ? '' : todayChg.amt>=0 ? ' ▲' : ' ▼';
-  return `<div>
-    <div class="widget-title mb-10">Aktien-Dashboard</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-right:12px">
-        <div class="t-label">Portfolio-Wert</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
-      </div>
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
-        <div class="t-label">Heute</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${todayColor}">${todayChg.hasData ? todaySign+curr()+' '+fmtAmt(Math.abs(todayChg.amt))+todayArrow : '—'}</div>
-      </div>
-      <div style="padding:8px 0;padding-right:12px;margin-top:2px">
-        <div class="t-label">Gesamt G/V</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${gvColor}">${gv.hasLive ? gvSign+curr()+' '+fmtAmt(Math.abs(gv.amt))+' ('+gvSign+gv.pct.toFixed(1)+'%)' : '—'}</div>
-      </div>
-      <div style="padding:8px 0;padding-left:12px;border-left:1px solid var(--border);margin-top:2px">
-        <div class="t-label">Positionen</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${posCount} Aktie${posCount!==1?'n':''}</div>
-      </div>
-    </div>
-  </div>`;
-}
+// getPortfolioTodayChange and renderWidgetAktienDashboard live in js/portfolio.js
 
 function renderDashboard(){
   const now = new Date();
