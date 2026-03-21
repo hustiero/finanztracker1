@@ -183,13 +183,32 @@ async function syncKurseSheet(extraTickers=[]){
     // Server-side: sets GOOGLEFINANCE formulas, flush(), reads back — all in one call
     const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify(allTickers)});
     if(res.prices){
+      const discoveredCurrencies = new Set();
       for(const [ticker, data] of Object.entries(res.prices)){
         if(!data.price || data.price<=0) continue;
         if(ticker.startsWith('CURRENCY:')){
           fxRateCache[ticker.replace('CURRENCY:','')] = data.price;
         } else {
           stockPriceCache[ticker] = {price:data.price, prevClose:data.prevClose||null, currency:data.currency||'', ts:Date.now()};
+          // Collect actual currencies reported by GOOGLEFINANCE (may differ from user-saved s.currency)
+          const c = (data.currency||'').toUpperCase();
+          if(c && c !== userCurr) discoveredCurrencies.add(c);
         }
+      }
+      // Second pass: fetch FX rates for any currencies GOOGLEFINANCE reported but we don't have yet
+      const missingFx = [...discoveredCurrencies].filter(c => !fxRateCache[`${c}${userCurr}`]);
+      if(missingFx.length){
+        const missingFxTickers = missingFx.map(c=>`CURRENCY:${c}${userCurr}`);
+        try{
+          const res2 = await apiCall({action:'fetchPrices', tickers:JSON.stringify(missingFxTickers)});
+          if(res2.prices){
+            for(const [ticker, data] of Object.entries(res2.prices)){
+              if(ticker.startsWith('CURRENCY:') && data.price>0){
+                fxRateCache[ticker.replace('CURRENCY:','')] = data.price;
+              }
+            }
+          }
+        }catch(e2){ console.warn('syncKurseSheet FX pass 2 error:', e2); }
       }
     }
   }catch(e){ console.warn('syncKurseSheet error:', e); }
