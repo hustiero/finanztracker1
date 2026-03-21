@@ -305,12 +305,19 @@ function getCachedStock(ticker){
 
 // FX conversion helpers
 // Returns exchange rate for fromCurrency → curr() (user's currency), or 1 if same/unknown
-function getFxRate(fromCurrency){
-  if(!fromCurrency) return 1;
-  const fc = fromCurrency.toUpperCase(), uc = curr().toUpperCase();
-  if(fc === uc) return 1;
-  const key = fc + uc;
-  return fxRateCache[key] || 1; // fallback 1 = no conversion (rate unknown)
+function getFxRate(fromCurr) {
+  if (!fromCurr || fromCurr === 'CHF') return 1;
+  const pair = `${fromCurr}CHF`.toUpperCase();
+  
+  // Suche im Cache (wird von syncKurseSheet befüllt)
+  if (fxRateCache[pair]) return fxRateCache[pair];
+  
+  // Fallback: Suche nach dem Ticker in den Aktiendaten (Google Finance Style)
+  const stockMatch = Object.values(stockPriceCache).find(s => s.currency === fromCurr);
+  if (stockMatch && stockMatch.fxRate) return stockMatch.fxRate;
+
+  console.warn(`Kein Wechselkurs für ${fromCurr} gefunden. Nutze Fallback 1.0 (Fehlerpotential!)`);
+  return 1; 
 }
 // Returns true if FX rate is available for given stock currency
 function hasFxRate(fromCurrency){
@@ -393,21 +400,52 @@ function getGesamtGewinnVerlust(){
 }
 
 function calcPosition(stockId){
-  const trades = SDATA.trades.filter(t=>t.stockId===stockId).sort((a,b)=>a.date.localeCompare(b.date));
-  let qty=0, totalCost=0;
+  const s = SDATA.stocks.find(st => st.id === stockId);
+  const trades = SDATA.trades.filter(t => t.stockId === stockId && !t.deleted).sort((a,b)=>a.date.localeCompare(b.date));
+  
+  let qty = 0, totalCost = 0;
   for(const t of trades){
-    if(t.type==='kauf'){
-      totalCost += t.qty * t.price + (t.courtage||0);
+    if(t.type === 'kauf'){
+      // Wir speichern die Kosten in der Originalwährung (z.B. SEK)
+      totalCost += (t.qty * t.price) + (t.courtage || 0);
       qty += t.qty;
     } else {
-      const avg = qty>0 ? totalCost/qty : 0;
+      const avg = qty > 0 ? totalCost / qty : 0;
       totalCost -= t.qty * avg;
       qty -= t.qty;
     }
   }
-  qty = Math.round(qty*1e6)/1e6;
+  
+  qty = Math.round(qty * 1e6) / 1e6;
   if(qty < 0) qty = 0;
-  return { qty, avgPrice: qty>0.0001 ? totalCost/qty : 0, totalCost: qty>0.0001 ? totalCost : 0 };
+  
+  const avgPrice = (qty > 0.0001) ? totalCost / qty : 0;
+  
+  // WÄHRUNGS-LOGIK:
+  const currency = s ? s.currency : 'CHF';
+  const fx = getFxRate(currency); // Holt z.B. den SEKCHF Kurs (ca. 0.08)
+  const currentPrice = getCachedStock(s?.ticker)?.price || 0;
+  
+  // Aktueller Wert der gesamten Position in CHF
+  const currentValueCHF = qty * currentPrice * fx;
+  
+  // Investiertes Kapital in CHF (basierend auf dem Durchschnittspreis und aktuellem FX)
+  const investiertCHF = qty * avgPrice * fx;
+  
+  const pnlAbs = currentValueCHF - investiertCHF;
+  const pnlPct = investiertCHF > 0 ? (pnlAbs / investiertCHF) * 100 : 0;
+
+  return { 
+    qty, 
+    avgPrice, 
+    totalCost, 
+    currentValueCHF, 
+    investiertCHF, 
+    pnlAbs, 
+    pnlPct, 
+    fxUsed: fx,
+    currency 
+  };
 }
 
 function fmtPrice(n, ccy){
