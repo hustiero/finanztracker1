@@ -221,9 +221,13 @@ async function deleteGroup(id){
 }
 
 async function archiveGroup(id){
+  const g = DATA.groups.find(x=>x.id===id);
+  if(!g) return;
+  if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe archivieren','err'); return; }
   if(!confirm('Gruppe archivieren? Sie ist danach unter "Archiv" sichtbar.')) return;
   await updateGroup(id, {status:'archived'});
   toast('✓ Gruppe archiviert','ok');
+  closeGroupDetail();
   renderGroups();
 }
 
@@ -334,6 +338,30 @@ async function removeGroupMember(groupId, memberName){
   openGroupDetail(groupId);
 }
 
+/** Non-admin members can leave a group voluntarily. */
+async function leaveGroup(groupId){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  if(isGroupAdmin(g)){ toast('Admin kann die Gruppe nicht verlassen — erst Admin-Rolle übertragen oder Gruppe löschen','err'); return; }
+  if(!confirm('Gruppe "'+g.name+'" verlassen?')) return;
+  const me = _myGroupId();
+  const myName = _myGroupName();
+  g.members = g.members.filter(m=>m!==me && m!==myName);
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      const row = await groupsApiFindRow('Groups', groupId);
+      if(row) await groupsApiUpdate(`Groups!D${row}`, [[JSON.stringify(g.members)]]);
+      setSyncStatus('online');
+    }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  DATA.groups = DATA.groups.filter(x=>x.id!==groupId);
+  dataCacheSave();
+  toast('✓ Gruppe verlassen','ok');
+  closeGroupDetail();
+  markDirty('groups');
+}
+
 async function regenerateInviteCode(groupId){
   const g = DATA.groups.find(x=>x.id===groupId);
   if(!g) return;
@@ -379,7 +407,12 @@ function _readSplitForm(totalAmt, group){
 
 function _hideSplitSection(){
   const sec = document.getElementById('f-split-section');
-  if(sec) sec.style.display='none';
+  if(!sec) return;
+  sec.style.display='none';
+  // Clear all custom share inputs to avoid stale values on next open
+  sec.querySelectorAll('input[type="number"]').forEach(i=>{ i.value=''; });
+  const modeEl = document.getElementById('f-split-mode');
+  if(modeEl) modeEl.value='equal';
 }
 
 // ── 10. Settle up ────────────────────────────────────────────

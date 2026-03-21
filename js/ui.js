@@ -1118,11 +1118,14 @@ function _renderEventDetail(g, el){
       <div class="grp-detail-sub">Event · ${fmtAmt(total)} total${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
       ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>`:''}
+      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
   </div>`;
@@ -1229,11 +1232,14 @@ function _renderSplitDetail(g, el){
       <div class="grp-detail-sub">Split · ${g.members.length} Teilnehmer${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
       ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>`:''}
+      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
   </div>`;
