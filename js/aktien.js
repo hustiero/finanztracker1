@@ -82,6 +82,57 @@ function sdataLoad(){
 }
 function sdataSave(){ localStorage.setItem(STOCKS_KEY, JSON.stringify(SDATA)); }
 
+// ── Persistenter Kurs-Cache via Sheet-Tab «Kurse-Cache» ──────────────────────
+// Columns: ticker | price | prevClose | currency | fxRate | updatedAt
+// Loaded once at the start of renderAktien() so the UI shows cached values
+// immediately. Saved after syncKurseSheet() completes with fresh data.
+
+async function loadKurseCache(){
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  try{
+    const res = await apiGet('Kurse-Cache!A2:F200');
+    const now = Date.now();
+    (res.values||[]).forEach(r=>{
+      const [ticker, price, prevClose, currency, fxRate, updatedAt] = r;
+      if(!ticker || (!price && !fxRate)) return;
+      const updAt = updatedAt ? new Date(updatedAt).getTime() : 0;
+      const age   = updAt ? now - updAt : Infinity;
+      const stale = age > 24*60*60*1000; // older than 24 h → stale
+      const ts    = updAt || now;
+      if(ticker.startsWith('CURRENCY:')){
+        const key = ticker.replace('CURRENCY:','');
+        // Only restore FX rates that are reasonably fresh (< 48 h)
+        if(!fxRateCache[key] && fxRate && age < 48*60*60*1000)
+          fxRateCache[key] = parseFloat(fxRate);
+      } else {
+        if(!stockPriceCache[ticker] && price)
+          stockPriceCache[ticker] = { price:parseFloat(price), prevClose:prevClose?parseFloat(prevClose):null, currency:currency||'', ts, stale };
+      }
+    });
+  }catch(e){ /* silent — Sheet may not exist yet */ }
+}
+
+async function saveKurseCache(){
+  if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
+  try{
+    await apiCall({action:'ensureSheet', sheet:'Kurse-Cache', headers:JSON.stringify(['Ticker','Price','PrevClose','Currency','FxRate','UpdatedAt'])});
+    const rows = [];
+    const nowIso = new Date().toISOString();
+    for(const [ticker, data] of Object.entries(stockPriceCache)){
+      if(!data?.price) continue;
+      rows.push([ticker, data.price, data.prevClose??'', data.currency||'', '', new Date(data.ts).toISOString()]);
+    }
+    for(const [key, rate] of Object.entries(fxRateCache)){
+      rows.push([`CURRENCY:${key}`, '', '', '', rate, nowIso]);
+    }
+    if(!rows.length) return;
+    // Overwrite from row 2; pad to clear any stale rows from a previous (larger) run
+    const padTo = Math.max(rows.length, 50);
+    const padded = [...rows, ...Array(padTo - rows.length).fill(['','','','','',''])];
+    await apiUpdate(`Kurse-Cache!A2:F${padded.length+1}`, padded);
+  }catch(e){ console.warn('saveKurseCache error:', e); }
+}
+
 // ── GOOGLEFINANCE: Kurse-Sheet Sync ──────────────────────────────────────────
 // Writes tickers to Kurse sheet, sets GOOGLEFINANCE formulas, reads back prices + FX rates.
 // Falls back to Yahoo Finance if sheet unavailable.
@@ -132,13 +183,32 @@ async function syncKurseSheet(extraTickers=[]){
     // Server-side: sets GOOGLEFINANCE formulas, flush(), reads back — all in one call
     const res = await apiCall({action:'fetchPrices', tickers:JSON.stringify(allTickers)});
     if(res.prices){
+      const discoveredCurrencies = new Set();
       for(const [ticker, data] of Object.entries(res.prices)){
         if(!data.price || data.price<=0) continue;
         if(ticker.startsWith('CURRENCY:')){
           fxRateCache[ticker.replace('CURRENCY:','')] = data.price;
         } else {
           stockPriceCache[ticker] = {price:data.price, prevClose:data.prevClose||null, currency:data.currency||'', ts:Date.now()};
+          // Collect actual currencies reported by GOOGLEFINANCE (may differ from user-saved s.currency)
+          const c = (data.currency||'').toUpperCase();
+          if(c && c !== userCurr) discoveredCurrencies.add(c);
         }
+      }
+      // Second pass: fetch FX rates for any currencies GOOGLEFINANCE reported but we don't have yet
+      const missingFx = [...discoveredCurrencies].filter(c => !fxRateCache[`${c}${userCurr}`]);
+      if(missingFx.length){
+        const missingFxTickers = missingFx.map(c=>`CURRENCY:${c}${userCurr}`);
+        try{
+          const res2 = await apiCall({action:'fetchPrices', tickers:JSON.stringify(missingFxTickers)});
+          if(res2.prices){
+            for(const [ticker, data] of Object.entries(res2.prices)){
+              if(ticker.startsWith('CURRENCY:') && data.price>0){
+                fxRateCache[ticker.replace('CURRENCY:','')] = data.price;
+              }
+            }
+          }
+        }catch(e2){ console.warn('syncKurseSheet FX pass 2 error:', e2); }
       }
     }
   }catch(e){ console.warn('syncKurseSheet error:', e); }
@@ -159,7 +229,7 @@ async function loadPortfolioVerlauf(){
 async function appendPortfolioSnapshot(){
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   const total = getGesamtPortfoliowert();
-  if(total<=0) return;
+  if(total==null || total<=0) return; // null = FX rate not yet resolved
   const todayStr = today();
   try{
     await apiCall({action:'ensureSheet', sheet:'Portfolio-Verlauf', headers:JSON.stringify(['Datum','Gesamt'])});
@@ -235,9 +305,31 @@ function getPositionsWert(stockId){
   return toUserCurrency(pos.totalCost, s?.currency);
 }
 
-// Gesamter Portfolio-Marktwert (Summe aller Positionswerte)
+// Like getPositionsWert() but also returns isFxApprox=true when the FX rate
+// for a foreign-currency stock is not yet in fxRateCache (i.e. FX=1 was used).
+function getPositionsWertRaw(stockId){
+  const pos = calcPosition(stockId);
+  const s = SDATA.stocks.find(s=>s.id===stockId);
+  const lp = s?.ticker ? getAktuellerKurs(s.ticker) : null;
+  const stockCurr = (lp!=null ? getCachedStock(s?.ticker)?.currency : s?.currency) || s?.currency || '';
+  const needsFx = stockCurr.toUpperCase() && stockCurr.toUpperCase() !== curr().toUpperCase();
+  const isFxApprox = needsFx && !hasFxRate(stockCurr);
+  if(lp!=null && pos.qty>0.0001){
+    return { value: pos.qty * toUserCurrency(lp, stockCurr), isFxApprox };
+  }
+  return { value: toUserCurrency(pos.totalCost, s?.currency), isFxApprox };
+}
+
+// Gesamter Portfolio-Marktwert (Summe aller Positionswerte).
+// Returns null if any active position has an unresolved FX rate (value would be inaccurate).
 function getGesamtPortfoliowert(){
-  return SDATA.stocks.reduce((sum,s)=>sum+getPositionsWert(s.id), 0);
+  let total = 0;
+  for(const s of SDATA.stocks){
+    const raw = getPositionsWertRaw(s.id);
+    if(raw.isFxApprox && calcPosition(s.id).qty > 0.0001) return null;
+    total += raw.value;
+  }
+  return total;
 }
 
 // Gewinn/Verlust für eine Position {amt, pct, hasLive} — in user currency
@@ -472,9 +564,9 @@ function buildPortfolioVerlauf(){
     const pts=[...PDATA.verlauf];
     // Add current live value as final point if today's entry is there
     const todayStr=today();
-    const curVal=getGesamtPortfoliowert();
-    if(pts[pts.length-1].date===todayStr && curVal>0) pts[pts.length-1].total=curVal;
-    else if(curVal>0) pts.push({date:todayStr,total:curVal});
+    const curVal=getGesamtPortfoliowert(); // null when FX not ready
+    if(pts[pts.length-1].date===todayStr && curVal!=null && curVal>0) pts[pts.length-1].total=curVal;
+    else if(curVal!=null && curVal>0) pts.push({date:todayStr,total:curVal});
 
     const firstDate=pts[0].date, lastDate=pts[pts.length-1].date;
     const startD=new Date(firstDate+'T12:00:00');
@@ -532,8 +624,8 @@ function buildPortfolioVerlauf(){
   const mapY=v=>padT+cH-((v/maxCost)*cH);
   const poly=pts.map(p=>`${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ');
   const area=`M${mapX(pts[0].date).toFixed(1)},${mapY(0)} `+pts.map(p=>`L${mapX(p.date).toFixed(1)},${mapY(p.cost).toFixed(1)}`).join(' ')+` L${mapX(pts[pts.length-1].date).toFixed(1)},${mapY(0)} Z`;
-  const curVal=getGesamtPortfoliowert();
-  const valLine=curVal>0&&curVal!==cumCost?`<line x1="${mapX(lastDate).toFixed(1)}" y1="${mapY(0).toFixed(1)}" x2="${mapX(lastDate).toFixed(1)}" y2="${mapY(Math.min(curVal,maxCost)).toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>`:'' ;
+  const curVal=getGesamtPortfoliowert(); // null when FX not ready
+  const valLine=curVal!=null&&curVal>0&&curVal!==cumCost?`<line x1="${mapX(lastDate).toFixed(1)}" y1="${mapY(0).toFixed(1)}" x2="${mapX(lastDate).toFixed(1)}" y2="${mapY(Math.min(curVal,maxCost)).toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>`:'' ;
   const yLabels=[[0,'var(--text3)','0'],[maxCost,'var(--accent)',maxCost>=1000?(maxCost/1000).toFixed(0)+'k':Math.round(maxCost).toString()]].map(([v,c,lbl])=>
     `<text x="2" y="${mapY(v).toFixed(1)}" font-size="8" fill="${c}" dominant-baseline="middle" font-family="DM Mono,monospace">${lbl}</text>`);
   return `
@@ -589,18 +681,20 @@ function renderAktienTabelle(stocks){
         const fxRate=needsFx?getFxRate(stockCurr):1;
         const lpConverted=lp!=null?lp*fxRate:null;
         const gv=getGewinnVerlust(s.id);
-        const wert=getPositionsWert(s.id);
+        const wertRaw=getPositionsWertRaw(s.id);
+        const wert=wertRaw.value; const isFxApprox=wertRaw.isFxApprox;
         const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
         const sign=gv.pct>=0?'+':'';
+        const isStale=live?.stale;
         const liveTxt=lpConverted!=null?(needsFx?`${fmtPrice(lpConverted)} (${fmtPrice(lp)} ${stockCurr})`:fmtPrice(lpConverted)):'—';
         return `<tr style="cursor:pointer" onclick="openAktieDetail('${s.id}')">
           <td><div class="t-bold">${esc(s.ticker||s.title)}</div>
               <div class="t-muted-sm">${esc(s.title)}${stockCurr&&stockCurr!==userCurrUC?' · '+stockCurr:''}</div></td>
           <td class="t-mono">${fmtQty(s.pos.qty)}</td>
           <td class="t-mono">${fmtPrice(s.pos.avgPrice)}</td>
-          <td style="font-family:'DM Mono',monospace;color:${lpConverted!=null?color:'var(--text3)'};font-size:11px">${liveTxt}</td>
+          <td style="font-family:'DM Mono',monospace;color:${lpConverted!=null?(isStale?'var(--text3)':color):'var(--text3)'};font-size:11px">${liveTxt}${isStale?' ⚑':''}</td>
           <td style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</td>
-          <td class="t-mono-bold">${fmtAmt(wert)}</td>
+          <td class="t-mono-bold" style="${isFxApprox?'color:var(--text3)':''}">${isFxApprox?'≈ ':''}${fmtAmt(wert)}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>
@@ -609,6 +703,15 @@ function renderAktienTabelle(stocks){
 
 let aktienTabView='karten'; // 'karten' | 'tabelle' | 'charts'
 function setAktienTabView(v){ aktienTabView=v; renderAktien(); }
+
+async function refreshAllPrices(){
+  const btn = document.getElementById('aktien-refresh-btn');
+  if(btn){ btn.disabled=true; btn.textContent='…'; }
+  // Mark all cached entries stale so renderAktien() triggers a fresh fetch
+  Object.keys(stockPriceCache).forEach(k=>{ if(stockPriceCache[k]) stockPriceCache[k].stale=true; });
+  await renderAktien();
+  if(btn){ btn.disabled=false; btn.textContent='↻'; }
+}
 
 function renderAktienDashboardTop(){
   const dashEl = document.getElementById('aktien-dashboard-top');
@@ -630,7 +733,7 @@ function renderAktienDashboardTop(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
       <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-right:12px">
         <div class="t-label">Portfolio-Wert</div>
-        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px">${curr()} ${fmtAmt(total)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;margin-top:2px;color:${total===null?'var(--text3)':'inherit'}">${total===null?'Kurs wird geladen…':curr()+' '+fmtAmt(total)}</div>
       </div>
       <div style="padding:6px 0;border-bottom:1px solid var(--border);padding-left:12px;border-left:1px solid var(--border)">
         <div class="t-label">Heute</div>
@@ -648,7 +751,15 @@ function renderAktienDashboardTop(){
   </div>`;
 }
 
+let _kurseCacheLoaded = false; // load from Sheet only once per session
+
 async function renderAktien(){
+  // On first call: restore cached prices so the UI shows last-known values immediately.
+  // Subsequent calls (close detail, switch view, …) skip this to avoid blocking the UI.
+  if(!_kurseCacheLoaded){
+    _kurseCacheLoaded = true;
+    await loadKurseCache();
+  }
   renderAktienDashboardTop();
   const positions = SDATA.stocks.map(s=>({ ...s, pos: calcPosition(s.id) }));
   const activeStocks = positions.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t=>t.stockId===s.id));
@@ -685,14 +796,32 @@ async function renderAktien(){
   if(aktienTabView==='tabelle') renderAktienTabelle(show);
   if(aktienTabView==='charts') renderAktienCharts(show);
 
-  // Fetch live prices in background
+  // Fetch live prices — one single Apps Script call for all tickers at once
   if(aktienView==='aktiv'){
-    const toFetch = activeStocks.filter(s=>s.ticker&&!getCachedStock(s.ticker)&&!stockPriceCache[normalizeTickerForGF(s.ticker)]);
-    if(toFetch.length){
-      await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
+    const needsFetch = activeStocks.some(s=>{
+      if(!s.ticker) return false;
+      const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
+      return !c || c.stale;
+    });
+    if(needsFetch){
+      await syncKurseSheet(); // fetches ALL SDATA.stocks + FX in one Apps Script round-trip
+      // Retry once if GOOGLEFINANCE was slow to resolve
+      const stillMissing = activeStocks.some(s=>{
+        if(!s.ticker) return false;
+        const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
+        return !c || c.stale;
+      });
+      if(stillMissing){
+        await new Promise(r=>setTimeout(r,2000));
+        await syncKurseSheet();
+      }
+      renderAktienDashboardTop();
       if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
       if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
       if(aktienTabView==='charts') renderAktienCharts(activeStocks);
+      // Only persist and snapshot when fresh prices were actually loaded
+      await saveKurseCache();
+      await appendPortfolioSnapshot();
     }
   }
 }
@@ -714,14 +843,19 @@ function renderAktienList(stocks, listEl, summaryEl){
       pnlPct = s.pos.avgPrice > 0 ? (livePrice/s.pos.avgPrice-1)*100 : 0;
       totalPnl += pnlAmt; hasPnl = true;
     }
-    const wert = getPositionsWert(s.id);
+    const wertRaw = getPositionsWertRaw(s.id);
+    const wert = wertRaw.value;
+    const isFxApprox = wertRaw.isFxApprox;
     totalWert += wert;
     const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
     const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
+    const isStale = live?.stale;
     // Show "USD 182.50 | CHF 163.20" when currency differs
     const liveLabel = livePrice!=null ? (needsFx
       ? `${fmtPrice(livePrice)} ${stockCurr} · ${curr()} ${fmtPrice(livePrice*fxRate)}`
       : `${fmtPrice(livePrice)} ${stockCurr}`) : null;
+    const liveLblKey = isStale ? 'Letzter Kurs (veraltet)' : 'Kurs live';
+    const liveLblStyle = isStale ? 'color:var(--text3)' : '';
     return `
     <div class="aktie-card" onclick="openAktieDetail('${s.id}')">
       <div class="aktie-card-top">
@@ -735,14 +869,14 @@ function renderAktienList(stocks, listEl, summaryEl){
         <div class="aktie-stat"><div class="aktie-stat-lbl">Ø Kaufpreis</div>
           <div class="aktie-stat-val">${fmtPrice(s.pos.avgPrice)} ${s.currency||''}</div></div>
         ${liveLabel!=null?`
-        <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
-          <div class="aktie-stat-val" style="font-size:11px">${esc(liveLabel)}</div></div>
+        <div class="aktie-stat"><div class="aktie-stat-lbl" style="${liveLblStyle}">${liveLblKey}</div>
+          <div class="aktie-stat-val" style="font-size:11px;${liveLblStyle}">${esc(liveLabel)}</div></div>
         <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L</div>
           <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt||0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>
         `:s.ticker?`<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
           <div class="aktie-stat-val aktie-pnl-na">Laden…</div></div>`:''}
         <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
-          <div class="aktie-stat-val">${curr()} ${fmtAmt(wert)}</div></div>
+          <div class="aktie-stat-val" style="${isFxApprox?'color:var(--text3)':''}">${isFxApprox?'≈ ':''} ${curr()} ${fmtAmt(wert)}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -813,8 +947,10 @@ function renderAktieDetail(stockId){
       <div class="aktie-stat"><div class="aktie-stat-lbl">Wert (${curr()})</div>
         <div class="aktie-stat-val" style="font-weight:700">${curr()} ${fmtAmt(wert)}</div></div>
       ${lpConverted!=null?`
-      <div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
-        <div class="aktie-stat-val">${needsFx?`${fmtPrice(lp)} ${stockCurr} · ${curr()} ${fmtPrice(lpConverted)}`:fmtPrice(lpConverted)+' '+curr()}</div></div>
+      <div class="aktie-stat"><div class="aktie-stat-lbl" style="${live?.stale?'color:var(--text3)':''}">${live?.stale?'Letzter Kurs (veraltet)':'Kurs live'}</div>
+        <div class="aktie-stat-val" style="${live?.stale?'color:var(--text3)':''}">${needsFx?`${fmtPrice(lp)} ${stockCurr} · ${curr()} ${fmtPrice(lpConverted)}`:fmtPrice(lpConverted)+' '+curr()}</div>
+        ${live?.stale&&live?.ts?`<div style="font-size:10px;color:var(--text3);margin-top:2px">Stand: ${fmtDate(new Date(live.ts))}</div>`:''}
+      </div>
       <div class="aktie-stat"><div class="aktie-stat-lbl">P&amp;L (${curr()})</div>
         <div class="aktie-stat-val ${pc}">${ps}${curr()} ${fmtAmt(Math.abs(pnlAmt||0))} (${ps}${pnlPct?.toFixed(1)}%)</div></div>`
       : s.ticker ? `<div class="aktie-stat"><div class="aktie-stat-lbl">Kurs live</div>
@@ -853,7 +989,9 @@ function renderAktieDetail(stockId){
 async function refreshStockPrice(stockId){
   const s = SDATA.stocks.find(s=>s.id===stockId);
   if(!s?.ticker) return;
-  delete getCachedStock(s.ticker);
+  const key = s.ticker.toUpperCase();
+  delete stockPriceCache[key];
+  delete stockPriceCache[normalizeTickerForGF(key)];
   await fetchStockPrice(s.ticker);
   renderAktieDetail(stockId);
 }
@@ -874,8 +1012,16 @@ async function testTickerFromNew(){
   delete stockPriceCache[ticker];
   const data = await fetchStockPrice(ticker);
   if(res){
-    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
-    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+    if(data?.price){
+      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
+      res.style.color = 'var(--green)';
+      // Auto-fill currency from GOOGLEFINANCE's actual reported currency
+      if(data.currency){
+        const sel = document.getElementById('na-currency');
+        const opt = sel && [...sel.options].find(o=>o.value.toUpperCase()===data.currency.toUpperCase());
+        if(opt) sel.value = opt.value;
+      }
+    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
   }
 }
 
@@ -896,8 +1042,16 @@ async function testTickerFromEdit(){
   delete stockPriceCache[ticker];
   const data = await fetchStockPrice(ticker);
   if(res){
-    if(data?.price){ res.textContent = `${fmtPrice(data.price)} ${data.currency}`; res.style.color = 'var(--green)'; }
-    else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+    if(data?.price){
+      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
+      res.style.color = 'var(--green)';
+      // Auto-fill currency from GOOGLEFINANCE's actual reported currency
+      if(data.currency){
+        const sel = document.getElementById('ea-currency');
+        const opt = sel && [...sel.options].find(o=>o.value.toUpperCase()===data.currency.toUpperCase());
+        if(opt) sel.value = opt.value;
+      }
+    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
   }
 }
 
@@ -916,14 +1070,14 @@ function saveEditAktie(){
   // Invalidate price cache if ticker changed
   if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    apiFindRow('Aktien',id).then(row=>{
+    apiFindRow('Aktien',f.id).then(row=>{
       if(row) apiUpdate(`Aktien!B${row}:E${row}`,[[s.title,s.isin,s.ticker,s.currency]]);
     }).catch(e=>toast('Sheet-Sync: '+e.message,'err'));
   }
   closeModal('edit-aktie-modal');
   toast('✓ Aktie aktualisiert','ok');
   document.getElementById('aktie-detail-title').textContent = s.title;
-  renderAktieDetail(id);
+  renderAktieDetail(f.id);
   renderAktien();
 }
 

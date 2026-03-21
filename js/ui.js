@@ -848,6 +848,11 @@ function fillDropdown(elId, type, selected=''){
   const el = document.getElementById(elId);
   if(!el) return;
   const cats = DATA.categories.filter(c=>c.type===type&&c.id!=='DELETED'&&c.name!=='DELETED');
+  // Count usage frequency per category
+  const src = type==='einnahme' ? DATA.incomes : DATA.expenses;
+  const freq = {};
+  src.forEach(e=>{ if(e.cat) freq[e.cat]=(freq[e.cat]||0)+1; });
+  cats.sort((a,b)=>(freq[b.name]||0)-(freq[a.name]||0));
   el.innerHTML = cats.map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${c.name}</option>`).join('');
   if(!selected && cats.length) el.value = cats[0].name;
 }
