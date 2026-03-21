@@ -1,28 +1,25 @@
 // ═══════════════════════════════════════════════════════════════
 // MODULE: GROUPS — API, CRUD, Invitations, Notifications, Admin
 // Centralises ALL group-related logic. Loaded before render.js.
+// Data lives in external Gruppen-Sheet (CFG.gruppenSheetId).
 // ═══════════════════════════════════════════════════════════════
 
-// ── 1. Groups API layer (targets Admin-Sheet when available) ──
+// ── 1. Groups API layer — routes to Gruppen-Sheet via backend ──
 
-/**
- * Determine the correct base URL for group operations.
- * Account mode → CFG.adminUrl (central admin sheet)
- * Script-URL mode → CFG.scriptUrl (user sheet, fallback)
- */
 function _groupsBaseUrl(){
   return (CFG.sessionToken && CFG.adminUrl) ? CFG.adminUrl : (CFG.scriptUrl || CFG.adminUrl || '');
 }
 
-/** Generic API call routed to the groups backend. */
 async function groupsApiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const baseUrl = _groupsBaseUrl();
-  if(!baseUrl){
-    // Script-URL-Modus ohne Admin-Sheet: Gruppen nicht verfügbar
-    throw new Error('Gruppen sind nur im Account-Modus verfügbar.');
-  }
-  const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
+  if(!baseUrl) throw new Error('Kein Backend konfiguriert.');
+  if(!CFG.gruppenSheetId) throw new Error('Gruppen-Sheet nicht konfiguriert. Bitte in Einstellungen hinterlegen.');
+  const allParams = {
+    ...params,
+    gruppenSheetId: CFG.gruppenSheetId,
+    ...(isAccountMode ? {token: CFG.sessionToken} : {})
+  };
   const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
   const r = await fetch(url);
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -83,6 +80,13 @@ function isGroupAdmin(group){
       || group.adminId === CFG.authUser;
 }
 
+/** Has the current user left this group? */
+function hasLeftGroup(group){
+  if(!group || !group.leftMembers) return false;
+  const myId = _myGroupId();
+  return group.leftMembers.includes(myId);
+}
+
 // ── 3. Invite code generation ────────────────────────────────
 
 function _genInviteCode(){
@@ -92,35 +96,42 @@ function _genInviteCode(){
 }
 
 // ── 4. Sheet row serialisation ───────────────────────────────
-// Groups sheet: A=id, B=name, C=type, D=members(JSON), E=currency,
-//               F=status, G=created, H=adminId, I=inviteCode, J=sharedSheetUrl
+// Gruppen-Sheet "Index" tab:
+//   A=id B=name C=type D=members(JSON) E=currency F=status
+//   G=created H=adminId I=inviteCode J=closedDate K=leftMembers(JSON)
+
+const _INDEX_HEADERS = ['id','name','type','members','currency','status',
+  'created','adminId','inviteCode','closedDate','leftMembers'];
 
 function _groupToRow(g){
-  return [g.id, g.name, g.type, JSON.stringify(g.members),
-          g.currency, g.status, g.created,
-          g.adminId||'', g.inviteCode||'', g.sharedSheetUrl||''];
+  return [g.id, g.name, g.type, JSON.stringify(g.members||[]),
+          g.currency||'CHF', g.status||'active', g.created||'',
+          g.adminId||'', g.inviteCode||'',
+          g.closedDate||'', JSON.stringify(g.leftMembers||[])];
 }
 
 function _rowToGroup(r){
+  let members=[], leftMembers=[];
+  try{ members=JSON.parse(r[3]||'[]'); }catch(e){}
+  try{ leftMembers=JSON.parse(r[10]||'[]'); }catch(e){}
   return {
     id:r[0], name:r[1]||'', type:r[2]||'event',
-    members: r[3] ? JSON.parse(r[3]) : [_myGroupName()],
-    currency: r[4]||CFG.currency||'CHF',
+    members, currency: r[4]||CFG.currency||'CHF',
     status: r[5]||'active', created: r[6]||'',
     adminId: r[7]||'', inviteCode: r[8]||'',
-    sharedSheetUrl: r[9]||''
+    closedDate: r[9]||'', leftMembers
   };
 }
 
 // ── 5. Load groups from backend ──────────────────────────────
 
 async function ensureGroupsSheets(){
-  if(CFG.demo) return;
+  if(CFG.demo || !CFG.gruppenSheetId) return;
   try{
     await groupsApiCall({
       action:'groupsEnsureSheet',
-      sheet:'Groups',
-      headers:JSON.stringify(['id','name','type','members','currency','status','created','adminId','inviteCode','sharedSheetUrl'])
+      sheet:'Index',
+      headers:JSON.stringify(_INDEX_HEADERS)
     });
     await groupsApiCall({
       action:'groupsEnsureSheet',
@@ -133,9 +144,13 @@ async function ensureGroupsSheets(){
 }
 
 async function loadGroups(){
+  if(CFG.demo || !CFG.gruppenSheetId){
+    if(!DATA.groups) DATA.groups=[];
+    return;
+  }
   await ensureGroupsSheets();
   try{
-    const res = await groupsApiGet('Groups!A2:J200');
+    const res = await groupsApiGet('Index!A2:K5000');
     const myId = _myGroupId();
     const myName = _myGroupName();
     DATA.groups = (res.values||[])
@@ -144,10 +159,9 @@ async function loadGroups(){
       .filter(g => g.members.includes(myId) || g.members.includes(myName));
   }catch(e){
     if(!DATA.groups) DATA.groups = [];
-    if(e.message && e.message.includes('Account-Modus')){
-      console.info('Groups: Script-URL-Modus, übersprungen.');
+    if(e.message && e.message.includes('nicht konfiguriert')){
+      console.info('Groups: Gruppen-Sheet nicht konfiguriert.');
     }
-    // sonst silent
   }
 }
 
@@ -158,12 +172,14 @@ async function saveGroup(name, type, members, currency){
   const created = today();
   const adminId = _myGroupId();
   const inviteCode = _genInviteCode();
-  const group = {id,name,type,members,currency,status:'active',created,adminId,inviteCode,sharedSheetUrl:''};
+  const group = {id,name,type,members,currency:currency||CFG.currency||'CHF',status:'active',created,adminId,inviteCode,closedDate:'',leftMembers:[]};
   DATA.groups.push(group);
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      await groupsApiAppend('Groups',[_groupToRow(group)]);
+      await groupsApiAppend('Index',[_groupToRow(group)]);
+      // Create per-group entry tab
+      await _ensureGroupEntryTab(id);
       setSyncStatus('online');
     }catch(e){
       setSyncStatus('error');
@@ -185,8 +201,8 @@ async function updateGroup(id, updates){
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      const row = await groupsApiFindRow('Groups', id);
-      if(row) await groupsApiUpdate(`Groups!A${row}:J${row}`, [_groupToRow(g)]);
+      const row = await groupsApiFindRow('Index', id);
+      if(row) await groupsApiUpdate(`Index!A${row}:K${row}`, [_groupToRow(g)]);
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); }
   }
@@ -198,28 +214,126 @@ async function deleteGroup(id){
   const g = DATA.groups.find(x=>x.id===id);
   if(!g) return;
   if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe löschen','err'); return; }
-  if(!confirm('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.')) return;
+  // New flow: can only delete archived groups (all quitt + all left)
+  if(g.status === 'active'){
+    toast('Aktive Gruppen müssen zuerst geschlossen werden (alle Schulden begleichen)','err'); return;
+  }
+  if(g.status === 'closed'){
+    toast('Geschlossene Gruppen können erst gelöscht werden, wenn alle Mitglieder ausgetreten sind','err'); return;
+  }
+  if(!confirm('Gruppe endgültig löschen?')) return;
   DATA.groups = DATA.groups.filter(x=>x.id!==id);
-  DATA.expenses.forEach(e=>{ if(e.groupId===id){ delete e.groupId; delete e.splitData; } });
-  DATA.incomes.forEach(e=>{ if(e.groupId===id) delete e.groupId; });
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      const row = await groupsApiFindRow('Groups', id);
-      if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);
+      const row = await groupsApiFindRow('Index', id);
+      if(row) await groupsApiUpdate(`Index!F${row}`, [['deleted']]);
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); }
   }
   dataCacheSave();
   markDirty('groups');
-  renderGroups();
+  if(typeof renderGroups === 'function') renderGroups();
 }
 
+// ── 6b. New status flow: active → closed → archived ──────────
+// close: only when ALL balances = 0 (quitt)
+// leave: any member can leave a closed group (added to leftMembers)
+// archived: when ALL members have left a closed group
+// kick: admin can remove a member (with balance check)
+
+/** Check if all balances in a group are settled (quitt). */
+function isGroupQuitt(groupId){
+  const debts = calculateGroupBalances(groupId);
+  return !debts || debts.length === 0;
+}
+
+/**
+ * Close a group — only possible when all balances = 0.
+ * Status: active → closed. Sets closedDate.
+ */
+async function closeGroup(id){
+  const g = DATA.groups.find(x=>x.id===id);
+  if(!g) return;
+  if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe schliessen','err'); return; }
+  if(!isGroupQuitt(id)){
+    toast('Gruppe kann nicht geschlossen werden — es gibt noch offene Schulden','err');
+    return;
+  }
+  if(!confirm('Gruppe schliessen? Neue Buchungen sind danach nicht mehr möglich.')) return;
+  await updateGroup(id, {status:'closed', closedDate: today()});
+  toast('Gruppe geschlossen','ok');
+  markDirty('groups');
+  if(typeof renderGroups === 'function') renderGroups();
+}
+
+/**
+ * Leave a group — available for any member of a closed group.
+ * Adds user to leftMembers list. When all have left → archived.
+ */
+async function leaveGroup(id){
+  const g = DATA.groups.find(x=>x.id===id);
+  if(!g) return;
+  if(g.status !== 'closed'){
+    toast('Du kannst nur geschlossene Gruppen verlassen','err');
+    return;
+  }
+  if(!confirm('Gruppe verlassen? Du kannst danach keine Buchungen mehr sehen.')) return;
+
+  const myId = _myGroupId();
+  const left = g.leftMembers || [];
+  if(!left.includes(myId)) left.push(myId);
+
+  // Check if ALL members have now left
+  const allLeft = g.members.every(m => left.includes(m));
+  const newStatus = allLeft ? 'archived' : 'closed';
+
+  await updateGroup(id, {leftMembers: left, status: newStatus});
+
+  if(allLeft){
+    toast('Alle Mitglieder haben die Gruppe verlassen — Gruppe archiviert','ok');
+  } else {
+    toast('Du hast die Gruppe verlassen','ok');
+  }
+  markDirty('groups');
+  if(typeof renderGroups === 'function') renderGroups();
+}
+
+/**
+ * Kick a member from a group (admin only).
+ * Cannot kick if that member has outstanding balances.
+ */
+async function kickMember(groupId, memberName){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  if(!isGroupAdmin(g)){ toast('Nur der Admin kann Mitglieder entfernen','err'); return; }
+  if(memberName === g.adminId || memberName === _myGroupId()){
+    toast('Admin kann sich nicht selbst entfernen','err'); return;
+  }
+
+  // Check if member has outstanding balance
+  const debts = calculateGroupBalances(groupId);
+  const memberInvolved = debts.some(d => d.from === memberName || d.to === memberName);
+  if(memberInvolved){
+    toast('Mitglied hat noch offene Schulden — zuerst begleichen','err');
+    return;
+  }
+
+  if(!confirm(memberName + ' aus der Gruppe entfernen?')) return;
+  g.members = g.members.filter(m => m !== memberName);
+  // Also add to leftMembers so they don't rejoin via old invite
+  const left = g.leftMembers || [];
+  if(!left.includes(memberName)) left.push(memberName);
+
+  await updateGroup(groupId, {members: g.members, leftMembers: left});
+  toast(memberName + ' wurde entfernt','ok');
+  markDirty('groups');
+  if(typeof openGroupDetail === 'function') openGroupDetail(groupId);
+}
+
+/** Legacy alias — routes to closeGroup for backwards compat. */
 async function archiveGroup(id){
-  if(!confirm('Gruppe archivieren? Sie ist danach unter "Archiv" sichtbar.')) return;
-  await updateGroup(id, {status:'archived'});
-  toast('✓ Gruppe archiviert','ok');
-  renderGroups();
+  return closeGroup(id);
 }
 
 // ── 7. Invite link — generate & join ─────────────────────────
@@ -260,7 +374,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
 
   let joinedOk = false;
   try{
-    const res = await groupsApiGet('Groups!A2:J200').catch(()=>({values:[]}));
+    const res = await groupsApiGet('Index!A2:K5000').catch(()=>({values:[]}));
     const rows = (res.values||[]).filter(r=>r[0]);
     const row = rows.find(r=>r[0]===groupId);
     if(!row){ toast('Gruppe nicht gefunden','err'); return false; }
@@ -269,6 +383,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     if(g.inviteCode !== inviteCode){ toast('Ungültiger Einladungscode','err'); return false; }
     if(g.status === 'deleted'){ toast('Gruppe wurde gelöscht','err'); return false; }
     if(g.status === 'archived'){ toast('Diese Gruppe ist archiviert','err'); return false; }
+    if(g.status === 'closed'){ toast('Diese Gruppe ist geschlossen','err'); return false; }
 
     const myId = _myGroupId();
     const myName = _myGroupName();
@@ -281,7 +396,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
 
     g.members.push(myId);
     const sheetRow = rows.indexOf(row) + 2;
-    await groupsApiUpdate(`Groups!D${sheetRow}`, [[JSON.stringify(g.members)]]);
+    await groupsApiUpdate(`Index!D${sheetRow}`, [[JSON.stringify(g.members)]]);
 
     const existing = DATA.groups.find(x=>x.id===groupId);
     if(existing) Object.assign(existing, g);
@@ -307,16 +422,9 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
 
 // ── 8. Member management ─────────────────────────────────────
 
+/** Remove member — delegates to kickMember with balance check. */
 async function removeGroupMember(groupId, memberName){
-  const g = DATA.groups.find(x=>x.id===groupId);
-  if(!g) return;
-  if(!isGroupAdmin(g)){ toast('Nur der Admin kann Mitglieder entfernen','err'); return; }
-  if(memberName===g.adminId){ toast('Admin kann nicht entfernt werden','err'); return; }
-  if(!confirm(memberName+' aus der Gruppe entfernen?')) return;
-  g.members = g.members.filter(m=>m!==memberName);
-  await updateGroup(groupId, {members:g.members});
-  toast('✓ '+memberName+' entfernt','ok');
-  openGroupDetail(groupId);
+  return kickMember(groupId, memberName);
 }
 
 async function regenerateInviteCode(groupId){
@@ -372,6 +480,10 @@ function _hideSplitSection(){
 // NOT in DATA.expenses — so they don't pollute personal stats.
 
 async function settleUp(groupId, from, to, amount){
+  const grp = DATA.groups.find(g=>g.id===groupId);
+  if(grp && (grp.status==='closed'||grp.status==='archived'||grp.status==='deleted')){
+    toast('In geschlossenen Gruppen können keine Ausgleiche erstellt werden','err'); return;
+  }
   const id    = genId('S');
   const date  = today();
   const what  = 'Ausgleich: '+from+' → '+to;
@@ -537,7 +649,7 @@ function _safeParseJSON(s){
 
 /** Tab name for a group's entries. */
 function _groupEntryTab(groupId){
-  return 'GE_' + groupId;
+  return 'G_' + groupId;
 }
 
 /** Per-group tab headers (12 columns). */
@@ -601,8 +713,10 @@ async function loadGroupEntries(){
 
   const myId = _myGroupId();
   const myName = _myGroupName();
+  // Load entries for active AND closed groups (so balances/history stay visible)
   const activeGroups = DATA.groups.filter(g =>
-    g.status==='active' && (g.members.includes(myId) || g.members.includes(myName))
+    (g.status==='active' || g.status==='closed') &&
+    (g.members.includes(myId) || g.members.includes(myName))
   );
   if(!activeGroups.length) return;
 
@@ -659,6 +773,9 @@ async function loadGroupEntries(){
 
 /** Save an entry to the per-group tab on the admin backend. */
 async function saveGroupEntry(group, entry){
+  if(group.status === 'closed' || group.status === 'archived' || group.status === 'deleted'){
+    toast('In geschlossenen Gruppen können keine neuen Buchungen erstellt werden','err'); return;
+  }
   if(CFG.demo) return;
   const myId = _myGroupId();
   const myName = _myGroupName();
@@ -708,9 +825,11 @@ async function deleteGroupEntry(entryId, groupId){
   const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
   if(!entry) return;
 
+  // All group members can delete any entry (requirement #3-5)
   const myId = _myGroupId();
-  const canDelete = entry.authorId === myId || entry.isMine || isGroupAdmin(group);
-  if(!canDelete){ toast('Du kannst nur eigene Einträge löschen','err'); return; }
+  const myName = _myGroupName();
+  const isMember = group.members.includes(myId) || group.members.includes(myName);
+  if(!isMember){ toast('Nur Gruppenmitglieder können Einträge löschen','err'); return; }
   if(!confirm('Gruppen-Eintrag löschen?')) return;
 
   // Optimistic local delete
@@ -750,10 +869,11 @@ async function updateGroupEntry(entryId, groupId, updates){
   const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
   if(!entry) return;
 
+  // All group members can edit any entry (requirement #3-5, #12)
   const myId = _myGroupId();
-  if(entry.authorId !== myId && !entry.isMine && !isGroupAdmin(group)){
-    toast('Du kannst nur eigene Einträge bearbeiten','err'); return;
-  }
+  const myName = _myGroupName();
+  const isMember = group.members.includes(myId) || group.members.includes(myName);
+  if(!isMember){ toast('Nur Gruppenmitglieder können Einträge bearbeiten','err'); return; }
 
   // Optimistic local update
   const backup = {...entry};
@@ -800,20 +920,8 @@ function calculateGroupBalances(groupId){
   const group = DATA.groups.find(g=>g.id===groupId);
   if(!group) return [];
 
-  const myId = _myGroupId();
-  const myName = _myGroupName();
-
-  // Own entries (DATA.expenses with groupId) — inject authorId/authorName
-  const myEntries = DATA.expenses
-    .filter(e=>e.groupId===groupId)
-    .map(e=>({...e, authorId: myId, authorName: myName}));
-
-  // Foreign entries from group tabs (DATA.groupEntries)
-  const foreignEntries = (DATA.groupEntries||[])
-    .filter(e=>e.groupId===groupId && !e.isMine);
-
-  // All group entries (own + foreign, combined)
-  const allEntries = [...myEntries, ...foreignEntries];
+  // New architecture: ALL entries come from Gruppen-Sheet (DATA.groupEntries)
+  const allEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===groupId);
 
   // Separate settlements (isSettlement flag in splitData)
   const settlements = allEntries.filter(
@@ -827,9 +935,9 @@ function calculateGroupBalances(groupId){
   const owes = {};
   group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
 
-  // Regular expenses — use authorId preferentially, fallback to authorName
+  // Regular expenses
   for(const entry of regularEntries){
-    const payer = entry.splitData?.payerId || entry.authorId || entry.authorName || myName;
+    const payer = entry.splitData?.payerId || entry.authorId || entry.authorName || '';
     const split = entry.splitData;
     if(!split || !split.participants) continue;
     paid[payer] = (paid[payer]||0) + (split.totalAmount||entry.amt||0);
@@ -1034,7 +1142,7 @@ async function renderAdminGroupsPanel(){
   container.innerHTML = '<div class="t-muted" style="padding:12px 0;text-align:center">Lade Gruppen…</div>';
 
   try{
-    const res = await groupsApiGet('Groups!A2:J200').catch(()=>({values:[]}));
+    const res = await groupsApiGet('Index!A2:K5000').catch(()=>({values:[]}));
     // NUR Split- und Event-Gruppen (keine persönlichen Buchungsgruppen)
     _adminGroupsData = (res.values||[])
       .filter(r=>r[0])
@@ -1175,8 +1283,8 @@ async function openAdminGroupDetail(groupId){
 async function adminArchiveGroup(id){
   if(!confirm('Gruppe archivieren?')) return;
   try{
-    const row = await groupsApiFindRow('Groups', id);
-    if(row) await groupsApiUpdate(`Groups!F${row}`, [['archived']]);
+    const row = await groupsApiFindRow('Index', id);
+    if(row) await groupsApiUpdate(`Index!F${row}`, [['archived']]);
     const local = DATA.groups.find(x=>x.id===id);
     if(local) local.status = 'archived';
     // Update admin panel data
@@ -1193,8 +1301,8 @@ async function adminArchiveGroup(id){
 async function adminDeleteGroup(id){
   if(!confirm('Gruppe endgültig löschen?')) return;
   try{
-    const row = await groupsApiFindRow('Groups', id);
-    if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);
+    const row = await groupsApiFindRow('Index', id);
+    if(row) await groupsApiUpdate(`Index!F${row}`, [['deleted']]);
     DATA.groups = DATA.groups.filter(x=>x.id!==id);
     _adminGroupsData = _adminGroupsData.filter(x=>x.id!==id);
     DATA.expenses.forEach(e=>{ if(e.groupId===id){ delete e.groupId; delete e.splitData; } });

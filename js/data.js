@@ -440,10 +440,11 @@ function catEmoji(name){
 
 // Get expenses for a specific group
 function getGroupExpenses(groupId){
-  return DATA.expenses.filter(e=>e.groupId===groupId);
+  // New architecture: group entries live in DATA.groupEntries (Gruppen-Sheet)
+  return (DATA.groupEntries||[]).filter(e=>e.groupId===groupId && !(e.splitData && e.splitData.isSettlement));
 }
 
-// Get incomes for a specific group
+// Get incomes for a specific group (legacy — groups only track expenses now)
 function getGroupIncomes(groupId){
   return DATA.incomes.filter(e=>e.groupId===groupId);
 }
@@ -455,8 +456,9 @@ function getGroupTotal(groupId){
 
 // For split groups: calculate balances for each member
 // Returns { memberName: balance } (positive = is owed, negative = owes)
+// Uses DATA.groupEntries (Gruppen-Sheet) — includes all entries, not just own
 function calcSplitBalances(groupId){
-  const expenses = getGroupExpenses(groupId);
+  const expenses = (DATA.groupEntries||[]).filter(e=>e.groupId===groupId);
   const balances = {};
   const group = DATA.groups.find(g=>g.id===groupId);
   if(!group) return balances;
