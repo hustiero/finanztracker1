@@ -877,6 +877,7 @@ body.glass-on .widget-card{
 body.glass-on .stat-card,
 body.glass-on .aktie-card,
 body.glass-on .aktie-summary-card,
+body.glass-on #aktien-fx-rates > div,
 body.glass-on .spar-goal-card,
 body.glass-on .sparen-explainer,
 body.glass-on .verlauf-tile{
@@ -1014,6 +1015,12 @@ body.glass-on .mv-bar{
   backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
 }
 body.glass-on .month-view{background:transparent !important}
+/* Aktie-Detail slideover needs an opaque background so underlying content doesn't bleed through */
+body.glass-on #aktie-detail{
+  background:rgba(var(--glass-rgb),0.92) !important;
+  backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
+}
 /* Reduced motion: no blur, keep tint for legibility */
 @media (prefers-reduced-motion:reduce){
   body.glass-on .card,body.glass-on .widget-card,
