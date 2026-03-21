@@ -67,8 +67,6 @@ function closeMenuOverlay(){ document.getElementById('menu-overlay').classList.r
 function toggleMenuEditMode(){ menuEditMode=!menuEditMode; renderMenuOverlay(); }
 
 // ── FAB Speed-Dial stubs (kept for backward-compat) ──────────────────────────
-function openFabMenu(){ goTab('eingabe'); }
-function closeFabMenu(){}
 
 // Aktie / Trade erfassen Flow
 function openAddAktieFlow(){
@@ -237,13 +235,46 @@ function checkDueRecurrings(){
   if(!CFG.notifications) CFG.notifications = [];
   const now = new Date();
   const todayDay = now.getDate();
+  const todayMo  = now.getMonth();   // 0-based
+  const todayWd  = now.getDay();     // 0=Sun … 6=Sat
 
   DATA.recurring.filter(r=>r.active).forEach(r=>{
-    // Informational notification on execution day (booking happens automatically)
-    if(r.day === todayDay){
+    const interval = r.interval || 'monatlich';
+    let isDue = false;
+
+    if(interval === 'monatlich'){
+      // r.day is the day-of-month
+      const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      isDue = r.day === Math.min(todayDay, lastDay);
+    } else if(interval === 'wöchentlich'){
+      // Check if today matches the weekday of r.start
+      if(r.start){
+        const startWd = new Date(r.start+'T12:00:00').getDay();
+        isDue = todayWd === startWd;
+      }
+    } else if(interval === 'jährlich'){
+      // Check month and day of r.start
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        isDue = s.getMonth()===todayMo && s.getDate()===todayDay;
+      }
+    } else if(interval === 'halbjährlich'){
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        const moOffset = (now.getMonth()-s.getMonth()+12)%12;
+        isDue = s.getDate()===todayDay && (moOffset===0 || moOffset===6);
+      }
+    } else if(interval === 'quartalsweise'){
+      if(r.start){
+        const s = new Date(r.start+'T12:00:00');
+        const moOffset = (now.getMonth()-s.getMonth()+12)%12;
+        isDue = s.getDate()===todayDay && (moOffset===0||moOffset===3||moOffset===6||moOffset===9);
+      }
+    }
+
+    if(isDue){
       const notifId = `rec-${r.id}-${todayStr}`;
-      const exists = CFG.notifications.find(n=>n.id===notifId);
-      if(!exists){
+      if(!CFG.notifications.find(n=>n.id===notifId)){
         CFG.notifications.push({
           id: notifId,
           type: 'dauerauftrag_info',
