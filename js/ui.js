@@ -1340,18 +1340,15 @@ function _handle(p) {
   if (p.action === 'fetchPrices') {
     var tickers = JSON.parse(p.tickers || '[]');
     var results = {};
-    // Use GOOGLEFINANCE server-side: set formulas, flush, read back
     var sh = ss.getSheetByName('Kurse');
     if (!sh) {
       sh = ss.insertSheet('Kurse');
       sh.getRange(1,1,1,3).setValues([['Ticker','Kurs','Währung']]);
     }
     if (tickers.length > 0) {
-      // Clear old data and write tickers
       var dataRange = sh.getRange(2, 1, Math.max(sh.getLastRow(), tickers.length + 1), 3);
       dataRange.clearContent();
       sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
-      // Set GOOGLEFINANCE formulas
       var formulas = tickers.map(function(t, i) {
         return [
           '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
@@ -1362,7 +1359,6 @@ function _handle(p) {
       SpreadsheetApp.flush();
       Utilities.sleep(2000);
       SpreadsheetApp.flush();
-      // Read back computed values
       var vals = sh.getRange(2, 1, tickers.length, 3).getValues();
       for (var i = 0; i < vals.length; i++) {
         var ticker = String(vals[i][0] || '').toUpperCase();
@@ -1375,7 +1371,70 @@ function _handle(p) {
     }
     return _json({ prices: results });
   }
+  // Groups — operate on external Gruppen-Sheet
+  if (p.action && p.action.indexOf('groups') === 0) {
+    if (!p.gruppenSheetId) return _json({ error: 'Gruppen-Sheet nicht konfiguriert.' });
+    var gss;
+    try { gss = SpreadsheetApp.openById(p.gruppenSheetId); }
+    catch(e) { return _json({ error: 'Gruppen-Sheet Fehler: ' + e.toString() }); }
+    if (p.action === 'groupsGet') return _json(_groupsGetSimple(gss, p));
+    if (p.action === 'groupsAppend') return _json(_groupsAppendSimple(gss, p));
+    if (p.action === 'groupsUpdate') return _json(_groupsUpdateSimple(gss, p));
+    if (p.action === 'groupsEnsureSheet') return _json(_groupsEnsureSimple(gss, p));
+    if (p.action === 'groupsFindRow') return _json(_groupsFindSimple(gss, p));
+  }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
+}
+
+function _json(obj) {
+function _groupsGetSimple(gss, p) {
+  try {
+    var parts = p.range.split('!');
+    var sh = gss.getSheetByName(parts[0]);
+    if (!sh) return { values: [] };
+    var lastRow = sh.getLastRow();
+    if (lastRow < 1) return { values: [] };
+    var rp = parts[1] || 'A:Z';
+    var m = rp.match(/([A-Z]+)(\\d+):([A-Z]+)(\\d+)/);
+    if (m) {
+      var sr = parseInt(m[2]), er = Math.min(parseInt(m[4]), lastRow);
+      if (sr > er) return { values: [] };
+      return { values: sh.getRange(m[1]+sr+':'+m[3]+er).getValues() };
+    }
+    return { values: sh.getRange(1,1,lastRow,sh.getLastColumn()||1).getValues() };
+  } catch(e) { return { values: [], _note: e.toString() }; }
+}
+function _groupsAppendSimple(gss, p) {
+  var sh = gss.getSheetByName(p.sheet);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + p.sheet };
+  var rows = JSON.parse(p.values);
+  var lr = sh.getLastRow();
+  sh.getRange(lr < 1 ? 1 : lr+1, 1, rows.length, rows[0].length).setValues(rows);
+  return { ok: true };
+}
+function _groupsUpdateSimple(gss, p) {
+  var parts = p.range.split('!');
+  var sh = gss.getSheetByName(parts[0]);
+  if (!sh) return { error: 'Sheet nicht gefunden: ' + parts[0] };
+  sh.getRange(parts[1]).setValues(JSON.parse(p.values));
+  return { ok: true };
+}
+function _groupsEnsureSimple(gss, p) {
+  var sh = gss.getSheetByName(p.sheet);
+  if (!sh) {
+    sh = gss.insertSheet(p.sheet);
+    if (p.headers) { var h = JSON.parse(p.headers); sh.getRange(1,1,1,h.length).setValues([h]); }
+  }
+  return { ok: true };
+}
+function _groupsFindSimple(gss, p) {
+  var sh = gss.getSheetByName(p.sheet);
+  if (!sh) return { row: null };
+  var lr = sh.getLastRow();
+  if (lr < 1) return { row: null };
+  var data = sh.getRange(1,1,lr,1).getValues();
+  for (var i = 0; i < data.length; i++) { if (String(data[i][0]) === String(p.id)) return { row: i+1 }; }
+  return { row: null };
 }
 
 function _json(obj) {
@@ -1473,12 +1532,18 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
-  // Groups — operate on ADMIN sheet (shared across users)
-  if (p.action === 'groupsGet')         return _groupsGet(ss, p);
-  if (p.action === 'groupsAppend')      return _groupsAppend(ss, p);
-  if (p.action === 'groupsUpdate')      return _groupsUpdate(ss, p);
-  if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(ss, p);
-  if (p.action === 'groupsFindRow')     return _groupsFindRow(ss, p);
+  // Groups — operate on external Gruppen-Sheet (p.gruppenSheetId)
+  if (p.action && p.action.indexOf('groups') === 0) {
+    if (!p.gruppenSheetId) return { error: 'Gruppen-Sheet nicht konfiguriert.' };
+    var gss;
+    try { gss = SpreadsheetApp.openById(p.gruppenSheetId); }
+    catch(e) { return { error: 'Gruppen-Sheet konnte nicht geöffnet werden: ' + e.toString() }; }
+    if (p.action === 'groupsGet')         return _groupsGet(gss, p);
+    if (p.action === 'groupsAppend')      return _groupsAppend(gss, p);
+    if (p.action === 'groupsUpdate')      return _groupsUpdate(gss, p);
+    if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(gss, p);
+    if (p.action === 'groupsFindRow')     return _groupsFindRow(gss, p);
+  }
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
   if (p.action === 'admin_list')     return _adminList(ss);
   if (p.action === 'admin_delete')   return _adminDelete(ss, p);
@@ -1786,6 +1851,13 @@ function renderNav(){
 // ═══════════════════════════════════════════════════════════════
 function applySettings2(){
   CFG.scriptUrl = document.getElementById('s-url2').value.trim();
+  const gruppenInput = document.getElementById('s-gruppen-sheet');
+  if(gruppenInput){
+    const val = gruppenInput.value.trim();
+    // Accept full URLs or just the ID
+    const idMatch = val.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    CFG.gruppenSheetId = idMatch ? idMatch[1] : val;
+  }
   CFG.demo = false;
   cfgSave();
   location.reload();

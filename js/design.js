@@ -455,6 +455,8 @@ function renderEinstellungen(){
   renderErscheinungsbild();
   const urlEl = document.getElementById('s-url2');
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
+  const gruppenEl = document.getElementById('s-gruppen-sheet');
+  if(gruppenEl) gruppenEl.value = CFG.gruppenSheetId||'';
   const nameEl = document.getElementById('s-username');
   if(nameEl) nameEl.value = CFG.userName||'';
   updateThemeSegUI();
