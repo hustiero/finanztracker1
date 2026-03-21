@@ -165,6 +165,58 @@ async function loadGroups(){
   }
 }
 
+/**
+ * Auto-delete archived groups after 14 days (Requirement #13).
+ * Called on app load after loadGroups(). Checks closedDate and
+ * marks groups as 'deleted' in the Gruppen-Sheet if expired.
+ * Shows a notification 3 days before deletion.
+ */
+async function autoCleanupArchivedGroups(){
+  if(CFG.demo || !DATA.groups) return;
+  const now = new Date();
+  const DAY_MS = 86400000;
+
+  for(const g of DATA.groups){
+    if(g.status !== 'archived' || !g.closedDate) continue;
+    const closed = new Date(g.closedDate);
+    const daysSinceClosed = Math.floor((now - closed) / DAY_MS);
+
+    // 14 days passed → auto-delete
+    if(daysSinceClosed >= 14){
+      try{
+        const row = await groupsApiFindRow('Index', g.id);
+        if(row) await groupsApiUpdate(`Index!F${row}`, [['deleted']]);
+        g.status = 'deleted';
+        console.info('Auto-deleted archived group:', g.name);
+      }catch(e){
+        console.warn('autoCleanup failed for', g.name, e.message);
+      }
+      continue;
+    }
+
+    // 11+ days (3 days before deletion) → notification
+    if(daysSinceClosed >= 11){
+      if(!CFG.notifications) CFG.notifications = [];
+      const notifId = 'autodel_'+g.id;
+      if(!CFG.notifications.some(n=>n.id===notifId)){
+        CFG.notifications.push({
+          id: notifId,
+          type: 'group_autodelete_warning',
+          title: 'Gruppe wird gelöscht',
+          body: g.name + ' wird in '+(14 - daysSinceClosed)+' Tag(en) automatisch gelöscht.',
+          date: today(),
+          dismissed: false,
+          ts: Date.now()
+        });
+        cfgSave();
+      }
+    }
+  }
+
+  // Remove deleted groups from local array
+  DATA.groups = DATA.groups.filter(g=>g.status!=='deleted');
+}
+
 // ── 6. CRUD ──────────────────────────────────────────────────
 
 async function saveGroup(name, type, members, currency){

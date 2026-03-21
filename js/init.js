@@ -73,7 +73,7 @@ Object.assign(App.IO, {
   // Groups CRUD (delegated to js/groups.js)
   saveGroup, updateGroup, deleteGroup, archiveGroup, closeGroup, leaveGroup, kickMember, settleUp,
   joinGroupByInvite, removeGroupMember, regenerateInviteCode,
-  loadGroups, isGroupAdmin, isGroupQuitt, hasLeftGroup, generateInviteLink,
+  loadGroups, isGroupAdmin, isGroupQuitt, hasLeftGroup, generateInviteLink, autoCleanupArchivedGroups,
   pushGroupNotification, loadGroupNotifications, markGroupNotifsRead,
   renderAdminGroupsPanel, adminArchiveGroup, adminDeleteGroup, toggleAdminGroupsPanel, filterAdminGroups, openAdminGroupDetail,
   loadGroupEntries, saveGroupEntry, deleteGroupEntry, updateGroupEntry, calculateGroupBalances,

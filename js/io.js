@@ -432,8 +432,10 @@ async function loadAll(){
           isTax:String(r[6]||'')==='tax'}));
     }
 
-    // Groups — loaded from admin sheet via groups.js
+    // Groups — loaded from Gruppen-Sheet via groups.js
     await loadGroups();
+    // Auto-cleanup archived groups (14-day auto-delete)
+    autoCleanupArchivedGroups().catch(()=>{});
 
     // GroupEntries — load shared entries (non-blocking)
     loadGroupEntries().then(()=>{
