@@ -214,6 +214,33 @@ async function saveKurseCache() {
   } catch (e) { console.warn('saveKurseCache:', e); }
 }
 
+// ── Write fresh prices back to Aktien sheet (columns G=Kurs, H=FX-Rate, I=Aktualisiert) ─
+// Called after syncKurseSheet() so the sheet acts as a persistent price cache.
+// On next app start, io.js reads these columns → instant display, no GOOGLEFINANCE needed.
+async function writeKursesToAktienSheet() {
+  if (CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken) || !SDATA.stocks.length) return;
+  const uc  = curr().toUpperCase();
+  const now = new Date().toISOString();
+  const rows = SDATA.stocks.map(s => {
+    const tk      = s.ticker ? normalizeTickerForGF(s.ticker) : null;
+    const cached  = tk ? stockPriceCache[tk] : null;
+    const sc      = (cached?.currency || s.currency || '').toUpperCase();
+    const fxRate  = sc && sc !== uc ? (fxRateCache[sc + uc] || '') : '';
+    return cached?.price
+      ? [cached.price, fxRate, now]
+      : ['', '', ''];
+  });
+  if (!rows.length) return;
+  try {
+    await apiUpdate(`Aktien!G2:I${rows.length + 1}`, rows);
+    // Clear stale flag now that sheet is up to date
+    for (const s of SDATA.stocks) {
+      const tk = s.ticker ? normalizeTickerForGF(s.ticker) : null;
+      if (tk && stockPriceCache[tk]) stockPriceCache[tk].stale = false;
+    }
+  } catch (e) { console.warn('writeKursesToAktienSheet:', e); }
+}
+
 // ── Portfolio-Verlauf ─────────────────────────────────────────────────────────
 async function loadPortfolioVerlauf() {
   if (CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) { PDATA.verlauf = []; return; }
@@ -721,36 +748,25 @@ async function _renderAktienInner() {
   if (aktienTabView === 'tabelle') renderAktienTabelle(show);
   if (aktienTabView === 'charts')  renderAktienCharts(show);
 
-  if (aktienView === 'aktiv') {
-    const needsFetch = activeStocks.some(s => {
-      if (!s.ticker) return false;
-      const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
-      return !c || c.stale;
-    });
-    if (needsFetch) {
-      await syncKurseSheet();
-      const stillMissing = activeStocks.some(s => {
-        if (!s.ticker) return false;
-        const c = getCachedStock(s.ticker) || stockPriceCache[normalizeTickerForGF(s.ticker)];
-        return !c || c.stale;
-      });
-      if (stillMissing) { await new Promise(r => setTimeout(r, 2000)); await syncKurseSheet(); }
-      const fresh = SDATA.stocks.map(s => ({ ...s, pos: calcPosition(s.id) }));
-      const freshActive = fresh.filter(s => s.pos.qty > 0.0001 || !SDATA.trades.some(t => t.stockId === s.id));
-      renderAktienDashboardTop(); renderFxRates();
-      if (aktienTabView === 'karten')  renderAktienList(freshActive, listEl, summaryEl);
-      if (aktienTabView === 'tabelle') renderAktienTabelle(freshActive);
-      if (aktienTabView === 'charts')  renderAktienCharts(freshActive);
-      await saveKurseCache();
-      await appendPortfolioSnapshot();
-    }
-  }
+  // Prices come from Aktien sheet (loaded on app start) — no auto-fetch here.
+  // Use the ↻ button (refreshAllPrices) to get fresh quotes from GOOGLEFINANCE.
 }
 
 async function refreshAllPrices() {
   const btn = document.getElementById('aktien-refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   Object.keys(stockPriceCache).forEach(k => { if (stockPriceCache[k]) stockPriceCache[k].stale = true; });
+  await syncKurseSheet();
+  // Retry once if GOOGLEFINANCE was slow to resolve
+  const stillMissing = SDATA.stocks.some(s => {
+    if (!s.ticker) return false;
+    const c = getCachedStock(s.ticker);
+    return !c || c.stale;
+  });
+  if (stillMissing) { await new Promise(r => setTimeout(r, 2000)); await syncKurseSheet(); }
+  // Persist fresh prices back to Aktien sheet columns G/H/I
+  await writeKursesToAktienSheet();
+  await appendPortfolioSnapshot();
   await renderAktien();
   if (btn) { btn.disabled = false; btn.textContent = '↻'; }
 }
@@ -957,7 +973,10 @@ function saveNewAktie() {
   SDATA.stocks.push(s);
   sdataSave();
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    apiAppend('Aktien', [[s.id, s.title, s.isin, s.ticker, s.currency, '']]).catch(e => toast('Aktie Sheet-Sync: ' + e.message, 'err'));
+    apiAppend('Aktien', [[s.id, s.title, s.isin, s.ticker, s.currency, '', '', '', '']])
+      .catch(e => toast('Aktie Sheet-Sync: ' + e.message, 'err'));
+    // Fetch price for the new ticker and write it to the sheet
+    if (s.ticker) syncKurseSheet([normalizeTickerForGF(s.ticker)]).then(() => writeKursesToAktienSheet());
   }
   closeModal('new-aktie-modal');
   toast('✓ Aktie hinzugefügt', 'ok');
@@ -1002,9 +1021,15 @@ function saveEditAktie() {
   const oldTicker = s.ticker;
   s.title = title; s.isin = f.isin.trim().toUpperCase(); s.ticker = f.ticker.trim().toUpperCase(); s.currency = f.currency;
   sdataSave();
-  if (oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
+  const tickerChanged = oldTicker !== s.ticker;
+  if (tickerChanged && oldTicker) delete stockPriceCache[normalizeTickerForGF(oldTicker)];
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    apiFindRow('Aktien', f.id).then(row => { if (row) apiUpdate(`Aktien!B${row}:E${row}`, [[s.title, s.isin, s.ticker, s.currency]]); }).catch(e => toast('Sheet-Sync: ' + e.message, 'err'));
+    apiFindRow('Aktien', f.id).then(row => {
+      if (row) apiUpdate(`Aktien!B${row}:E${row}`, [[s.title, s.isin, s.ticker, s.currency]]);
+    }).catch(e => toast('Sheet-Sync: ' + e.message, 'err'));
+    // If ticker changed, fetch fresh price for new ticker and write back to sheet
+    if (tickerChanged && s.ticker)
+      syncKurseSheet([normalizeTickerForGF(s.ticker)]).then(() => writeKursesToAktienSheet());
   }
   closeModal('edit-aktie-modal');
   toast('✓ Aktie aktualisiert', 'ok');
