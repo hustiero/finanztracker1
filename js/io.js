@@ -444,7 +444,7 @@ async function loadAll(){
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
       const shStocks = (aktRes.value.values||[])
         .filter(r=>r[0]&&String(r[5]||'')!=='1')
-        .map(r=>({id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||'CHF'}));
+        .map(r=>({id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||curr()}));
       const shTrades = (tradeRes.value.values||[])
         .filter(r=>r[0]&&String(r[9]||'')!=='1')
         .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),

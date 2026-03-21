@@ -307,7 +307,7 @@ function getCachedStock(ticker){
 // FX conversion helpers
 // Returns exchange rate for fromCurrency → curr() (user's currency), or 1 if same/unknown
 function getFxRate(fromCurr) {
-  const userCurr = (typeof curr === 'function' ? curr() : 'CHF').toUpperCase();
+  const userCurr = curr().toUpperCase();
   if (!fromCurr || fromCurr.toUpperCase() === userCurr) return 1;
   
   const pair = `${fromCurr}${userCurr}`.toUpperCase();
@@ -423,32 +423,8 @@ function calcPosition(stockId){
   if(qty < 0) qty = 0;
   
   const avgPrice = (qty > 0.0001) ? totalCost / qty : 0;
-  
-  // WÄHRUNGS-LOGIK:
-  const currency = s ? s.currency : 'CHF';
-  const fx = getFxRate(currency); // Holt z.B. den SEKCHF Kurs (ca. 0.08)
-  const currentPrice = getCachedStock(s?.ticker)?.price || 0;
-  
-  // Aktueller Wert der gesamten Position in CHF
-  const currentValueCHF = qty * currentPrice * fx;
-  
-  // Investiertes Kapital in CHF (basierend auf dem Durchschnittspreis und aktuellem FX)
-  const investiertCHF = qty * avgPrice * fx;
-  
-  const pnlAbs = currentValueCHF - investiertCHF;
-  const pnlPct = investiertCHF > 0 ? (pnlAbs / investiertCHF) * 100 : 0;
 
-  return { 
-    qty, 
-    avgPrice, 
-    totalCost, 
-    currentValueCHF, 
-    investiertCHF, 
-    pnlAbs, 
-    pnlPct, 
-    fxUsed: fx,
-    currency 
-  };
+  return { qty, avgPrice, totalCost };
 }
 
 function fmtPrice(n, ccy){
@@ -966,7 +942,7 @@ function renderAktienList(stocks, listEl, summaryEl){
     const pc = pnlAmt==null?'aktie-pnl-na':pnlAmt>=0?'aktie-pnl-pos':'aktie-pnl-neg';
     const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
     const isStale = live?.stale;
-    // Show "USD 182.50 | CHF 163.20" when currency differs
+    // Show "USD 182.50 | EUR 163.20" when currency differs from user currency
     const liveLabel = livePrice!=null ? (needsFx
       ? `${fmtPrice(livePrice)} ${stockCurr} · ${curr()} ${fmtPrice(livePrice*fxRate)}`
       : `${fmtPrice(livePrice)} ${stockCurr}`) : null;

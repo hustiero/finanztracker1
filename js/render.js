@@ -1070,7 +1070,7 @@ const WIDGET_CATALOG = [
   { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
   { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
   { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
-  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in CHF und % (benötigt Live-Kurse)' },
+  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in Zielwährung und % (benötigt Live-Kurse)' },
   { key:'aktienTop',        label:'Top-Performer',            sub:'Aktie mit höchstem prozentualen Gewinn' },
   { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
   { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
