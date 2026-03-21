@@ -318,66 +318,51 @@ async function fetchStockPrice(ticker){
   const key = ticker.toUpperCase();
   const gfKey = normalizeTickerForGF(key);
 
-  // Cache check — treat prices as fresh for 7 minutes
+  // 1. Cache-Prüfung (Kurse sind für 5 Minuten gültig)
   const cached = stockPriceCache[key] || stockPriceCache[gfKey];
-  if(cached && (Date.now()-cached.ts) < 7*60*1000) return cached;
+  if(cached && (Date.now()-cached.ts) < 5*60*1000) return cached;
 
-  // ── Primary: server-side GOOGLEFINANCE via Apps Script ──────────────────────
-  if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    await syncKurseSheet([gfKey]);
-    let afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
-    if(!afterSync){
-      // GOOGLEFINANCE formulas may need extra time to resolve; retry once after delay
-      await new Promise(r=>setTimeout(r, 2000));
-      await syncKurseSheet([gfKey]);
-      afterSync = stockPriceCache[key] || stockPriceCache[gfKey];
-    }
-    if(afterSync) return afterSync;
-  }
-
-  // ── Fallback: Yahoo Finance via CORS proxy cascade ───────────────────────────
+  // 2. FALLBACK: Yahoo Finance via CORS-Proxy-Kaskade
+  // (Der Google-Sync passiert jetzt zentral in renderAktien!)
   const yahooTicker = normalizeTickerForYahoo(gfKey);
   const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=1d&range=1d`;
 
   const proxies = [
-    // allorigins.win wraps the response body as a JSON string in { contents: "..." }
     `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`,
-    // corsproxy.io forwards the raw response
     `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`
   ];
 
   for(const proxyUrl of proxies){
     try{
       const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-      if(!r.ok){
-        console.warn(`fetchStockPrice: proxy HTTP ${r.status} — ${proxyUrl}`);
-        continue;
-      }
+      if(!r.ok) continue;
+      
       let json = await r.json();
-      // Unwrap allorigins.win envelope: { contents: "<json-string>", ... }
+      
+      // AllOrigins.win verpackt die Antwort in einen String, den wir entpacken müssen
       if(typeof json?.contents === 'string'){
-        try{ json = JSON.parse(json.contents); }
-        catch(e){ console.warn('fetchStockPrice: failed to parse proxy contents:', e); continue; }
+        try{ json = JSON.parse(json.contents); } 
+        catch(e){ continue; }
       }
+      
       const meta = json?.chart?.result?.[0]?.meta;
-      if(!meta?.regularMarketPrice){
-        console.warn(`fetchStockPrice: no price in proxy response — ${proxyUrl}`);
-        continue;
-      }
+      if(!meta?.regularMarketPrice) continue;
+
       const res = {
         price: meta.regularMarketPrice,
         prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
         currency: meta.currency || '',
         ts: Date.now()
       };
+      
       stockPriceCache[key] = res;
       return res;
+      
     } catch(e){
-      console.warn(`fetchStockPrice: proxy error (${proxyUrl}):`, e.message || e);
+      console.warn(`Proxy Fehler (${proxyUrl}):`, e.message || e);
     }
   }
 
-  // All sources exhausted — return null without crashing
   return null;
 }
 
@@ -679,24 +664,44 @@ async function renderAktien(){
   if(tabelleEl) tabelleEl.style.display = aktienTabView==='tabelle' ? '' : 'none';
   if(chartsEl) chartsEl.style.display = aktienTabView==='charts' ? '' : 'none';
 
+  // Erster Render-Durchlauf mit den gecachten Daten (damit die UI sofort da ist)
   if(aktienTabView==='karten') renderAktienList(show, listEl, summaryEl);
   else summaryEl.innerHTML='';
-
   if(aktienTabView==='tabelle') renderAktienTabelle(show);
   if(aktienTabView==='charts') renderAktienCharts(show);
 
-  // Fetch live prices in background
+  // ── BACKGROUND FETCHING (BATCHED) ──
   if(aktienView==='aktiv'){
-    const toFetch = activeStocks.filter(s=>s.ticker&&!getCachedStock(s.ticker)&&!stockPriceCache[normalizeTickerForGF(s.ticker)]);
+    // Finde alle Aktien, deren Kurs wir noch nicht im Cache haben
+    const toFetch = activeStocks.filter(s=>s.ticker && !getCachedStock(s.ticker));
+    
     if(toFetch.length){
-      await Promise.allSettled(toFetch.map(s=>fetchStockPrice(s.ticker)));
+      // UX: Zeige einen dezenten Lade-Indikator unter dem Dashboard
+      const dashEl = document.getElementById('aktien-dashboard-top');
+      if(dashEl) dashEl.insertAdjacentHTML('beforeend', `<div id="live-kurs-loader" style="text-align:center; font-size:11px; color:var(--accent); margin-top:8px; margin-bottom:8px;">↻ Aktualisiere Live-Kurse...</div>`);
+
+      // 1. Mache exakt EINEN Call zu Google Sheets mit allen fehlenden Tickern!
+      await syncKurseSheet(toFetch.map(s => s.ticker));
+
+      // 2. Falls Google für manche Ticker versagt hat, nutze den Yahoo-Fallback
+      for(const s of toFetch){
+        if(!getCachedStock(s.ticker)) {
+          await fetchStockPrice(s.ticker); 
+        }
+      }
+
+      // 3. Lade-Indikator entfernen
+      const loader = document.getElementById('live-kurs-loader');
+      if(loader) loader.remove();
+
+      // 4. UI mit den neuen Live-Daten neu zeichnen
+      renderAktienDashboardTop(); 
       if(aktienTabView==='karten') renderAktienList(activeStocks, listEl, summaryEl);
       if(aktienTabView==='tabelle') renderAktienTabelle(activeStocks);
       if(aktienTabView==='charts') renderAktienCharts(activeStocks);
     }
   }
 }
-
 function renderAktienList(stocks, listEl, summaryEl){
   let totalPnl=0, hasPnl=false, totalWert=0;
 
@@ -904,26 +909,32 @@ async function testTickerFromEdit(){
 function saveEditAktie(){
   const f = readForm('ea', ['id','title','isin','ticker','currency']);
   const title = f.title.trim();
+  
   if(!title){ toast('Titel erforderlich','err'); return; }
-  const s = SDATA.stocks.find(s=>s.id===f.id);
+  const s = SDATA.stocks.find(st=>st.id===f.id);
   if(!s){ toast('Aktie nicht gefunden','err'); return; }
+  
   const oldTicker = s.ticker;
   s.title = title;
   s.isin = f.isin.trim().toUpperCase();
   s.ticker = f.ticker.trim().toUpperCase();
   s.currency = f.currency;
   sdataSave();
-  // Invalidate price cache if ticker changed
+  
+  // Cache löschen, falls sich der Ticker geändert hat
   if(oldTicker && oldTicker !== s.ticker) delete stockPriceCache[oldTicker];
+
   if(!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)){
-    apiFindRow('Aktien',id).then(row=>{
+    // FIX: f.id nutzen, nicht undefined id!
+    apiFindRow('Aktien', f.id).then(row=>{
       if(row) apiUpdate(`Aktien!B${row}:E${row}`,[[s.title,s.isin,s.ticker,s.currency]]);
     }).catch(e=>toast('Sheet-Sync: '+e.message,'err'));
   }
+  
   closeModal('edit-aktie-modal');
   toast('✓ Aktie aktualisiert','ok');
   document.getElementById('aktie-detail-title').textContent = s.title;
-  renderAktieDetail(id);
+  renderAktieDetail(f.id);
   renderAktien();
 }
 
