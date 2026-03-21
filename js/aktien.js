@@ -142,6 +142,7 @@ async function saveKurseCache(){
 // Normalize ticker from Yahoo format to GOOGLEFINANCE format
 function normalizeTickerForGF(t){
   t = t.trim().toUpperCase();
+  if(t.endsWith('.ST')){ return 'STO:'+t.replace('.ST',''); }
   // Yahoo ".SW" → GOOGLEFINANCE "VTX:" (Swiss Exchange)
   if(t.endsWith('.SW')){ return 'VTX:'+t.replace('.SW',''); }
   // Yahoo ".DE" → GOOGLEFINANCE "FRA:"
@@ -306,17 +307,19 @@ function getCachedStock(ticker){
 // FX conversion helpers
 // Returns exchange rate for fromCurrency → curr() (user's currency), or 1 if same/unknown
 function getFxRate(fromCurr) {
-  if (!fromCurr || fromCurr === 'CHF') return 1;
-  const pair = `${fromCurr}CHF`.toUpperCase();
+  const userCurr = (typeof curr === 'function' ? curr() : 'CHF').toUpperCase();
+  if (!fromCurr || fromCurr.toUpperCase() === userCurr) return 1;
   
-  // Suche im Cache (wird von syncKurseSheet befüllt)
+  const pair = `${fromCurr}${userCurr}`.toUpperCase();
+  
+  // 1. Suche im FX-Cache (gefüllt durch syncKurseSheet)
   if (fxRateCache[pair]) return fxRateCache[pair];
   
-  // Fallback: Suche nach dem Ticker in den Aktiendaten (Google Finance Style)
-  const stockMatch = Object.values(stockPriceCache).find(s => s.currency === fromCurr);
-  if (stockMatch && stockMatch.fxRate) return stockMatch.fxRate;
+  // 2. Sicherheits-Check: Falls Google Finance das Paar umgekehrt liefert (z.B. CHFSEK statt SEKCHF)
+  const reversePair = `${userCurr}${fromCurr}`.toUpperCase();
+  if (fxRateCache[reversePair] && fxRateCache[reversePair] !== 0) return 1 / fxRateCache[reversePair];
 
-  console.warn(`Kein Wechselkurs für ${fromCurr} gefunden. Nutze Fallback 1.0 (Fehlerpotential!)`);
+  console.warn(`Kein Wechselkurs für ${pair} gefunden.`);
   return 1; 
 }
 // Returns true if FX rate is available for given stock currency
