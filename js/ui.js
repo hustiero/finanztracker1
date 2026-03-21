@@ -1825,6 +1825,49 @@ function _handle(p) {
     }
     return _json({ prices: results });
   }
+  // ── Groups (stored in this sheet's Groups + Notifications tabs) ──
+  if (p.action === 'groupsEnsureSheet') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) {
+      gsh = ss.insertSheet(p.sheet);
+      if (p.headers) { var h = JSON.parse(p.headers); gsh.getRange(1,1,1,h.length).setValues([h]); gsh.setFrozenRows(1); }
+    }
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsGet') {
+    var parts = p.range.split('!'); var sheetName = parts[0]; var rangePart = parts[1] || 'A:Z';
+    var gsh = ss.getSheetByName(sheetName);
+    if (!gsh) return _json({ values: [] });
+    var lastRow = gsh.getLastRow();
+    if (lastRow < 1) return _json({ values: [] });
+    var m = rangePart.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+    if (m) {
+      var sr = parseInt(m[2]); var er = Math.min(parseInt(m[4]), lastRow);
+      if (sr > er) return _json({ values: [] });
+      return _json({ values: gsh.getRange(m[1]+sr+':'+m[3]+er).getValues() });
+    }
+    return _json({ values: gsh.getRange(1,1,lastRow,gsh.getLastColumn()).getValues() });
+  }
+  if (p.action === 'groupsAppend') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) return _json({ error: 'Sheet nicht gefunden: ' + p.sheet });
+    var rows = JSON.parse(p.values);
+    var startRow = Math.max(gsh.getLastRow(), 1) + 1;
+    gsh.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsUpdate') {
+    var parts = p.range.split('!');
+    ss.getSheetByName(parts[0]).getRange(parts[1]).setValues(JSON.parse(p.values));
+    return _json({ ok: true });
+  }
+  if (p.action === 'groupsFindRow') {
+    var gsh = ss.getSheetByName(p.sheet);
+    if (!gsh) return _json({ row: null });
+    var vals = gsh.getDataRange().getValues();
+    for (var i = 0; i < vals.length; i++) { if (String(vals[i][0]) === String(p.id)) return _json({ row: i+1 }); }
+    return _json({ row: null });
+  }
   return _json({ error: 'Unbekannte Aktion: ' + (p.action || '(keine)') });
 }
 
