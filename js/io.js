@@ -382,7 +382,7 @@ async function loadAll(){
       apiGet('Ausgaben!A2:J5000'),
       apiGet('Einnahmen!A2:I5000'),
       apiGet('Daueraufträge!A2:K200'),
-      apiGet('Aktien!A2:F5000'),
+      apiGet('Aktien!A2:I5000'),
       apiGet('Trades!A2:J5000'),
       loadProfileFromSheet(),
       apiGet('Sparziele!A2:K200')
@@ -442,9 +442,25 @@ async function loadAll(){
 
     // Aktien + Trades — optionale Sheets
     if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
+      const uc = curr().toUpperCase();
       const shStocks = (aktRes.value.values||[])
         .filter(r=>r[0]&&String(r[5]||'')!=='1')
-        .map(r=>({id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||curr()}));
+        .map(r=>{
+          const s = {id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||curr()};
+          // Columns G=Kurs, H=FX-Rate, I=Aktualisiert — populate price cache on load
+          const price  = parseFloat(r[6]);
+          const fxRate = parseFloat(r[7]);
+          const updAt  = r[8] ? new Date(r[8]).getTime() : 0;
+          if(s.ticker && price > 0){
+            const tk = normalizeTickerForGF(s.ticker);
+            stockPriceCache[tk] = { price, prevClose: null, currency: s.currency, ts: updAt || Date.now(), stale: true };
+          }
+          if(fxRate > 0 && s.currency){
+            const sc = s.currency.toUpperCase();
+            if(sc !== uc) fxRateCache[sc + uc] = fxRate;
+          }
+          return s;
+        });
       const shTrades = (tradeRes.value.values||[])
         .filter(r=>r[0]&&String(r[9]||'')!=='1')
         .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),
@@ -467,12 +483,8 @@ async function loadAll(){
     // Load group notifications (non-blocking)
     loadGroupNotifications();
 
-    // Secondary async: Kurse-Sheet + Portfolio-Verlauf (non-blocking)
+    // Portfolio-Verlauf (non-blocking, no price fetch — prices come from Aktien sheet columns G/H/I)
     if(SDATA.stocks.length){
-      syncKurseSheet().then(()=>{
-        if(currentTab==='aktien') renderAktien();
-        appendPortfolioSnapshot();
-      });
       loadPortfolioVerlauf();
     }
   } catch(e){
