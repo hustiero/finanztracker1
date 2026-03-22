@@ -2056,8 +2056,8 @@ function _json(obj) {
 }`;
 
 function toggleCodeGs(btn) {
-  const block = document.getElementById('codeg-block');
-  const pre = document.getElementById('codeg-pre');
+  const block = btn.nextElementSibling;
+  const pre = block.querySelector('pre');
   if (!pre.textContent) pre.textContent = CODE_GS;
   const shown = block.style.display !== 'none';
   block.style.display = shown ? 'none' : 'block';
