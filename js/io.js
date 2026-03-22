@@ -126,6 +126,15 @@ function gotoSetupStep(n){
   // Scroll setup to top when switching pages
   const el = document.getElementById('setup');
   if(el) el.scrollTop=0;
+  // When ADMIN_URL is hardcoded, hide URL-configuration UI — users only need username + password
+  if(ADMIN_URL){
+    const loginToggleBtn = document.querySelector('#sp-2 .btn-ghost[onclick*="auth-admin-url-wrap"]');
+    if(loginToggleBtn) loginToggleBtn.style.display='none';
+    const loginUrlWrap = document.getElementById('auth-admin-url-wrap');
+    if(loginUrlWrap) loginUrlWrap.style.display='none';
+    const signupUrlWrap = document.getElementById('su-admin-url-wrap');
+    if(signupUrlWrap) signupUrlWrap.style.display='none';
+  }
 }
 
 function resetLoginForm(){
