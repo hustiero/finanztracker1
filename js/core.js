@@ -258,6 +258,11 @@ setInterval(processQueue, 5000);
 // ═══════════════════════════════════════════════════════════════
 // MODULE: CONFIG
 // ═══════════════════════════════════════════════════════════════
+// ── Admin URL ────────────────────────────────────────────────
+// Set this once. All users pick it up automatically — no manual URL entry needed.
+// When the Google Apps Script URL changes, update only this constant.
+const ADMIN_URL = '';
+
 const CFG_KEY = 'ft_v4';
 let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null };
 
@@ -281,6 +286,8 @@ function cfgLoad(){
   const s = localStorage.getItem(CFG_KEY);
   const isNew = !s;
   if(s) CFG = JSON.parse(s);
+  // If a central admin URL is hardcoded, always apply it (overrides stale stored URL)
+  if(ADMIN_URL) CFG.adminUrl = ADMIN_URL;
   // Apply default design for brand-new installs
   if(isNew){
     Object.assign(CFG, DEFAULT_DESIGN);
