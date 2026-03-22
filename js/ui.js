@@ -1973,10 +1973,12 @@ function _handle(p) {
       dataRange.clearContent();
       sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
       // Set GOOGLEFINANCE formulas
-      var formulas = tickers.map(function(t, i) {
+      var formulas = tickers.map(function(t) {
+        var clean = t.replace(/"/g, '');
+        var isFx = clean.toUpperCase().indexOf('CURRENCY:') === 0;
         return [
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","currency"),"")'
+          '=IFERROR(GOOGLEFINANCE("' + clean + '","price"),"")',
+          isFx ? '' : '=IFERROR(GOOGLEFINANCE("' + clean + '","currency"),"")'
         ];
       });
       sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
@@ -1989,6 +1991,11 @@ function _handle(p) {
         var ticker = String(vals[i][0] || '').toUpperCase();
         var price = parseFloat(vals[i][1]);
         var currency = String(vals[i][2] || '');
+        // For CURRENCY: tickers, derive currency from the ticker itself (last 3 chars)
+        if (ticker.indexOf('CURRENCY:') === 0 && !currency) {
+          var pair = ticker.replace('CURRENCY:', '');
+          currency = pair.length >= 6 ? pair.substring(3) : pair;
+        }
         if (ticker && !isNaN(price) && price > 0) {
           results[ticker] = { price: price, currency: currency, prevClose: null };
         }
@@ -2049,8 +2056,8 @@ function _json(obj) {
 }`;
 
 function toggleCodeGs(btn) {
-  const block = document.getElementById('codeg-block');
-  const pre = document.getElementById('codeg-pre');
+  const block = btn.nextElementSibling;
+  const pre = block.querySelector('pre');
   if (!pre.textContent) pre.textContent = CODE_GS;
   const shown = block.style.display !== 'none';
   block.style.display = shown ? 'none' : 'block';
@@ -2115,10 +2122,12 @@ function _handle(p) {
       var dataRange = sh.getRange(2, 1, Math.max(sh.getLastRow(), tickers.length + 1), 3);
       dataRange.clearContent();
       sh.getRange(2, 1, tickers.length, 1).setValues(tickers.map(function(t){ return [t]; }));
-      var formulas = tickers.map(function(t, i) {
+      var formulas = tickers.map(function(t) {
+        var clean = t.replace(/"/g, '');
+        var isFx = clean.toUpperCase().indexOf('CURRENCY:') === 0;
         return [
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","price"),"")',
-          '=IFERROR(GOOGLEFINANCE("' + t.replace(/"/g, '') + '","currency"),"")'
+          '=IFERROR(GOOGLEFINANCE("' + clean + '","price"),"")',
+          isFx ? '' : '=IFERROR(GOOGLEFINANCE("' + clean + '","currency"),"")'
         ];
       });
       sh.getRange(2, 2, tickers.length, 2).setFormulas(formulas);
@@ -2130,6 +2139,10 @@ function _handle(p) {
         var ticker = String(vals[i][0] || '').toUpperCase();
         var price = parseFloat(vals[i][1]);
         var currency = String(vals[i][2] || '');
+        if (ticker.indexOf('CURRENCY:') === 0 && !currency) {
+          var pair = ticker.replace('CURRENCY:', '');
+          currency = pair.length >= 6 ? pair.substring(3) : pair;
+        }
         if (ticker && !isNaN(price) && price > 0) {
           results[ticker] = { price: price, currency: currency, prevClose: null };
         }

@@ -58,11 +58,11 @@ function _handle(p) {
 
       // Try batch setFormulas first; fall back to row-by-row if any ticker causes a parse error
       var formulas = tickers.map(function(t) {
-        // Strip anything that could break the formula string (only keep safe chars)
         var safe = t.replace(/["\\]/g, '').trim();
+        var isFx = safe.toUpperCase().indexOf('CURRENCY:') === 0;
         return [
           '=IFERROR(GOOGLEFINANCE("' + safe + '","price"),"")',
-          '=IFERROR(GOOGLEFINANCE("' + safe + '","currency"),"")'
+          isFx ? '' : '=IFERROR(GOOGLEFINANCE("' + safe + '","currency"),"")'
         ];
       });
 
@@ -98,6 +98,10 @@ function _handle(p) {
         var ticker  = String(vals[i][0] || '').toUpperCase();
         var price   = parseFloat(vals[i][1]);
         var currency = String(vals[i][2] || '');
+        if (ticker.indexOf('CURRENCY:') === 0 && !currency) {
+          var pair = ticker.replace('CURRENCY:', '');
+          currency = pair.length >= 6 ? pair.substring(3) : pair;
+        }
         if (ticker && !isNaN(price) && price > 0) {
           results[ticker] = { price: price, currency: currency, prevClose: null };
         }
