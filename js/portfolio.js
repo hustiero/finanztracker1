@@ -756,15 +756,24 @@ async function refreshAllPrices() {
   const btn = document.getElementById('aktien-refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   Object.keys(stockPriceCache).forEach(k => { if (stockPriceCache[k]) stockPriceCache[k].stale = true; });
+
+  // Primary: GOOGLEFINANCE via Apps Script (batch)
   await syncKurseSheet();
-  // Retry once if GOOGLEFINANCE was slow to resolve
   const stillMissing = SDATA.stocks.some(s => {
     if (!s.ticker) return false;
     const c = getCachedStock(s.ticker);
     return !c || c.stale;
   });
   if (stillMissing) { await new Promise(r => setTimeout(r, 2000)); await syncKurseSheet(); }
-  // Persist fresh prices back to Aktien sheet columns G/H/I
+
+  // Fallback: Yahoo Finance for any stock that still has no fresh price
+  const noPrice = SDATA.stocks.filter(s => {
+    if (!s.ticker) return false;
+    const c = getCachedStock(s.ticker);
+    return !c || c.stale;
+  });
+  if (noPrice.length) await Promise.allSettled(noPrice.map(s => fetchStockPrice(s.ticker)));
+
   await writeKursesToAktienSheet();
   await appendPortfolioSnapshot();
   await renderAktien();
