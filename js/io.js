@@ -53,6 +53,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
   if(CFG.sessionToken && CFG.adminUrl){
     // Account-Modus: Session vorhanden → direkt starten (Token wird beim ersten API-Call geprüft)
     launchApp();
+    // Fetch the latest admin URL from the sheet and apply for all users automatically
+    _fetchAndApplyAppConfig();
   } else if(CFG.adminUrl){
     // Admin-URL bekannt, aber keine Session → Login anzeigen
     gotoSetupStep(2);
@@ -135,6 +137,25 @@ function gotoSetupStep(n){
     const signupUrlWrap = document.getElementById('su-admin-url-wrap');
     if(signupUrlWrap) signupUrlWrap.style.display='none';
   }
+}
+
+/**
+ * Fetches the latest admin URL from the backend AppConfig sheet.
+ * If a newer URL is stored there, updates CFG.adminUrl so all users
+ * automatically pick up script URL changes without manual reconfiguration.
+ */
+async function _fetchAndApplyAppConfig(){
+  if(!CFG.adminUrl) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'get_app_config'}));
+    if(!r.ok) return;
+    const d = await r.json();
+    const newUrl = d.config?.adminUrl?.value;
+    if(newUrl && newUrl !== CFG.adminUrl && newUrl.includes('script.google.com')){
+      CFG.adminUrl = newUrl;
+      cfgSave();
+    }
+  }catch(e){ /* silent — don't disrupt the user */ }
 }
 
 function resetLoginForm(){

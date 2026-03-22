@@ -1033,6 +1033,12 @@ async function doAuthSignup(){
     const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
     const d = await r.json();
     if(d.error) throw new Error(d.error);
+    if(d.pending){
+      CFG.adminUrl=adminUrl; cfgSave();
+      showErr('Konto erstellt — warte auf Freischaltung durch den Admin.');
+      btn.classList.remove('loading'); btn.disabled=false; btn.textContent='Konto erstellen →';
+      return;
+    }
     CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
     CFG.scriptUrl=''; CFG.demo=false;
     cfgSave();
@@ -1548,6 +1554,120 @@ async function renderAdmin(){
   if(invEl) invEl.textContent = _buildInviteUrl();
   renderAdminDesignPresets();
   // Admin groups panel is now lazy-loaded via toggleAdminGroupsPanel()
+  _renderAdminScriptUrl();
+  _fetchPendingRegistrations();
+}
+
+// ─── Script-URL Management ────────────────────────────────
+
+async function _renderAdminScriptUrl(){
+  const inp = document.getElementById('admin-script-url-input');
+  if(inp && !inp.value) inp.value = CFG.adminUrl || '';
+  // Fetch history from backend
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'get_app_config'}));
+    const d = await r.json();
+    if(d.config && d.config.adminUrl){
+      const entry = d.config.adminUrl;
+      if(inp && !inp.value) inp.value = entry.value || CFG.adminUrl || '';
+      _renderUrlHistory(entry);
+    }
+  }catch(e){ /* silent */ }
+}
+
+function _renderUrlHistory(entry){
+  const el = document.getElementById('admin-url-history');
+  if(!el) return;
+  const hist = entry.history || [];
+  if(!hist.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:5px">Verlauf</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${hist.map(h=>`
+        <div style="background:var(--bg3);border-radius:6px;padding:6px 8px">
+          <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);word-break:break-all">${esc(h.url)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${h.changedAt ? h.changedAt.slice(0,16).replace('T',' ') : '–'}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function adminSetScriptUrl(){
+  const inp = document.getElementById('admin-script-url-input');
+  const newUrl = (inp?.value||'').trim();
+  if(!newUrl || !newUrl.includes('script.google.com')){ toast('Ungültige Script-URL','err'); return; }
+  if(newUrl === CFG.adminUrl){ toast('URL ist bereits aktuell','info'); return; }
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_set_admin_url', token:CFG.sessionToken, newUrl}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    CFG.adminUrl = newUrl;
+    cfgSave();
+    toast('✓ URL gespeichert — alle Nutzer erhalten sie beim nächsten Start','ok');
+    _renderAdminScriptUrl();
+    if(typeof invEl !== 'undefined'){
+      const invEl2 = document.getElementById('admin-invite-link');
+      if(invEl2) invEl2.textContent = _buildInviteUrl();
+    }
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+// ─── Pending Registrations ────────────────────────────────
+
+async function _fetchPendingRegistrations(){
+  const el = document.getElementById('admin-pending-list');
+  if(!el) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_list_pending', token:CFG.sessionToken}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    _renderPendingList(d.pending||[]);
+  }catch(e){
+    if(el) el.innerHTML = '<div style="font-size:12px;color:var(--red);text-align:center;padding:10px">'+esc(e.message)+'</div>';
+  }
+}
+
+function _renderPendingList(list){
+  const el = document.getElementById('admin-pending-list');
+  const badge = document.getElementById('admin-pending-badge');
+  if(badge){ badge.textContent = list.length; badge.style.display = list.length ? '' : 'none'; }
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = '<div class="t-muted" style="text-align:center;padding:12px;font-size:12px">Keine ausstehenden Registrierungen.</div>';
+    return;
+  }
+  el.innerHTML = list.map(u=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(u.username)}</div>
+        <div style="font-size:11px;color:var(--text3)">Registriert: ${u.createdAt?u.createdAt.slice(0,10):'–'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="adminApproveUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(0,201,167,.3);background:rgba(0,201,167,.1);color:#00c9a7;cursor:pointer">Freischalten</button>
+        <button onclick="adminRejectUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:var(--red);cursor:pointer">Ablehnen</button>
+      </div>
+    </div>`).join('');
+}
+
+async function adminApproveUser(username){
+  if(!confirm(`"${username}" freischalten?`)) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_approve', token:CFG.sessionToken, target:username}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    toast('✓ '+username+' freigeschaltet','ok');
+    _fetchPendingRegistrations();
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+async function adminRejectUser(username){
+  if(!confirm(`Registrierung von "${username}" ablehnen und Konto löschen?`)) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_reject', token:CFG.sessionToken, target:username}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    toast('✓ '+username+' abgelehnt','ok');
+    _fetchPendingRegistrations();
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
 }
 
 // ─── User Management Overlay ─────────────────────────────────
@@ -1968,8 +2088,9 @@ function doGet(e) {
 
 function _handle(p) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (p.action === 'signup') return _signup(ss, p);
-  if (p.action === 'login')  return _login(ss, p);
+  if (p.action === 'signup')         return _signup(ss, p);
+  if (p.action === 'login')          return _login(ss, p);
+  if (p.action === 'get_app_config') return _getAppConfig(ss);
   const session = _checkSession(ss, p.token);
   if (!session) return { error: 'Sitzung abgelaufen. Bitte neu anmelden.' };
   const user = _getUser(ss, session.username);
@@ -2024,9 +2145,13 @@ function _handle(p) {
   if (p.action === 'groupsEnsureSheet') return _groupsEnsureSheet(ss, p);
   if (p.action === 'groupsFindRow')     return _groupsFindRow(ss, p);
   if (user.role !== 'admin') return { error: 'Keine Berechtigung.' };
-  if (p.action === 'admin_list')     return _adminList(ss);
-  if (p.action === 'admin_delete')   return _adminDelete(ss, p);
-  if (p.action === 'admin_reset_pw') return _adminResetPw(ss, p);
+  if (p.action === 'admin_list')            return _adminList(ss);
+  if (p.action === 'admin_delete')          return _adminDelete(ss, p);
+  if (p.action === 'admin_reset_pw')        return _adminResetPw(ss, p);
+  if (p.action === 'admin_set_admin_url')   return _adminSetAdminUrl(ss, p);
+  if (p.action === 'admin_list_pending')    return _adminListPending(ss);
+  if (p.action === 'admin_approve')         return _adminApprove(ss, p);
+  if (p.action === 'admin_reject')          return _adminReject(ss, p);
   return { error: 'Unbekannte Aktion: ' + (p.action || '(keine)') };
 }
 
@@ -2041,9 +2166,8 @@ function _signup(ss, p) {
     if (String(rows[i][0]).toLowerCase() === user) return { error: 'Benutzername bereits vergeben.' };
   const newSs = SpreadsheetApp.create('FTracker – ' + user);
   _initUserSheet(newSs);
-  sheet.appendRow([user, p.hash, newSs.getId(), newSs.getUrl(), new Date().toISOString(), 'user', '']);
-  const token = _createSession(ss, user);
-  return { ok: true, token, username: user, role: 'user' };
+  sheet.appendRow([user, p.hash, newSs.getId(), newSs.getUrl(), new Date().toISOString(), 'pending', '']);
+  return { ok: true, pending: true };
 }
 
 function _login(ss, p) {
@@ -2053,9 +2177,11 @@ function _login(ss, p) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).toLowerCase() === user && rows[i][1] === p.hash) {
+      const role = rows[i][5] || 'user';
+      if (role === 'pending') return { error: 'Dein Konto wartet noch auf Freischaltung durch den Admin.' };
       sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
       const token = _createSession(ss, user);
-      return { ok: true, token, username: user, role: rows[i][5] || 'user' };
+      return { ok: true, token, username: user, role };
     }
   }
   return { error: 'Benutzername oder Passwort falsch.' };
@@ -2255,6 +2381,70 @@ function _adminResetPw(ss, p) {
       sheet.getRange(i + 1, 2).setValue(p.newHash); return { ok: true };
     }
   return { error: 'Benutzer nicht gefunden' };
+}
+
+function _getAppConfig(ss) {
+  var sh = ss.getSheetByName('AppConfig');
+  if (!sh) return { config: {} };
+  var rows = sh.getDataRange().getValues();
+  var config = {};
+  for (var i = 1; i < rows.length; i++)
+    if (rows[i][0]) config[String(rows[i][0])] = { value: String(rows[i][1] || ''), updatedAt: String(rows[i][2] || ''), history: rows[i][3] ? JSON.parse(rows[i][3]) : [] };
+  return { config };
+}
+
+function _adminSetAdminUrl(ss, p) {
+  if (!p.newUrl) return { error: 'newUrl fehlt' };
+  var sh = ss.getSheetByName('AppConfig');
+  if (!sh) {
+    sh = ss.insertSheet('AppConfig');
+    sh.getRange(1, 1, 1, 4).setValues([['key', 'value', 'updatedAt', 'history']]);
+  }
+  var now = new Date().toISOString();
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === 'adminUrl') {
+      var hist = rows[i][3] ? JSON.parse(rows[i][3]) : [];
+      if (rows[i][1]) hist.unshift({ url: String(rows[i][1]), changedAt: String(rows[i][2] || now) });
+      sh.getRange(i + 1, 1, 1, 4).setValues([['adminUrl', p.newUrl, now, JSON.stringify(hist.slice(0, 20))]]);
+      return { ok: true };
+    }
+  }
+  sh.appendRow(['adminUrl', p.newUrl, now, '[]']);
+  return { ok: true };
+}
+
+function _adminListPending(ss) {
+  var rows = ss.getSheetByName('Users').getDataRange().getValues();
+  var pending = [];
+  for (var i = 1; i < rows.length; i++)
+    if (String(rows[i][5]) === 'pending' && rows[i][0])
+      pending.push({ username: String(rows[i][0]), createdAt: String(rows[i][4] || '') });
+  return { pending };
+}
+
+function _adminApprove(ss, p) {
+  if (!p.target) return { error: 'target fehlt' };
+  var sheet = ss.getSheetByName('Users');
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === p.target.toLowerCase() && String(rows[i][5]) === 'pending') {
+      sheet.getRange(i + 1, 6).setValue('user');
+      return { ok: true };
+    }
+  return { error: 'Benutzer nicht gefunden oder nicht ausstehend' };
+}
+
+function _adminReject(ss, p) {
+  if (!p.target) return { error: 'target fehlt' };
+  var sheet = ss.getSheetByName('Users');
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === p.target.toLowerCase() && String(rows[i][5]) === 'pending') {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  return { error: 'Benutzer nicht gefunden oder nicht ausstehend' };
 }
 
 function _initUserSheet(ss) {
