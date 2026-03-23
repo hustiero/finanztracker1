@@ -864,39 +864,25 @@ body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
    All levels can be disabled with body.glass-clean to show a flat look.
 ═══════════════════════════════════════════════════════════ */
 
-/* ── Level 1: Primary cards ── */
-body.glass-on .card,
-body.glass-on .widget-card{
+/* ── Level 1 + 2: All card surfaces (consolidated) ── */
+body.glass-on :is(.card, .widget-card,
+  .stat-card, .aktie-card, .aktie-summary-card,
+  .spar-goal-card, .sparen-explainer, .verlauf-tile){
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
   backdrop-filter:var(--glass-bd);
   -webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
   box-shadow:0 4px 30px rgba(0,0,0,0.12);
 }
-/* ── Level 2: Stat & tile cards ── */
-body.glass-on .stat-card,
-body.glass-on .aktie-card,
-body.glass-on .aktie-summary-card,
-body.glass-on #aktien-fx-rates > div,
-body.glass-on .spar-goal-card,
-body.glass-on .sparen-explainer,
-body.glass-on .verlauf-tile{
+body.glass-on #aktien-fx-rates > div{
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
+  backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-  box-shadow:0 4px 30px rgba(0,0,0,0.12);
 }
-/* Top-bar circle buttons (bell, mehr) */
-body.glass-on .top-bar-circle-btn{
+/* ── Small interactive elements with glass bg ── */
+body.glass-on :is(.top-bar-circle-btn, .btn-cancel, .type-toggle){
   background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Monatsübersicht / Jahresübersicht nav buttons (< >) */
-body.glass-on .btn-cancel{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
 /* Spar add buttons */
@@ -923,12 +909,7 @@ body.glass-on .top-bar,
   -webkit-backdrop-filter:var(--glass-bd);
   border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
 }
-body.glass-on .type-toggle{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur));
-  -webkit-backdrop-filter:blur(var(--glass-blur));
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
+/* .type-toggle glass — handled by :is() rule above *
 /* Modal in glass mode */
 body.glass-on .modal-overlay .modal{
   background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;

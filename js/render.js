@@ -234,13 +234,17 @@ let dashboardChartMonths = 3;
 
 function renderAll(){
   fillAllDropdowns();
+  // Render tabs selectively: always-visible ones + current tab
+  renderHome();
   renderVerlauf();
   renderCategories();
   renderRecurring();
   renderDashboard();
-  renderHome();
   if(currentTab==='sparen') renderSparen();
+  if(currentTab==='groups') renderGroups();
+  if(currentTab==='lohn') renderLohn();
   updatePageSub();
+  // Post-render side-effects (non-blocking)
   autoMaterializeRecurrings();
   checkDueRecurrings();
   checkAllNotifications();
@@ -253,41 +257,9 @@ function updatePageSub(){
     '';
 }
 
-function getRecurringInstances(startStr, endStr){
-  const entries = [];
-  const todayStr = today();
-  const effectiveEnd = endStr < todayStr ? endStr : todayStr;
-  for(const r of DATA.recurring){
-    if(!r.active) continue;
-    const rStart = r.start||'2020-01-01';
-    const rEnd = r.endDate && r.endDate < effectiveEnd ? r.endDate : effectiveEnd;
-    if(rStart > rEnd) continue;
-    const push = ds => {
-      if(ds >= startStr && ds <= rEnd && ds >= rStart)
-        entries.push({id:r.id+'_'+ds, what:r.what, cat:r.cat, amt:r.amt, date:ds, note:r.note||'', _type:'recurring', _recurId:r.id});
-    };
-    if(r.interval==='monatlich'){
-      let d = new Date(startStr+'T12:00:00');
-      d = new Date(d.getFullYear(), d.getMonth(), r.day, 12);
-      if(dateStr(d) < startStr) d = new Date(d.getFullYear(), d.getMonth()+1, r.day, 12);
-      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear(), d.getMonth()+1, r.day, 12); }
-    } else if(r.interval==='wöchentlich'){
-      let d = new Date(Math.max(new Date(startStr+'T12:00:00'), new Date(rStart+'T12:00:00')));
-      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getTime()+7*86400000); }
-    } else if(r.interval==='jährlich'){
-      const orig = new Date(rStart+'T12:00:00');
-      let d = new Date(new Date(startStr+'T12:00:00').getFullYear(), orig.getMonth(), orig.getDate(), 12);
-      if(dateStr(d) < startStr) d = new Date(d.getFullYear()+1, orig.getMonth(), orig.getDate(), 12);
-      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear()+1, orig.getMonth(), orig.getDate(), 12); }
-    } else if(r.interval==='halbjährlich'){
-      const orig = new Date(rStart+'T12:00:00');
-      let d = new Date(new Date(startStr+'T12:00:00').getFullYear(), orig.getMonth(), orig.getDate(), 12);
-      if(dateStr(d) < rStart) d = new Date(d.getFullYear(), d.getMonth()+6, d.getDate(), 12);
-      while(dateStr(d) <= rEnd){ push(dateStr(d)); d = new Date(d.getFullYear(), d.getMonth()+6, d.getDate(), 12); }
-    }
-  }
-  return entries;
-}
+// getRecurringInstances() has been removed — use getRecurringOccurrences() from data.js instead.
+// getRecurringOccurrences(startStr, endStr, capToToday, skipMaterialized)
+// supports all intervals including quartalsweise + zweiwöchentlich.
 
 // ═══════════════════════════════════════════════════════════════
 // VERLAUF — 3-Ebenen-Navigation

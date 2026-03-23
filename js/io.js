@@ -397,112 +397,138 @@ async function dataCacheLoadIDB(){
   } catch(e){ return false; }
 }
 
+// ── Sheet-Parser: je Sheet eine Funktion ─────────────────────────────────────
+// Jede Funktion nimmt das rohe API-Ergebnis (result-Objekt aus Promise.allSettled)
+// und schreibt direkt in DATA. Bei Fehler: Array bleibt wie bisher (hadCache-Schutz).
+
+function _parseCategories(res, hadCache){
+  if(res.status==='fulfilled'){
+    DATA.categories = (res.value.values||[])
+      .filter(r=>r[0])
+      .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||'',emoji:r[6]||''}))
+      .sort((a,b)=>a.sort-b.sort);
+  } else if(!hadCache){ DATA.categories=[]; }
+}
+
+function _parseExpenses(res, hadCache){
+  if(res.status==='fulfilled'){
+    DATA.expenses = (res.value.values||[])
+      .filter(r=>r[0] && String(r[6]||'')!=='1')
+      .map(r=>{
+        const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',
+          amt:normalizeAmt(r[4]),note:r[5]||'',recurringId:r[6]||'',
+          isFixkosten:String(r[7]||'')==='1'};
+        if(r[8]) e.groupId = r[8];
+        if(r[9]){ try{ e.splitData = JSON.parse(r[9]); }catch(x){ e.splitData = null; } }
+        return e;
+      });
+  } else if(!hadCache){ DATA.expenses=[]; }
+}
+
+function _parseIncomes(res, hadCache){
+  if(res.status==='fulfilled'){
+    DATA.incomes = (res.value.values||[])
+      .filter(r=>r[0] && String(r[6]||'')!=='1')
+      .map(r=>{
+        const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',
+          amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'};
+        if(r[8]) e.groupId = r[8];
+        return e;
+      });
+  } else if(!hadCache){ DATA.incomes=[]; }
+}
+
+function _parseRecurring(res, hadCache){
+  if(res.status==='fulfilled'){
+    DATA.recurring = (res.value.values||[])
+      .filter(r=>r[0])
+      .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),
+        interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',
+        active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),
+        affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
+  } else if(!hadCache){ DATA.recurring=[]; }
+}
+
+function _parseSparziele(res){
+  if(res.status==='fulfilled'){
+    DATA.sparziele = (res.value.values||[])
+      .filter(r=>r[0] && String(r[10]||'')!=='1')
+      .map(r=>({id:r[0],name:r[1]||'',target:parseFloat(r[2])||0,start:parseFloat(r[3])||0,
+        saved:parseFloat(r[4])||0,deadline:r[5]||'',open:String(r[6]||'')==='1',
+        priority:parseInt(r[7])||99,taxPct:parseFloat(r[8])||0,taxAmt:parseFloat(r[9])||0,
+        isTax:String(r[6]||'')==='tax'}));
+  }
+}
+
+function _parseAktienTrades(aktRes, tradeRes){
+  if(aktRes.status!=='fulfilled' || tradeRes.status!=='fulfilled') return;
+  const uc = curr().toUpperCase();
+  const shStocks = (aktRes.value.values||[])
+    .filter(r=>r[0] && String(r[5]||'')!=='1')
+    .map(r=>{
+      const s = {id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||curr()};
+      const price  = parseFloat(r[6]);
+      const fxRate = parseFloat(r[7]);
+      const updAt  = r[8] ? new Date(r[8]).getTime() : 0;
+      if(s.ticker && price>0){
+        const tk = normalizeTickerForGF(s.ticker);
+        stockPriceCache[tk] = {price, prevClose:null, currency:s.currency, ts:updAt||Date.now(), stale:true};
+      }
+      if(fxRate>0 && s.currency){
+        const sc = s.currency.toUpperCase();
+        if(sc!==uc) fxRateCache[sc+uc] = fxRate;
+      }
+      return s;
+    });
+  const shTrades = (tradeRes.value.values||[])
+    .filter(r=>r[0] && String(r[9]||'')!=='1')
+    .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),
+      qty:parseFloat(r[4])||0,price:parseFloat(r[5])||0,currency:r[6]||'',
+      courtage:parseFloat(r[7])||0,total:parseFloat(r[8])||0}));
+  if(shStocks.length || shTrades.length){ SDATA.stocks=shStocks; SDATA.trades=shTrades; sdataSave(); }
+}
+
+// ── loadAll: orchestriert alle Sheet-Fetches parallel ────────────────────────
 async function loadAll(){
   setSyncStatus('syncing'); setLoader(true);
 
-  // Show cached data immediately while fetching
+  // Show cached data immediately while fetching (stale-while-revalidate)
   let hadCache = dataCacheLoad();
-  // Fallback: try IndexedDB if localStorage had no cache
   if(!hadCache) hadCache = await dataCacheLoadIDB();
   if(hadCache) renderAll();
 
   try{
-    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] = await Promise.allSettled([
-      apiGet('Kategorien!A2:G500'),
-      apiGet('Ausgaben!A2:J5000'),
-      apiGet('Einnahmen!A2:I5000'),
-      apiGet('Daueraufträge!A2:K200'),
-      apiGet('Aktien!A2:I5000'),
-      apiGet('Trades!A2:J5000'),
-      loadProfileFromSheet(),
-      apiGet('Sparziele!A2:K200')
-    ]);
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] =
+      await Promise.allSettled([
+        apiGet('Kategorien!A2:G500'),
+        apiGet('Ausgaben!A2:J5000'),
+        apiGet('Einnahmen!A2:I5000'),
+        apiGet('Daueraufträge!A2:K200'),
+        apiGet('Aktien!A2:I5000'),
+        apiGet('Trades!A2:J5000'),
+        loadProfileFromSheet(),
+        apiGet('Sparziele!A2:K200')
+      ]);
 
-    if(katRes.status==='fulfilled'){
-      DATA.categories = (katRes.value.values||[])
-        .filter(r=>r[0])
-        .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||'',emoji:r[6]||''}))
-        .sort((a,b)=>a.sort-b.sort);
-    } else { if(!hadCache) DATA.categories=[]; }
+    _parseCategories(katRes, hadCache);
+    _parseExpenses(ausgRes, hadCache);
+    _parseIncomes(einRes, hadCache);
+    _parseRecurring(dauerRes, hadCache);
+    _parseSparziele(sparRes);
+    _parseAktienTrades(aktRes, tradeRes);
 
-    if(ausgRes.status==='fulfilled'){
-      DATA.expenses = (ausgRes.value.values||[])
-        .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>{
-          const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',recurringId:r[6]||'',isFixkosten:String(r[7]||'')==='1'};
-          if(r[8]) e.groupId = r[8];
-          if(r[9]){ try{ e.splitData = JSON.parse(r[9]); }catch(x){ e.splitData = null; } }
-          return e;
-        });
-    } else { if(!hadCache) DATA.expenses=[]; }
-
-    if(einRes.status==='fulfilled'){
-      DATA.incomes = (einRes.value.values||[])
-        .filter(r=>r[0]&&String(r[6]||'')!=='1')
-        .map(r=>{
-          const e = {id:r[0],date:normalizeDate(r[1]),what:r[2]||'',cat:r[3]||'',amt:normalizeAmt(r[4]),note:r[5]||'',isLohn:String(r[7]||'')==='1'};
-          if(r[8]) e.groupId = r[8];
-          return e;
-        });
-    } else { if(!hadCache) DATA.incomes=[]; }
-
-    if(dauerRes.status==='fulfilled'){
-      DATA.recurring = (dauerRes.value.values||[])
-        .filter(r=>r[0])
-        .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
-    } else { if(!hadCache) DATA.recurring=[]; }
-
-    // Sparziele
-    if(sparRes.status==='fulfilled'){
-      DATA.sparziele = (sparRes.value.values||[])
-        .filter(r=>r[0]&&String(r[10]||'')!=='1')
-        .map(r=>({id:r[0],name:r[1]||'',target:parseFloat(r[2])||0,start:parseFloat(r[3])||0,
-          saved:parseFloat(r[4])||0,deadline:r[5]||'',open:String(r[6]||'')==='1',
-          priority:parseInt(r[7])||99,taxPct:parseFloat(r[8])||0,taxAmt:parseFloat(r[9])||0,
-          isTax:String(r[6]||'')==='tax'}));
-    }
-
-    // Groups — loaded from admin sheet via groups.js
+    // Groups (blocking — needed before renderAll so group data is present)
     await loadGroups();
 
-    // GroupEntries — load shared entries (non-blocking)
+    dataCacheSave();
+    setSyncStatus('online');
+    renderAll();
+
+    // Non-blocking post-load tasks
     loadGroupEntries().then(()=>{
-      if(DATA.groupEntries && DATA.groupEntries.length) markDirty('verlauf','groups');
+      if(DATA.groupEntries?.length) markDirty('verlauf','groups');
     }).catch(()=>{});
 
-    // Aktien + Trades — optionale Sheets
-    if(aktRes.status==='fulfilled' && tradeRes.status==='fulfilled'){
-      const uc = curr().toUpperCase();
-      const shStocks = (aktRes.value.values||[])
-        .filter(r=>r[0]&&String(r[5]||'')!=='1')
-        .map(r=>{
-          const s = {id:r[0],title:r[1]||'',isin:r[2]||'',ticker:r[3]||'',currency:r[4]||curr()};
-          // Columns G=Kurs, H=FX-Rate, I=Aktualisiert — populate price cache on load
-          const price  = parseFloat(r[6]);
-          const fxRate = parseFloat(r[7]);
-          const updAt  = r[8] ? new Date(r[8]).getTime() : 0;
-          if(s.ticker && price > 0){
-            const tk = normalizeTickerForGF(s.ticker);
-            stockPriceCache[tk] = { price, prevClose: null, currency: s.currency, ts: updAt || Date.now(), stale: true };
-          }
-          if(fxRate > 0 && s.currency){
-            const sc = s.currency.toUpperCase();
-            if(sc !== uc) fxRateCache[sc + uc] = fxRate;
-          }
-          return s;
-        });
-      const shTrades = (tradeRes.value.values||[])
-        .filter(r=>r[0]&&String(r[9]||'')!=='1')
-        .map(r=>({id:r[0],stockId:r[1],type:r[2]||'kauf',date:normalizeDate(r[3]),
-          qty:parseFloat(r[4])||0,price:parseFloat(r[5])||0,currency:r[6]||'',
-          courtage:parseFloat(r[7])||0,total:parseFloat(r[8])||0}));
-      if(shStocks.length || shTrades.length){ SDATA.stocks=shStocks; SDATA.trades=shTrades; sdataSave(); }
-    }
-
-    dataCacheSave();
-    setSyncStatus('online'); renderAll();
-
-    // Process pending group join (from invite link)
     if(CFG._pendingGroupJoin){
       const pj = CFG._pendingGroupJoin;
       delete CFG._pendingGroupJoin;
@@ -510,13 +536,9 @@ async function loadAll(){
       if(joined) goTab('groups');
     }
 
-    // Load group notifications (non-blocking)
     loadGroupNotifications();
+    if(SDATA.stocks.length) loadPortfolioVerlauf();
 
-    // Portfolio-Verlauf (non-blocking, no price fetch — prices come from Aktien sheet columns G/H/I)
-    if(SDATA.stocks.length){
-      loadPortfolioVerlauf();
-    }
   } catch(e){
     setSyncStatus('error');
     toast('Ladefehler: '+e.message,'err');
@@ -634,7 +656,16 @@ async function saveEntryOrRecurring(){
   }
 }
 
+// Guard against concurrent saves (double-tap / rapid submit)
+let _saveEntryInProgress = false;
+
 async function saveEntry(){
+  if(_saveEntryInProgress) return;
+  _saveEntryInProgress = true;
+  try { await _saveEntryImpl(); } finally { _saveEntryInProgress = false; }
+}
+
+async function _saveEntryImpl(){
   const f = readForm('f', ['amt','date','what','cat','note']);
   const amt = parseFloat(f.amt);
   const date = f.date;
@@ -654,17 +685,10 @@ async function saveEntry(){
     if(!splitData) return; // validation failed
   }
 
-  // Eigenen Anteil berechnen für lokale Speicherung
-  let myAmt = amt;
-  if(splitData && splitData.participants){
-    const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
-    const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-    if(splitData.participants[myId] !== undefined){
-      myAmt = Math.round(splitData.participants[myId] * 100) / 100;
-    } else if(splitData.participants[myName] !== undefined){
-      myAmt = Math.round(splitData.participants[myName] * 100) / 100;
-    }
-  }
+  // Eigenen Anteil berechnen für lokale Speicherung — zentraler Helper in data.js
+  const myAmt = splitData
+    ? Math.round(getOwnShare({amt, splitData}) * 100) / 100
+    : amt;
 
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
@@ -783,14 +807,17 @@ async function updateEntry(){
   const idx = list.findIndex(e=>e.id===id);
   if(idx===-1) return;
 
-  // Optimistic update
+  // Keep backup for rollback on sync failure
+  const backup = {...list[idx]};
+
+  // Optimistic update — apply immediately for snappy UX
   list[idx] = {...list[idx],amt,date,what,cat,note};
   closeModal('edit-modal');
   dataCacheSave();
   markDirty('verlauf','dashboard','home','lohn');
-  toast('Gespeichert…');
 
   if(!CFG.demo){
+    setSyncStatus('syncing');
     try{
       const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
       const row = await apiFindRow(sheet, id);
@@ -798,11 +825,18 @@ async function updateEntry(){
         const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
         const isFixk = type==='ausgabe' ? (list[idx]?.isFixkosten ? '1' : '0') : '';
         const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'',isFixk]] : [[id,date,what,cat,amt,note,'',isLohn]];
-        const updateRange = `${sheet}!A${row}:H${row}`;
-        await apiUpdate(updateRange, updateVals);
+        await apiUpdate(`${sheet}!A${row}:H${row}`, updateVals);
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
+      } else {
+        // Row not found — rollback local change
+        list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
+        setSyncStatus('error'); toast('Fehler: Eintrag nicht in Sheet gefunden','err');
       }
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+    } catch(e){
+      // Network/API error — rollback local change
+      list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
+      setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
+    }
   } else { toast('✓ Aktualisiert (Demo)','ok'); }
 }
 

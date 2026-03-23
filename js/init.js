@@ -11,7 +11,7 @@ Object.assign(App.Data, {
   // Date/cycle helpers
   getCycleRange, getMonthsBetween,
   // Recurring expansion
-  getRecurringOccurrences, getRecurringInstances,
+  getRecurringOccurrences,
   // Core data access
   getAusgaben, getEinnahmen, getNetto, getFixkosten,
   isFixkostenEntry, toggleFixkostenKat,
@@ -220,6 +220,8 @@ RENDER_FN_MAP = {
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,
   groups:        renderGroups,
+  monat:         renderMonat,
+  admin:         renderAdmin,
   nav:           renderNav,
   dropdowns:     fillAllDropdowns,
 };

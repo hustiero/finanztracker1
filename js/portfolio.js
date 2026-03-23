@@ -337,14 +337,11 @@ async function fetchStockPrice(ticker) {
   if (cached && (Date.now() - cached.ts) < 7 * 60_000) return cached;
 
   // Primary: GOOGLEFINANCE via Apps Script
+  // One sync attempt — GOOGLEFINANCE needs a round-trip to evaluate the formula.
+  // No hard sleep: if the first call returns no data, we fall through to Yahoo.
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
     await syncKurseSheet([gfKey]);
-    let res = stockPriceCache[key] || stockPriceCache[gfKey];
-    if (!res) {
-      await new Promise(r => setTimeout(r, 2000));
-      await syncKurseSheet([gfKey]);
-      res = stockPriceCache[key] || stockPriceCache[gfKey];
-    }
+    const res = stockPriceCache[key] || stockPriceCache[gfKey];
     if (res) return res;
   }
 

@@ -64,12 +64,16 @@ function flushRender(){
   for(const tab of tabs){
     if(RENDER_FN_MAP[tab]){
       // Only render if tab is currently visible OR it's a global element
-      if(tab === currentTab || tab === 'nav' || tab === 'dropdowns'){
+      if(tab === currentTab || RENDER_GLOBAL_TABS.has(tab)){
         RENDER_FN_MAP[tab]();
       }
     }
   }
 }
+
+// Global tabs are always rendered regardless of currentTab.
+// Register additional global elements via RENDER_GLOBAL_TABS.add('myTab').
+const RENDER_GLOBAL_TABS = new Set(['nav', 'dropdowns']);
 
 // Populated after render functions are defined (see bottom of this file)
 let RENDER_FN_MAP = {};
@@ -209,26 +213,35 @@ const IDB = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// MODULE: SYNC QUEUE (Step 3)
+// MODULE: SYNC QUEUE
 // Queues API write operations for resilient offline-first sync.
-// Failed operations are retried on next processQueue tick.
+// Failed operations are retried with exponential backoff.
+// Permanently failed operations show a user-visible toast.
 // ═══════════════════════════════════════════════════════════════
 const syncQueue = [];
 let _syncQueueRunning = false;
+let _syncRetryTimeout = null;
+
+// Exponential backoff delays in ms (attempt 1→2s, 2→4s, 3→8s)
+const _SYNC_BACKOFF = [2000, 4000, 8000];
+const _SYNC_MAX_RETRIES = 3;
 
 /**
  * Enqueue an API write operation.
  * @param {string} label - Human-readable label (for debugging)
  * @param {Function} fn  - Async function that performs the API call
+ * @param {Function} [onDrop] - Optional callback when op is permanently dropped
  */
-function queueSync(label, fn){
-  syncQueue.push({ label, fn, retries: 0, maxRetries: 3 });
-  // Persist queue length to IDB for crash recovery (fire-and-forget)
+function queueSync(label, fn, onDrop){
+  syncQueue.push({ label, fn, retries: 0, onDrop });
   IDB.set('ft_syncqueue_len', syncQueue.length).catch(()=>{});
+  // Trigger immediate processing attempt
+  if(!_syncQueueRunning && !_syncRetryTimeout) processQueue();
 }
 
-/** Process pending sync queue items. Called by setInterval. */
+/** Process pending sync queue items. */
 async function processQueue(){
+  if(_syncRetryTimeout){ clearTimeout(_syncRetryTimeout); _syncRetryTimeout = null; }
   if(_syncQueueRunning || !syncQueue.length) return;
   if(CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
   _syncQueueRunning = true;
@@ -239,12 +252,21 @@ async function processQueue(){
       syncQueue.shift(); // success → remove
     } catch(e){
       item.retries++;
-      if(item.retries >= item.maxRetries){
-        console.warn(`syncQueue: dropping "${item.label}" after ${item.maxRetries} retries`, e);
+      if(item.retries >= _SYNC_MAX_RETRIES){
+        console.error(`syncQueue: dropping "${item.label}" after ${_SYNC_MAX_RETRIES} retries`, e);
+        // Notify user about permanent failure
+        if(typeof toast === 'function'){
+          toast(`Sync-Fehler: "${item.label}" konnte nicht gespeichert werden`, 'err');
+        }
+        if(typeof item.onDrop === 'function') item.onDrop(e);
         syncQueue.shift();
       } else {
-        console.warn(`syncQueue: "${item.label}" failed (attempt ${item.retries}), will retry`, e);
-        break; // stop processing, retry on next tick
+        const delay = _SYNC_BACKOFF[item.retries - 1] || 8000;
+        console.warn(`syncQueue: "${item.label}" failed (attempt ${item.retries}/${_SYNC_MAX_RETRIES}), retry in ${delay}ms`, e);
+        _syncQueueRunning = false;
+        IDB.set('ft_syncqueue_len', syncQueue.length).catch(()=>{});
+        _syncRetryTimeout = setTimeout(processQueue, delay);
+        return;
       }
     }
   }
@@ -252,7 +274,7 @@ async function processQueue(){
   IDB.set('ft_syncqueue_len', syncQueue.length).catch(()=>{});
 }
 
-// Process queue every 5 seconds
+// Process queue every 5 seconds (heartbeat for cases where retry timeout was missed)
 setInterval(processQueue, 5000);
 
 // ═══════════════════════════════════════════════════════════════
@@ -266,7 +288,13 @@ const ADMIN_URL = '';
 const CFG_KEY = 'ft_v4';
 let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null };
 
+// Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.
+// Prevents stale IDB data from overwriting newer CFG mutations (e.g. URL params applied
+// after cfgLoad() but before the async IDB promise resolves).
+let _cfgSaveGen = 0;
+
 function cfgSave(){
+  _cfgSaveGen++;
   // Synchronous write to localStorage (immediate, blocking)
   localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
   // Async write to IndexedDB (fire-and-forget, non-blocking)
@@ -302,21 +330,29 @@ function cfgLoad(){
   if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';
   // Migrate old flat design fields to design package (deferred — design.js defines migrateOldDesignToPkg)
   if(!CFG.designPackageId && !CFG.designPackage && typeof migrateOldDesignToPkg === 'function'){
-    const migrated = migrateOldDesignToPkg();
-    if(migrated){ CFG.designPackage = migrated; CFG.designPackageId = '_custom'; cfgSave(); }
+    try {
+      const migrated = migrateOldDesignToPkg();
+      if(migrated){ CFG.designPackage = migrated; CFG.designPackageId = '_custom'; cfgSave(); }
+    } catch(e){ console.warn('cfgLoad: migrateOldDesignToPkg failed', e); }
   }
   applyThemeMode();
 
-  // 2. Async: check IndexedDB for newer data (migration / fallback)
-  IDB.get(CFG_KEY).then(idbCfg => {
-    if(!idbCfg) return; // nothing in IDB yet
-    if(!s){
-      // localStorage was empty but IDB has data → restore from IDB
+  // 2. Async: check IndexedDB for fallback (only when localStorage was empty).
+  // Capture the current save generation — if cfgSave() is called before this
+  // promise resolves (e.g. URL params applied in io.js), we abort the IDB restore
+  // to prevent overwriting newer mutations.
+  if(!s){
+    const genAtLoad = _cfgSaveGen;
+    IDB.get(CFG_KEY).then(idbCfg => {
+      if(!idbCfg) return; // nothing in IDB yet
+      if(_cfgSaveGen !== genAtLoad) return; // CFG mutated since we started — abort
+      // localStorage was empty and CFG wasn't touched yet → restore from IDB
       Object.assign(CFG, idbCfg);
+      if(ADMIN_URL) CFG.adminUrl = ADMIN_URL; // always apply hardcoded URL
       localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
       applyThemeMode();
-    }
-  }).catch(()=>{});
+    }).catch(()=>{});
+  }
 }
 
 // Returns user's configured display currency (default CHF)

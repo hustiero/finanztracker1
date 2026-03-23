@@ -7,11 +7,21 @@ async function apiCall(params){
   const baseUrl = isAccountMode ? CFG.adminUrl : CFG.scriptUrl;
   const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
   const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
-  const r = await fetch(url);
+  let r;
+  try { r = await fetch(url); } catch(e){ throw new Error('Netzwerkfehler: '+e.message); }
+  // Session expired via HTTP 401
+  if(r.status === 401){
+    CFG.sessionToken=''; CFG.authRole=''; cfgSave();
+    toast('Sitzung abgelaufen – bitte neu anmelden','err');
+    setTimeout(()=>location.reload(), 2500);
+    throw new Error('HTTP 401 – Sitzung abgelaufen');
+  }
   if(!r.ok) throw new Error('HTTP '+r.status);
-  const data = await r.json();
-  if(data.error){
-    if((data.error||'').includes('Sitzung abgelaufen')){
+  let data;
+  try { data = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort (kein JSON)'); }
+  if(data && data.error){
+    // Also catch German session-expiry string from backend (legacy support)
+    if((data.error||'').includes('Sitzung abgelaufen') || (data.error||'').includes('session expired')){
       CFG.sessionToken=''; CFG.authRole=''; cfgSave();
       toast('Sitzung abgelaufen – bitte neu anmelden','err');
       setTimeout(()=>location.reload(), 2500);
@@ -25,22 +35,38 @@ async function apiGet(range){
   return apiCall({action:'get', range});
 }
 
+// ── Row-Index Cache ───────────────────────────────────────────
+// Caches sheet row numbers per (sheet, id) to avoid repeated O(n) column fetches.
+// Populated by apiFindRow(); invalidated on append (new rows) or explicit reset.
+const _rowCache = {}; // { [sheet]: { [id]: rowNum } }
+
+function _rowCacheInvalidate(sheet){ delete _rowCache[sheet]; }
+
+// Append a row and invalidate the row cache for that sheet.
 async function apiAppend(sheet, values){
-  return apiCall({action:'append', sheet, values: JSON.stringify(values)});
+  const result = await apiCall({action:'append', sheet, values: JSON.stringify(values)});
+  _rowCacheInvalidate(sheet); // row numbers shifted — cache is stale
+  return result;
 }
 
 async function apiUpdate(range, values){
   return apiCall({action:'update', range, values: JSON.stringify(values)});
 }
 
-// Find row number of an entry by its ID (searches column A)
+// Find row number of an entry by its ID (searches column A).
+// Caches the full column index per sheet so repeated lookups in the same session
+// hit memory instead of making O(n) network requests.
 async function apiFindRow(sheet, id){
+  if(_rowCache[sheet]?.[String(id)]) return _rowCache[sheet][String(id)];
   const res = await apiGet(sheet+'!A:A');
   const rows = res.values||[];
+  // Populate full cache for this sheet in one pass
+  _rowCache[sheet] = {};
   for(let i=0;i<rows.length;i++){
-    if(String(rows[i][0])===String(id)) return i+1; // 1-indexed
+    const rowId = String(rows[i]?.[0] ?? '');
+    if(rowId) _rowCache[sheet][rowId] = i+1; // 1-indexed
   }
-  return null;
+  return _rowCache[sheet][String(id)] || null;
 }
 
 async function apiGetMeta(){
@@ -228,16 +254,30 @@ function getFixkosten(von, bis){
 
 // Auto-materialize ALL due recurring occurrences (up to today) as real DATA.expenses entries.
 // Called on every data load / renderAll. Syncs new entries to the Sheet in one batch.
+// Guard prevents concurrent runs (e.g. rapid reload) from creating duplicates.
+let _materializeRunning = false;
 async function autoMaterializeRecurrings(){
+  if(_materializeRunning) return;
+  _materializeRunning = true;
+  try { await _autoMaterializeImpl(); } finally { _materializeRunning = false; }
+}
+async function _autoMaterializeImpl(){
   if(!DATA.recurring.length) return;
   const todayStr = today();
   // Use a wide range: earliest possible start to today
   const earliest = DATA.recurring.reduce((min,r)=>r.start&&r.start<min?r.start:min, todayStr.slice(0,4)+'-01-01');
+  // skipMaterialized=true: getRecurringOccurrences checks DATA.expenses for recurringId+date keys
   const occurrences = getRecurringOccurrences(earliest, todayStr, true, true);
   if(!occurrences.length) return;
 
   const newEntries = [];
+  // Build a second dedupe set from DATA.expenses to guard against race
+  // where entries were pushed after getRecurringOccurrences captured its snapshot
+  const existingKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
   for(const occ of occurrences){
+    const key = occ._recurId+'_'+occ.date;
+    if(existingKeys.has(key)) continue; // double-check: skip if already in DATA
+    existingKeys.add(key); // prevent same key being added twice within this batch
     const r = DATA.recurring.find(r=>r.id===occ._recurId);
     if(!r) continue;
     const id = genId('A');
@@ -333,19 +373,11 @@ function getZyklusInfo(){
   const daysLeft    = cycleDays - daysElapsed;
   const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
   // varSpent: non-fixkosten manual expenses + non-fixkosten recurring realised today or earlier
+  // getOwnShare() handles group-split entries consistently (same logic used in saveEntry + groups.js)
   const varSpent = [
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
     ...recurInCycleToday.filter(e=>!isFixkostenEntry(e))
-  ].reduce((s,e)=>{
-    if(e.groupId && e.splitData && e.splitData.participants){
-      const _id = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
-      const _nm = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-      const parts = e.splitData.participants;
-      const myShare = parts[_id]!==undefined ? parts[_id] : (parts[_nm]!==undefined ? parts[_nm] : undefined);
-      return s + (myShare !== undefined ? myShare : e.amt);
-    }
-    return s + e.amt;
-  },0);
+  ].reduce((s,e) => s + getOwnShare(e), 0);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
   return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0,prevCarryover,mSparziel};
