@@ -1070,10 +1070,14 @@ async function updateCategory(){
   const idx = DATA.categories.findIndex(c=>c.id===id);
   if(idx===-1) return;
 
-  const oldName = DATA.categories[idx].name;
-  DATA.categories[idx] = {...DATA.categories[idx],name,type,color,parent,emoji};
+  // Keep backups for rollback
+  const oldCat    = {...DATA.categories[idx]};
+  const oldName   = oldCat.name;
+  const nameChanged = oldName !== name;
 
-  if(oldName!==name){
+  // Optimistic local update
+  DATA.categories[idx] = {...oldCat, name, type, color, parent, emoji};
+  if(nameChanged){
     DATA.expenses.forEach(e=>{ if(e.cat===oldName) e.cat=name; });
     DATA.incomes.forEach(e=>{ if(e.cat===oldName) e.cat=name; });
     DATA.recurring.forEach(r=>{ if(r.cat===oldName) r.cat=name; });
@@ -1083,12 +1087,28 @@ async function updateCategory(){
   renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');
 
   if(!CFG.demo){
+    setSyncStatus('syncing');
     try{
       const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}:G${row}`,[[id,name,type,color,DATA.categories[idx].sort,parent,emoji]]);
-      setSyncStatus('online'); toast('✓ Kategorie aktualisiert','ok');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
-  } else toast('✓ Aktualisiert (Demo)','ok');
+      if(row){
+        await apiUpdate(`Kategorien!A${row}:G${row}`,[[id,name,type,color,DATA.categories[idx].sort,parent,emoji]]);
+        setSyncStatus('online'); toast('✓ Kategorie aktualisiert','ok');
+      } else {
+        throw new Error('Zeile nicht gefunden');
+      }
+    } catch(e){
+      // Rollback: restore category and all renamed entries
+      DATA.categories[idx] = oldCat;
+      if(nameChanged){
+        DATA.expenses.forEach(ex=>{ if(ex.cat===name) ex.cat=oldName; });
+        DATA.incomes.forEach(inc=>{ if(inc.cat===name) inc.cat=oldName; });
+        DATA.recurring.forEach(r=>{ if(r.cat===name) r.cat=oldName; });
+      }
+      dataCacheSave();
+      renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');
+      setSyncStatus('error'); toast('Sync-Fehler: Änderungen zurückgesetzt','err');
+    }
+  } else { toast('✓ Aktualisiert (Demo)','ok'); }
 }
 
 async function deleteCategory(){

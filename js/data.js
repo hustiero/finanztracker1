@@ -312,75 +312,97 @@ function toggleFixkostenKat(cat){
   renderAll();
 }
 
-function getZyklusInfo(){
-  const {start,end} = getCycleRange();
-  const now = new Date();
-  const startStr = dateStr(start), endStr = dateStr(end), todayStr = today();
-  const lt = CFG.lohnTag||25;
-  // Salary: incomes marked as Lohn, OR (backward compat) incomes in first 3 days of cycle without isLohn flag
-  const win3 = dateStr(new Date(start.getTime()+2*86400000));
+// ── Budget helpers (private) ──────────────────────────────────────────────────
+
+/**
+ * Calculate salary booked in [startStr, endStr].
+ * Handles both explicit isLohn flag and legacy backward-compat (first 3 days of cycle).
+ * Falls back to the active Lohn-Dauerauftrag amount if no real income found.
+ */
+function _calcLohnInRange(startStr, endStr){
+  const win3 = dateStr(new Date(new Date(startStr+'T12:00:00').getTime()+2*86400000));
   let lohn = DATA.incomes.filter(e=>{
     if(e.date<startStr||e.date>endStr) return false;
     if(e.isLohn===true) return true;
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
   }).reduce((s,e)=>s+e.amt,0);
-  // Fallback: virtuellen Lohn aus Einnahmen-Dauerauftrag holen
   if(lohn===0){
     const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
     if(lohnRec){
-      const recOcc = getRecurringOccurrences(startStr, endStr, false, false)
-        .filter(e=>e._recurId===lohnRec.id);
-      if(recOcc.length) lohn = lohnRec.amt;
+      const hasOcc = getRecurringOccurrences(startStr, endStr, false, false)
+        .some(e=>e._recurId===lohnRec.id);
+      if(hasOcc) lohn = lohnRec.amt;
     }
   }
-  // Fixed costs: use the FULL cycle range (capToToday=false) so a Dauerauftrag added on
-  // the 16th for the 26th immediately reduces the daily rate — the user doesn't have to
-  // wait until the payment date for the budget to reflect it.
-  const recurInCycleFull  = getRecurringOccurrences(startStr, endStr, false, true);
-  // Variable spending still uses today-capped recurring (only realised transactions count).
-  const recurInCycleToday = getRecurringOccurrences(startStr, endStr, true, true);
-  const fixKosten = [
+  return lohn;
+}
+
+/**
+ * Sum fixed-cost expenses + recurring in [startStr, endStr].
+ * capToToday: false = include future recurring (for forward-looking budget),
+ *             true  = only realised (for historical views).
+ */
+function _calcFixKosten(startStr, endStr, capToToday=false){
+  const recur = getRecurringOccurrences(startStr, endStr, capToToday, true);
+  return [
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
-    ...recurInCycleFull.filter(e=>isFixkostenEntry(e))
+    ...recur.filter(e=>isFixkostenEntry(e))
   ].reduce((s,e)=>s+e.amt,0);
+}
+
+/**
+ * Sum variable expenses + recurring in [startStr, endStr] (today-capped).
+ * Uses getOwnShare() for consistent group-split handling.
+ */
+function _calcVarSpent(startStr, endStr){
+  const todayStr = today();
+  const recur = getRecurringOccurrences(startStr, endStr, true, true);
+  return [
+    ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
+    ...recur.filter(e=>!isFixkostenEntry(e))
+  ].reduce((s,e)=>s+getOwnShare(e), 0);
+}
+
+function getZyklusInfo(){
+  const {start,end} = getCycleRange();
+  const now = new Date();
+  const startStr = dateStr(start), endStr = dateStr(end);
+  const lt = CFG.lohnTag||25;
+
+  const lohn = _calcLohnInRange(startStr, endStr);
+
+  // Fixed costs: full cycle range (capToToday=false) so a newly-added Dauerauftrag
+  // for a future date immediately reduces the daily rate.
+  const fixKosten = _calcFixKosten(startStr, endStr, false);
+
   // Previous cycle carryover
-  const prevEnd = new Date(start.getTime()-86400000);
+  const prevEnd   = new Date(start.getTime()-86400000);
   const prevStart = prevEnd.getDate()>=lt
     ? new Date(prevEnd.getFullYear(),prevEnd.getMonth(),lt)
     : new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,lt);
-  const prevStartStr=dateStr(prevStart), prevEndStr=dateStr(prevEnd);
-  const prevWin3=dateStr(new Date(prevStart.getTime()+2*86400000));
-  let prevLohn=DATA.incomes.filter(e=>{
-    if(e.date<prevStartStr||e.date>prevEndStr) return false;
-    if(e.isLohn===true) return true;
-    if(e.isLohn===undefined||e.isLohn===null) return e.date<=prevWin3;
-    return false;
-  }).reduce((s,e)=>s+e.amt,0);
-  if(prevLohn===0){
-    const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
-    if(lohnRec) prevLohn = lohnRec.amt;
-  }
-  const prevRecur = getRecurringOccurrences(prevStartStr, prevEndStr, true, true);
-  const prevFixKosten = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&isFixkostenEntry(e)),...prevRecur.filter(e=>isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
-  const prevVarSpent  = [...DATA.expenses.filter(e=>e.date>=prevStartStr&&e.date<=prevEndStr&&!isFixkostenEntry(e)),...prevRecur.filter(e=>!isFixkostenEntry(e))].reduce((s,e)=>s+e.amt,0);
-  const prevCarryover = prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
-  // Use dynamic Sparziele monthly total if goals exist, fallback to CFG.mSparziel
-  const sparMonthly = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0) ? sparTotalMonthly() : 0;
+  const prevStartStr = dateStr(prevStart), prevEndStr = dateStr(prevEnd);
+  const prevLohn     = _calcLohnInRange(prevStartStr, prevEndStr);
+  const prevFixKosten= _calcFixKosten(prevStartStr, prevEndStr, true);
+  const prevVarSpent = _calcVarSpent(prevStartStr, prevEndStr);
+  const prevCarryover= prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
+
+  // Savings target: dynamic Sparziele total or static CFG.mSparziel
+  const sparMonthly = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0)
+    ? sparTotalMonthly() : 0;
   const mSparziel = sparMonthly > 0 ? sparMonthly : (CFG.mSparziel||0);
+
   const cycleDays   = Math.round((end-start)/86400000)+1;
   const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
   const daysLeft    = cycleDays - daysElapsed;
   const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
-  // varSpent: non-fixkosten manual expenses + non-fixkosten recurring realised today or earlier
-  // getOwnShare() handles group-split entries consistently (same logic used in saveEntry + groups.js)
-  const varSpent = [
-    ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
-    ...recurInCycleToday.filter(e=>!isFixkostenEntry(e))
-  ].reduce((s,e) => s + getOwnShare(e), 0);
+  const varSpent    = _calcVarSpent(startStr, endStr);
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
-  return {start,end,startStr,endStr,lohn,fixKosten,varBudget,cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,hasSalary:lohn>0,prevCarryover,mSparziel};
+
+  return {start,end,startStr,endStr,lohn,fixKosten,varBudget,
+    cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,
+    hasSalary:lohn>0,prevCarryover,mSparziel};
 }
 
 // Returns parent category name of a given category (empty string if top-level)

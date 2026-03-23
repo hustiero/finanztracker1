@@ -1149,22 +1149,22 @@
   </div>
 
   <!-- Bottom Navigation (dynamic slots) -->
-  <nav id="nav">
-    <button class="nav-btn" id="nav-dashboard" onclick="goTab('home')">
-      <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  <nav id="nav" role="navigation" aria-label="Hauptnavigation">
+    <button class="nav-btn" id="nav-dashboard" onclick="goTab('home')" aria-label="Home" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Home
     </button>
-    <button class="nav-btn" id="nav-slot1-btn" style="display:none" onclick="">
-      <svg viewBox="0 0 24 24"></svg>
+    <button class="nav-btn" id="nav-slot1-btn" style="display:none" onclick="" aria-label="">
+      <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
       <span id="nav-slot1-lbl"></span>
     </button>
-    <div class="nav-fab-space"></div>
-    <button class="nav-btn" id="nav-slot2-btn" style="display:none" onclick="">
-      <svg viewBox="0 0 24 24"></svg>
+    <div class="nav-fab-space" aria-hidden="true"></div>
+    <button class="nav-btn" id="nav-slot2-btn" style="display:none" onclick="" aria-label="">
+      <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
       <span id="nav-slot2-lbl"></span>
     </button>
-    <button class="nav-btn" id="nav-slot3-btn" style="display:none" onclick="">
-      <svg viewBox="0 0 24 24"></svg>
+    <button class="nav-btn" id="nav-slot3-btn" style="display:none" onclick="" aria-label="">
+      <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
       <span id="nav-slot3-lbl"></span>
     </button>
   </nav>
@@ -1178,12 +1178,12 @@
 
 
 <!-- Aktie-Flow Modal (Bestehende wählen oder Neue erstellen) -->
-<div class="modal-overlay" id="aktie-flow-modal">
+<div class="modal-overlay" id="aktie-flow-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title" id="aktie-flow-title">Aktie / Trade erfassen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aktie-flow-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('aktie-flow-modal')">✕</button>
     </div>
     <div class="modal-body" id="aktie-flow-body"></div>
     <div class="modal-actions" id="aktie-flow-actions" style="display:none">
@@ -1231,12 +1231,12 @@
 ════════════════════════════════════ -->
 
 <!-- Edit Entry Modal -->
-<div class="modal-overlay" id="edit-modal">
+<div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title" id="edit-modal-title">Eintrag bearbeiten</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('edit-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('edit-modal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-id">
@@ -1276,12 +1276,12 @@
 </div>
 
 <!-- Edit Recurring Modal -->
-<div class="modal-overlay" id="rec-modal">
+<div class="modal-overlay" id="rec-modal" role="dialog" aria-modal="true" aria-labelledby="rec-modal-title">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">Dauerauftrag bearbeiten</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('rec-modal')">✕</button>
+      <div class="modal-title" id="rec-modal-title">Dauerauftrag bearbeiten</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('rec-modal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="rec-edit-id">
@@ -1346,12 +1346,12 @@
 </div>
 
 <!-- Edit Category Modal -->
-<div class="modal-overlay" id="cat-modal">
+<div class="modal-overlay" id="cat-modal" role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">Kategorie bearbeiten</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('cat-modal')">✕</button>
+      <div class="modal-title" id="cat-modal-title">Kategorie bearbeiten</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('cat-modal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="cat-edit-id">
@@ -1392,12 +1392,12 @@
 </div>
 
 <!-- Settings Modal -->
-<div class="modal-overlay" id="settings-modal">
+<div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">Einstellungen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('settings-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('settings-modal')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -1419,12 +1419,12 @@
 </div>
 
 <!-- Avg Daily Config Modal -->
-<div class="modal-overlay" id="avg-config-modal">
+<div class="modal-overlay" id="avg-config-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">Ø Tagesausgabe konfigurieren</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('avg-config-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('avg-config-modal')">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">Wähle welche Fixkosten (Daueraufträge) in den Ø Tagesausgaben mitgezählt werden sollen. Standardmässig sind Fixkosten ausgeschlossen.</p>
@@ -1437,12 +1437,12 @@
 </div>
 
 <!-- Sparziele Modal -->
-<div class="modal-overlay" id="sparziel-modal">
+<div class="modal-overlay" id="sparziel-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">Sparziele</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('sparziel-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('sparziel-modal')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -1500,12 +1500,12 @@
 </div>
 
 <!-- Neue Aktie Modal -->
-<div class="modal-overlay" id="new-aktie-modal">
+<div class="modal-overlay" id="new-aktie-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">Neue Aktie</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('new-aktie-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('new-aktie-modal')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -1542,12 +1542,12 @@
 </div>
 
 <!-- Aktie Bearbeiten Modal -->
-<div class="modal-overlay" id="edit-aktie-modal">
+<div class="modal-overlay" id="edit-aktie-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">Aktie bearbeiten</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('edit-aktie-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('edit-aktie-modal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="ea-id">
@@ -1585,12 +1585,12 @@
 </div>
 
 <!-- Trade Modal -->
-<div class="modal-overlay" id="trade-modal">
+<div class="modal-overlay" id="trade-modal" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title" id="trade-modal-title">Kauf erfassen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('trade-modal')">✕</button>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('trade-modal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="tm-stockid">

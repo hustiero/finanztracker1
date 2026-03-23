@@ -491,20 +491,13 @@ function renderVerlaufL1(){
     .filter(e => !e.groupId)
     .map(e => ({...e, _type:'ausgabe'}));
 
+  // getOwnShare() handles authUser/userName lookup consistently across all split logic
   const myGroupExpenses = DATA.expenses
     .filter(e => e.groupId && e.splitData?.participants)
     .map(e => {
-      const parts = e.splitData.participants;
-      const myShare = parts[myId]!==undefined ? parts[myId] : (parts[myName]!==undefined ? parts[myName] : undefined);
-      const amt = (myShare !== undefined) ? Math.round(myShare * 100) / 100 : e.amt;
+      const amt = Math.round(getOwnShare(e) * 100) / 100;
       const fullAmt = e.splitData.totalAmount || e.amt;
-      return {
-        ...e,
-        amt,
-        _fullAmt: fullAmt,
-        _isSplit: amt !== fullAmt,
-        _type: 'ausgabe'
-      };
+      return {...e, amt, _fullAmt: fullAmt, _isSplit: amt !== fullAmt, _type: 'ausgabe'};
     });
 
   const groupExpensesNoSplit = DATA.expenses
@@ -537,7 +530,33 @@ function renderVerlaufL1(){
   const gtBtn = document.getElementById('verlauf-group-toggle');
   if(gtBtn) gtBtn.classList.toggle('active', !!CFG.showGroupEntries);
   if(!entries.length){ container.innerHTML = _VERLAUF_EMPTY; return; }
-  container.innerHTML = renderVerlaufEntryGroups(entries);
+
+  // Render at most VERLAUF_PAGE_SIZE entries at once to avoid large DOM builds.
+  // "Weitere laden" button appends the next page.
+  const total = entries.length;
+  const limit = verlaufL1Page * _VERLAUF_PAGE_SIZE;
+  const visible = entries.slice(0, limit);
+  const hasMore = total > limit;
+
+  let html = renderVerlaufEntryGroups(visible);
+  if(hasMore){
+    html += `<div style="text-align:center;padding:16px 0">
+      <button onclick="verlaufLoadMore()" style="font-size:13px;color:var(--text2);
+        background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+        padding:8px 24px;cursor:pointer">
+        Weitere laden (${total - limit} verbleibend)
+      </button></div>`;
+  }
+  container.innerHTML = html;
+}
+
+const _VERLAUF_PAGE_SIZE = 200;
+let verlaufL1Page = 1;
+
+function verlaufLoadMore(){
+  verlaufL1Page++;
+  renderVerlaufL1();
+  // Preserve scroll position by not jumping to top
 }
 
 // ── L2: Kategorie-Kacheln ─────────────────────────────────────────────────────
@@ -730,7 +749,7 @@ function renderVerlauf(){
 // verlaufSetType: wechselt Typ-Ansicht (L1 ↔ L2), resettet Suche und Kategorie
 function verlaufSetType(t){
   verlaufType = t; verlaufKat = null;
-  verlaufL3SearchVis = false; verlaufSearch = '';
+  verlaufL3SearchVis = false; verlaufSearch = ''; verlaufL1Page = 1;
   const inp = document.getElementById('verlauf-search');
   if(inp) inp.value = '';
   renderVerlauf();
@@ -2029,7 +2048,7 @@ function openMonthViewAt(mo,yr){
 // MODULE: VERLAUF SEARCH
 // ═══════════════════════════════════════════════════════════════
 let verlaufSearch = '';
-function setVerlaufSearch(v){ verlaufSearch=v; renderVerlauf(); }
+function setVerlaufSearch(v){ verlaufSearch=v; verlaufL1Page=1; renderVerlauf(); }
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: MONATSÜBERSICHT TAB

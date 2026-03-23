@@ -24,14 +24,16 @@ function goTab(tab){
     tabEl.classList.add('animating');
   }
   // Nav active state: home (fixed) + pinned slots + mehr
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  if(tab==='home'){ document.getElementById('nav-dashboard')?.classList.add('active'); }
+  document.querySelectorAll('.nav-btn').forEach(b=>{ b.classList.remove('active'); b.removeAttribute('aria-current'); });
+  let activeNavBtn = null;
+  if(tab==='home'){ activeNavBtn = document.getElementById('nav-dashboard'); }
   else {
     const pinned = CFG.pinnedTabs||[];
-    if(pinned[0]===tab) document.getElementById('nav-slot1-btn')?.classList.add('active');
-    else if(pinned[1]===tab) document.getElementById('nav-slot2-btn')?.classList.add('active');
-    else if(pinned[2]===tab) document.getElementById('nav-slot3-btn')?.classList.add('active');
+    if(pinned[0]===tab) activeNavBtn = document.getElementById('nav-slot1-btn');
+    else if(pinned[1]===tab) activeNavBtn = document.getElementById('nav-slot2-btn');
+    else if(pinned[2]===tab) activeNavBtn = document.getElementById('nav-slot3-btn');
   }
+  if(activeNavBtn){ activeNavBtn.classList.add('active'); activeNavBtn.setAttribute('aria-current','page'); }
   // FAB: active (X) state when on eingabe
   const fab = document.getElementById('fab-add');
   if(fab){
@@ -993,8 +995,12 @@ async function doAuthLogin(){
   btn.classList.add('loading'); btn.disabled=true; btn.textContent='Anmelden…';
   try{
     const hash = await sha256(pw);
-    const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'login',user,hash}));
-    const d = await r.json();
+    let r, d;
+    try {
+      r = await fetch(adminUrl+'?'+new URLSearchParams({action:'login',user,hash}));
+    } catch(netErr){ throw new Error('Netzwerkfehler – Server nicht erreichbar'); }
+    if(!r.ok) throw new Error('Server-Fehler (HTTP '+r.status+')');
+    try { d = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort'); }
     if(d.error) throw new Error(d.error);
     CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
     CFG.scriptUrl=''; CFG.demo=false;
@@ -1024,8 +1030,12 @@ async function doAuthSignup(){
   btn.classList.add('loading'); btn.disabled=true; btn.textContent='Konto wird erstellt…';
   try{
     const hash = await sha256(pw);
-    const r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
-    const d = await r.json();
+    let r, d;
+    try {
+      r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
+    } catch(netErr){ throw new Error('Netzwerkfehler – Server nicht erreichbar'); }
+    if(!r.ok) throw new Error('Server-Fehler (HTTP '+r.status+')');
+    try { d = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort'); }
     if(d.error) throw new Error(d.error);
     if(d.pending){
       CFG.adminUrl=adminUrl; cfgSave();
