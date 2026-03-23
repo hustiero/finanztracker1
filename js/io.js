@@ -634,7 +634,16 @@ async function saveEntryOrRecurring(){
   }
 }
 
+// Guard against concurrent saves (double-tap / rapid submit)
+let _saveEntryInProgress = false;
+
 async function saveEntry(){
+  if(_saveEntryInProgress) return;
+  _saveEntryInProgress = true;
+  try { await _saveEntryImpl(); } finally { _saveEntryInProgress = false; }
+}
+
+async function _saveEntryImpl(){
   const f = readForm('f', ['amt','date','what','cat','note']);
   const amt = parseFloat(f.amt);
   const date = f.date;
@@ -654,17 +663,10 @@ async function saveEntry(){
     if(!splitData) return; // validation failed
   }
 
-  // Eigenen Anteil berechnen für lokale Speicherung
-  let myAmt = amt;
-  if(splitData && splitData.participants){
-    const myId = (typeof _myGroupId==='function') ? _myGroupId() : (CFG.authUser||'');
-    const myName = (typeof _myGroupName==='function') ? _myGroupName() : (CFG.userName||'');
-    if(splitData.participants[myId] !== undefined){
-      myAmt = Math.round(splitData.participants[myId] * 100) / 100;
-    } else if(splitData.participants[myName] !== undefined){
-      myAmt = Math.round(splitData.participants[myName] * 100) / 100;
-    }
-  }
+  // Eigenen Anteil berechnen für lokale Speicherung — zentraler Helper in data.js
+  const myAmt = splitData
+    ? Math.round(getOwnShare({amt, splitData}) * 100) / 100
+    : amt;
 
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
@@ -783,14 +785,17 @@ async function updateEntry(){
   const idx = list.findIndex(e=>e.id===id);
   if(idx===-1) return;
 
-  // Optimistic update
+  // Keep backup for rollback on sync failure
+  const backup = {...list[idx]};
+
+  // Optimistic update — apply immediately for snappy UX
   list[idx] = {...list[idx],amt,date,what,cat,note};
   closeModal('edit-modal');
   dataCacheSave();
   markDirty('verlauf','dashboard','home','lohn');
-  toast('Gespeichert…');
 
   if(!CFG.demo){
+    setSyncStatus('syncing');
     try{
       const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
       const row = await apiFindRow(sheet, id);
@@ -798,11 +803,18 @@ async function updateEntry(){
         const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
         const isFixk = type==='ausgabe' ? (list[idx]?.isFixkosten ? '1' : '0') : '';
         const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'',isFixk]] : [[id,date,what,cat,amt,note,'',isLohn]];
-        const updateRange = `${sheet}!A${row}:H${row}`;
-        await apiUpdate(updateRange, updateVals);
+        await apiUpdate(`${sheet}!A${row}:H${row}`, updateVals);
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
+      } else {
+        // Row not found — rollback local change
+        list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
+        setSyncStatus('error'); toast('Fehler: Eintrag nicht in Sheet gefunden','err');
       }
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+    } catch(e){
+      // Network/API error — rollback local change
+      list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
+      setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
+    }
   } else { toast('✓ Aktualisiert (Demo)','ok'); }
 }
 

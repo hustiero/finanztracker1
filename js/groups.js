@@ -1011,16 +1011,8 @@ function getGroupShadowEntries(){
     const group = DATA.groups.find(g=>g.id===e.groupId);
     if(!group) continue;
 
-    // Look up user's share — try authorId first, then authorName
-    let myShare = 0;
-    if(e.splitData && e.splitData.participants){
-      const parts = e.splitData.participants;
-      if(parts[myId]!==undefined) myShare = parts[myId];
-      else if(parts[myName]!==undefined) myShare = parts[myName];
-      else myShare = 0;
-    } else {
-      myShare = group.members.length>0 ? e.amt/group.members.length : e.amt;
-    }
+    // Use centralised helper — handles authUser/userName lookup consistently
+    const myShare = getOwnShare(e);
 
     if(myShare<=0) continue;
 

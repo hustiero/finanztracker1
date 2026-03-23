@@ -220,6 +220,8 @@ RENDER_FN_MAP = {
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,
   groups:        renderGroups,
+  monat:         renderMonat,
+  admin:         renderAdmin,
   nav:           renderNav,
   dropdowns:     fillAllDropdowns,
 };

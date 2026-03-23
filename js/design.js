@@ -481,6 +481,8 @@ function renderEinstellungen(){
     const adminLink = document.getElementById('settings-admin-link');
     if(adminLink) adminLink.style.display = CFG.authRole==='admin' ? '' : 'none';
   }
+  // Render notification settings as part of Einstellungen tab
+  if(typeof renderNotifSettings === 'function') renderNotifSettings();
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -48,17 +48,11 @@ function goTab(tab){
     groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
   updatePageSub();
-  if(tab==='home') renderHome();
-  if(tab==='verlauf') renderVerlauf();
-  if(tab==='dashboard') renderDashboard();
-  if(tab==='lohn') renderLohn();
-  if(tab==='aktien') renderAktien();
-  if(tab==='einstellungen') renderNotifSettings();
-  if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); renderMonat(); }
-  if(tab==='sparen') renderSparen();
-  if(tab==='einstellungen') renderEinstellungen();
-  if(tab==='groups'){ renderGroups(); fillGroupDropdown(); }
-  if(tab==='admin') renderAdmin();
+  // Special pre-render setup (state that must be set before first render)
+  if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); }
+  if(tab==='groups') fillGroupDropdown();
+  // Delegate to render scheduler — avoids double-rendering when markDirty is also called
+  markDirty(tab);
 }
 
 let menuEditMode = false;
