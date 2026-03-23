@@ -375,6 +375,7 @@ function dataCacheLoad(){
       if(Date.now() - parsed.ts <= DATA_CACHE_TTL){
         if(parsed.DATA) Object.assign(DATA, parsed.DATA);
         if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+        invalidateCatCache(); invalidateRecurCache();
         return true;
       }
     }
@@ -393,6 +394,7 @@ async function dataCacheLoadIDB(){
     if(!parsed || Date.now() - parsed.ts > DATA_CACHE_TTL) return false;
     if(parsed.DATA) Object.assign(DATA, parsed.DATA);
     if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+    invalidateCatCache(); invalidateRecurCache();
     return true;
   } catch(e){ return false; }
 }
@@ -408,6 +410,7 @@ function _parseCategories(res, hadCache){
       .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||'',emoji:r[6]||''}))
       .sort((a,b)=>a.sort-b.sort);
   } else if(!hadCache){ DATA.categories=[]; }
+  invalidateCatCache();
 }
 
 function _parseExpenses(res, hadCache){
@@ -447,6 +450,7 @@ function _parseRecurring(res, hadCache){
         active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),
         affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
   } else if(!hadCache){ DATA.recurring=[]; }
+  invalidateRecurCache();
 }
 
 function _parseSparziele(res){
@@ -935,6 +939,7 @@ async function saveRecurring(prefix='r'){
   // Clear form
   ['what','amt','note','start','end'].forEach(f=>{ const el=document.getElementById(prefix+'-'+f); if(el) el.value=''; });
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
+  invalidateRecurCache(); _zyklusCache = null;
   toast('✓ Dauerauftrag hinzugefügt','ok');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home','lohn');
@@ -964,6 +969,7 @@ async function updateRecurring(){
   const type = DATA.recurring[idx].type||'ausgabe';
   const isLohn = DATA.recurring[idx].isLohn||false;
   DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
+  invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home','lohn');
@@ -982,6 +988,7 @@ async function deleteRecurring(){
   if(!confirm('Dauerauftrag wirklich löschen?')) return;
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx!==-1) DATA.recurring.splice(idx,1);
+  invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home');
@@ -1023,6 +1030,7 @@ async function addCategory(){
     if(!ok){ DATA.categories.pop(); return; }
   }
 
+  invalidateCatCache();
   toast('✓ Kategorie hinzugefügt','ok');
   renderCategories(); fillAllDropdowns();
 }
@@ -1098,6 +1106,7 @@ async function updateCategory(){
     DATA.incomes.forEach(e=>{ if(e.cat===oldName) e.cat=name; });
     DATA.recurring.forEach(r=>{ if(r.cat===oldName) r.cat=name; });
   }
+  invalidateCatCache();
 
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');
@@ -1136,6 +1145,7 @@ async function deleteCategory(){
 
   const idx = DATA.categories.findIndex(c=>c.id===id);
   if(idx!==-1) DATA.categories.splice(idx,1);
+  invalidateCatCache();
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns();
 
@@ -1566,6 +1576,7 @@ async function createOberkategorie(){
     if(!ok){ DATA.categories = DATA.categories.filter(c=>c.id!==id); return; }
   }
   document.getElementById('new-okt-name').value='';
+  invalidateCatCache();
   toast(`Oberkategorie «${name}» erstellt`);
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
@@ -1589,6 +1600,7 @@ async function renameOberkategoriePrompt(id){
       if(!ok){ cat.name=oldName; DATA.categories.filter(c=>c.parent===newName).forEach(c=>{ c.parent=oldName; }); return; }
     }
   }
+  invalidateCatCache();
   toast(`Umbenannt in «${newName}»`);
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
@@ -1631,6 +1643,7 @@ async function confirmDeleteOberkategorie(id, fallbackParent){
       if(r2) await _syncUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
     }
   }
+  invalidateCatCache();
   toast('Oberkategorie gelöscht');
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
