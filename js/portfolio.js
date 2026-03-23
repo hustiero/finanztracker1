@@ -1044,13 +1044,25 @@ function saveEditAktie() {
   renderAktien();
 }
 
-function deleteAktie(stockId) {
+async function deleteAktie(stockId) {
   if (!confirm('Aktie und alle Trades löschen?')) return;
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    apiFindRow('Aktien', stockId).then(row => { if (row) apiUpdate(`Aktien!F${row}:F${row}`, [['1']]); }).catch(() => {});
-    SDATA.trades.filter(t => t.stockId === stockId).forEach(t => {
-      apiFindRow('Trades', t.id).then(row => { if (row) apiUpdate(`Trades!J${row}:J${row}`, [['1']]); }).catch(() => {});
-    });
+    setSyncStatus('syncing');
+    try{
+      const [stockRow] = await Promise.all([apiFindRow('Aktien', stockId)]);
+      if (stockRow) await apiUpdate(`Aktien!F${stockRow}:F${stockRow}`, [['1']]);
+      const tradeIds = SDATA.trades.filter(t => t.stockId === stockId);
+      await Promise.all(tradeIds.map(t =>
+        apiFindRow('Trades', t.id)
+          .then(row => { if (row) return apiUpdate(`Trades!J${row}:J${row}`, [['1']]); })
+          .catch(e => console.warn('deleteTrade sheet sync:', e.message))
+      ));
+      setSyncStatus('online');
+    }catch(e){
+      setSyncStatus('error');
+      toast('Sheet-Sync fehlgeschlagen: '+e.message,'err');
+      return;
+    }
   }
   SDATA.stocks = SDATA.stocks.filter(s => s.id !== stockId);
   SDATA.trades = SDATA.trades.filter(t => t.stockId !== stockId);
@@ -1079,20 +1091,30 @@ function updateTradeTotal() {
   fillForm('tm-total', { $display: qty > 0 && price > 0 ? `${f.currency} ${fmtPrice(total)}` : '—' });
 }
 
-function saveTrade() {
+async function saveTrade() {
   const f        = readForm('tm', ['stockid', 'type', 'date', 'qty', 'price', 'currency', 'courtage']);
   const qty      = parseFloat(f.qty);
   const price    = parseFloat(f.price);
   const courtage = parseFloat(f.courtage) || 0;
-  if (!f.date)        { toast('Datum erforderlich', 'err'); return; }
-  if (!qty || qty <= 0)   { toast('Anzahl erforderlich', 'err'); return; }
-  if (!price || price <= 0) { toast('Preis erforderlich', 'err'); return; }
+  if (!f.date)              { toast('Datum erforderlich', 'err'); return; }
+  if (isNaN(qty) || qty <= 0)   { toast('Anzahl muss > 0 sein', 'err'); return; }
+  if (isNaN(price) || price <= 0) { toast('Preis muss > 0 sein', 'err'); return; }
   const total = f.type === 'kauf' ? qty * price + courtage : qty * price - courtage;
   const tr    = { id: 'tr_' + Date.now(), stockId: f.stockid, type: f.type, date: f.date, qty, price, currency: f.currency, courtage, total };
   SDATA.trades.push(tr);
   sdataSave();
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    apiAppend('Trades', [[tr.id, tr.stockId, tr.type, tr.date, tr.qty, tr.price, tr.currency, tr.courtage, tr.total, '']]).catch(e => toast('Trade Sheet-Sync: ' + e.message, 'err'));
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Trades', [[tr.id, tr.stockId, tr.type, tr.date, tr.qty, tr.price, tr.currency, tr.courtage, tr.total, '']]);
+      setSyncStatus('online');
+    }catch(e){
+      SDATA.trades = SDATA.trades.filter(t => t.id !== tr.id);
+      sdataSave();
+      setSyncStatus('error');
+      toast('Trade konnte nicht gespeichert werden: ' + e.message, 'err');
+      return;
+    }
   }
   closeModal('trade-modal');
   const pos = calcPosition(f.stockid);
@@ -1100,10 +1122,19 @@ function saveTrade() {
   renderAktieDetail(f.stockid);
 }
 
-function deleteTrade(tradeId) {
+async function deleteTrade(tradeId) {
   if (!confirm('Trade löschen?')) return;
-  if (!CFG.demo && CFG.scriptUrl) {
-    apiFindRow('Trades', tradeId).then(row => { if (row) apiUpdate(`Trades!J${row}:J${row}`, [['1']]); }).catch(() => {});
+  if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
+    setSyncStatus('syncing');
+    try{
+      const row = await apiFindRow('Trades', tradeId);
+      if (row) await apiUpdate(`Trades!J${row}:J${row}`, [['1']]);
+      setSyncStatus('online');
+    }catch(e){
+      setSyncStatus('error');
+      toast('Trade konnte nicht gelöscht werden: '+e.message,'err');
+      return;
+    }
   }
   SDATA.trades = SDATA.trades.filter(t => t.id !== tradeId);
   sdataSave();
