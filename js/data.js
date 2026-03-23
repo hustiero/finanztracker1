@@ -518,7 +518,9 @@ function calcSplitBalances(groupId){
 
   for(const e of expenses){
     if(!e.splitData) continue;
-    const sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData;
+    let sd;
+    try { sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData; }
+    catch(err){ console.warn('calcSplitBalances: invalid splitData for entry', e.id, err); continue; }
     const payer = sd.payerId || (typeof _myGroupId==='function' ? _myGroupId() : CFG.authUser||CFG.userName);
     const total = sd.totalAmount || e.amt;
     // Payer paid the full amount

@@ -258,8 +258,8 @@ async function loadProfileFromSheet(){
     const res = await apiGet('Einstellungen!A1:B1');
     const rows = res.values||[];
     if(rows[0] && rows[0][0]==='ft_profile_v1' && rows[0][1]){
-      _profileApply(JSON.parse(rows[0][1]));
-      return true;
+      try{ _profileApply(JSON.parse(rows[0][1])); return true; }
+      catch(parseErr){ console.warn('loadProfileFromSheet: corrupt JSON', parseErr); }
     }
   }catch(e){ /* silent — sheet may not exist */ }
   return false;

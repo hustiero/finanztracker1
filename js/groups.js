@@ -3,6 +3,10 @@
 // Centralises ALL group-related logic. Loaded before render.js.
 // ═══════════════════════════════════════════════════════════════
 
+function _safeParseJSON(s){
+  try{ return JSON.parse(s); }catch(e){ return null; }
+}
+
 // ── 1. Groups API layer (targets Admin-Sheet when available) ──
 
 /**
@@ -206,7 +210,7 @@ async function updateGroup(id, updates){
       const row = await groupsApiFindRow('Groups', id);
       if(row) await groupsApiUpdate(`Groups!A${row}:J${row}`, [_groupToRow(g)]);
       setSyncStatus('online');
-    }catch(e){ setSyncStatus('error'); }
+    }catch(e){ setSyncStatus('error'); toast('Gruppe konnte nicht aktualisiert werden: '+e.message,'err'); }
   }
   dataCacheSave();
   markDirty('groups');
@@ -226,7 +230,7 @@ async function deleteGroup(id){
       const row = await groupsApiFindRow('Groups', id);
       if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);
       setSyncStatus('online');
-    }catch(e){ setSyncStatus('error'); }
+    }catch(e){ setSyncStatus('error'); toast('Gruppe konnte nicht gelöscht werden: '+e.message,'err'); }
   }
   dataCacheSave();
   markDirty('groups');
@@ -394,6 +398,7 @@ function _readSplitForm(totalAmt, group){
 
   if(splitMode==='equal'){
     const count = group.members.length;
+    if(count === 0){ toast('Gruppe hat keine Mitglieder','err'); return null; }
     const share = Math.round((totalAmt/count)*100)/100;
     group.members.forEach(m=>{ participants[m] = share; });
     // Fix rounding — assign remainder to the payer, not first member
@@ -544,17 +549,15 @@ async function loadGroupNotifications(){
     for(const row of rows){
       if(row[0]!==myId && row[0]!==myName) continue; // not for us
       if(row[2]==='1') continue; // already read
-      try{
-        const n = JSON.parse(row[1]);
-        if(!n.id || existingIds.has(n.id)) continue;
-        // Add notification fields expected by the notif renderer
-        n.title = n.actorName + ' — ' + n.groupName;
-        n.body = fmtAmt(n.entryAmt) + ' ' + (CFG.currency||'CHF') + ' · ' + n.entryWhat;
-        n.date = n.entryDate || today();
-        n.dismissed = false;
-        CFG.notifications.push(n);
-        existingIds.add(n.id);
-      }catch(e){}
+      const n = _safeParseJSON(row[1]);
+      if(!n || !n.id || existingIds.has(n.id)) continue;
+      // Add notification fields expected by the notif renderer
+      n.title = n.actorName + ' — ' + n.groupName;
+      n.body = fmtAmt(n.entryAmt) + ' ' + (CFG.currency||'CHF') + ' · ' + n.entryWhat;
+      n.date = n.entryDate || today();
+      n.dismissed = false;
+      CFG.notifications.push(n);
+      existingIds.add(n.id);
     }
     cfgSave();
     if(typeof updateNotifBadge === 'function') updateNotifBadge();
@@ -591,10 +594,6 @@ async function markGroupNotifsRead(){
 }
 
 // ── 12. GroupEntries — per-group tabs, load & save & CRUD ────
-
-function _safeParseJSON(s){
-  try{ return JSON.parse(s); }catch(e){ return null; }
-}
 
 /** Tab name for a group's entries. */
 function _groupEntryTab(groupId){

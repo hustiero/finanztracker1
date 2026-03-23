@@ -53,6 +53,7 @@ function goTab(tab){
   // Special pre-render setup (state that must be set before first render)
   if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); }
   if(tab==='groups') fillGroupDropdown();
+  if(tab==='verlauf' && typeof verlaufL1Page !== 'undefined') verlaufL1Page = 1;
   // Delegate to render scheduler — avoids double-rendering when markDirty is also called
   markDirty(tab);
 }
