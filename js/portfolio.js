@@ -422,7 +422,10 @@ async function saveAktienTradeFromEingabe() {
     try {
       await apiAppend('Trades', [[id, stockId, aktienTradeTyp, qty, price, date, note]]);
       setSyncStatus('online');
-    } catch (e) { setSyncStatus('error'); toast('Sync-Fehler: ' + e.message, 'err'); return; }
+    } catch (e) {
+      SDATA.trades = SDATA.trades.filter(t => t.id !== id);
+      setSyncStatus('error'); toast('Sync-Fehler: ' + e.message, 'err'); return;
+    }
   }
   document.getElementById('at-qty').value = '';
   document.getElementById('at-price').value = '';

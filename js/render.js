@@ -885,9 +885,15 @@ function buildDonutSVG(segments, total, size=100){
   return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="flex-shrink-0">${paths}</svg>`;
 }
 
+// Cache for verlaufCalcSummary — invalidated whenever data or filter changes.
+let _verlaufSummaryCache = null;
+let _verlaufSummaryCacheKey = null;
+
 // Berechnet Zeitraum-Summary (Ausgaben/Einnahmen/Netto + Top-Segmente für Donut)
 function verlaufCalcSummary(){
   const {von, bis} = verlaufGetRange();
+  const cacheKey = (von||'')+'|'+(bis||'')+'|'+DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_verlaufSummaryCache && _verlaufSummaryCacheKey === cacheKey) return _verlaufSummaryCache;
   let ausgaben=0, einnahmen=0;
   const byKat={};
   DATA.expenses.forEach(e=>{
@@ -907,7 +913,10 @@ function verlaufCalcSummary(){
     ...top5.map(([name,amt])=>({name,amt,color:catColor(name)})),
     ...(weitereAmt>0?[{name:'Weitere',amt:weitereAmt,color:'#666'}]:[])
   ];
-  return {ausgaben,einnahmen,netto:einnahmen-ausgaben,segments,top5,weitereAmt};
+  const result = {ausgaben,einnahmen,netto:einnahmen-ausgaben,segments,top5,weitereAmt};
+  _verlaufSummaryCache = result;
+  _verlaufSummaryCacheKey = cacheKey;
+  return result;
 }
 
 function renderVerlaufFilterSummary(){

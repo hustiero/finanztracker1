@@ -2,6 +2,9 @@
 // MODULE: SHEETS API (via Google Apps Script, GET-only)
 // ═══════════════════════════════════════════════════════════════
 
+/** Sum the .amt field of an array of entries. */
+const sumAmt = arr => arr.reduce((s, e) => s + e.amt, 0);
+
 async function apiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const baseUrl = isAccountMode ? CFG.adminUrl : CFG.scriptUrl;
@@ -242,9 +245,7 @@ function getEinnahmen(von, bis){
 
 // Returns net balance (incomes - expenses incl. recurring) for a date range
 function getNetto(von, bis){
-  const inc = getEinnahmen(von,bis).reduce((s,e)=>s+e.amt,0);
-  const out = getAusgaben(von,bis).reduce((s,e)=>s+e.amt,0);
-  return inc - out;
+  return sumAmt(getEinnahmen(von,bis)) - sumAmt(getAusgaben(von,bis));
 }
 
 // Returns fixkosten entries for a date range (manual + recurring fixed costs)
@@ -321,12 +322,12 @@ function toggleFixkostenKat(cat){
  */
 function _calcLohnInRange(startStr, endStr){
   const win3 = dateStr(new Date(new Date(startStr+'T12:00:00').getTime()+2*86400000));
-  let lohn = DATA.incomes.filter(e=>{
+  let lohn = sumAmt(DATA.incomes.filter(e=>{
     if(e.date<startStr||e.date>endStr) return false;
     if(e.isLohn===true) return true;
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
-  }).reduce((s,e)=>s+e.amt,0);
+  }));
   if(lohn===0){
     const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
     if(lohnRec){
@@ -345,10 +346,10 @@ function _calcLohnInRange(startStr, endStr){
  */
 function _calcFixKosten(startStr, endStr, capToToday=false){
   const recur = getRecurringOccurrences(startStr, endStr, capToToday, true);
-  return [
+  return sumAmt([
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
     ...recur.filter(e=>isFixkostenEntry(e))
-  ].reduce((s,e)=>s+e.amt,0);
+  ]);
 }
 
 /**
@@ -433,7 +434,7 @@ function avgDailyVarSpendPrevComp(currMo, currYr){
     const d=new Date(e.date+'T12:00:00');
     return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!isFixkostenEntry(e)&&!e.excludeAvg;
   });
-  const total = [...expEntries,...recur].reduce((s,e)=>s+e.amt,0);
+  const total = sumAmt([...expEntries,...recur]);
   return {avg:daysInPrev>0?total/daysInPrev:0, prevMo, prevYr};
 }
 // Avg daily variable spend for a full year
@@ -441,10 +442,10 @@ function avgDailyVarSpendYear(yr){
   const now = new Date();
   const isCurrentYear = yr === now.getFullYear();
   const fixCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
-  const total = DATA.expenses.filter(e=>{
+  const total = sumAmt(DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
     return d.getFullYear()===yr && !fixCats.has(e.cat) && !e.excludeAvg && !e.isFixkosten;
-  }).reduce((s,e)=>s+e.amt,0);
+  }));
   const daysElapsed = isCurrentYear
     ? Math.floor((now - new Date(yr,0,1))/86400000)+1
     : (new Date(yr+1,0,1)-new Date(yr,0,1))/86400000;
@@ -504,7 +505,7 @@ function getGroupIncomes(groupId){
 
 // Total spent in a group
 function getGroupTotal(groupId){
-  return getGroupExpenses(groupId).reduce((s,e)=>s+e.amt,0);
+  return sumAmt(getGroupExpenses(groupId));
 }
 
 // For split groups: calculate balances for each member

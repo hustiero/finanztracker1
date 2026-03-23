@@ -42,6 +42,8 @@ let _renderRAF = null;
 
 function markDirty(...tabs){
   tabs.forEach(t => _dirtyTabs.add(t));
+  // Invalidate verlauf summary cache whenever data changes
+  if(typeof _verlaufSummaryCache !== 'undefined') _verlaufSummaryCache = null;
   if(!_renderRAF){
     _renderRAF = requestAnimationFrame(flushRender);
   }

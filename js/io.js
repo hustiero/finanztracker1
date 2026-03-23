@@ -656,13 +656,27 @@ async function saveEntryOrRecurring(){
   }
 }
 
-// ── Shared API-sync helper ────────────────────────────────────────────────────
-// Appends a row to a sheet, manages sync status, and shows a toast on failure.
-// Returns true on success, false on failure (caller should return/rollback).
+// ── Shared API-sync helpers ───────────────────────────────────────────────────
+// Both helpers manage sync status and show a toast on failure.
+// Return true on success, false on failure (caller should return/rollback).
+
 async function _syncAppend(sheet, row){
   setSyncStatus('syncing');
   try{
     await apiAppend(sheet, [row]);
+    setSyncStatus('online');
+    return true;
+  }catch(e){
+    setSyncStatus('error');
+    toast('Sync-Fehler: '+e.message,'err');
+    return false;
+  }
+}
+
+async function _syncUpdate(range, values){
+  setSyncStatus('syncing');
+  try{
+    await apiUpdate(range, values);
     setSyncStatus('online');
     return true;
   }catch(e){
@@ -1005,11 +1019,8 @@ async function addCategory(){
   if(document.getElementById('new-cat-emoji')) document.getElementById('new-cat-emoji').value='';
 
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Kategorien',[[id,name,type,color,sort,parent,emoji]]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); return; }
+    const ok = await _syncAppend('Kategorien',[id,name,type,color,sort,parent,emoji]);
+    if(!ok){ DATA.categories.pop(); return; }
   }
 
   toast('✓ Kategorie hinzugefügt','ok');
@@ -1451,12 +1462,10 @@ async function deleteSparGoal(id){
   closeGenericModal();
   renderSparen();
   toast('Gelöscht');
-  setSyncStatus('syncing');
-  try{
-    const rowNum = await apiFindRow('Sparziele', id);
-    if(rowNum) await apiUpdate(`Sparziele!K${rowNum}`, [['1']]);
-    setSyncStatus('online');
-  }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+  if(!CFG.demo){
+    const rowNum = await apiFindRow('Sparziele', id).catch(()=>null);
+    if(rowNum) await _syncUpdate(`Sparziele!K${rowNum}`, [['1']]);
+  }
 }
 
 
@@ -1553,11 +1562,8 @@ async function createOberkategorie(){
   const cat={id,name,type:typ,color:randomCatColor(),sort:DATA.categories.length,parent:''};
   DATA.categories.push(cat);
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Kategorien',[[id,name,typ,cat.color,cat.sort,'']]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const ok = await _syncAppend('Kategorien',[id,name,typ,cat.color,cat.sort,'']);
+    if(!ok){ DATA.categories = DATA.categories.filter(c=>c.id!==id); return; }
   }
   document.getElementById('new-okt-name').value='';
   toast(`Oberkategorie «${name}» erstellt`);
@@ -1577,12 +1583,11 @@ async function renameOberkategoriePrompt(id){
   DATA.expenses.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
   DATA.incomes.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}:F${row}`,[[id,newName,cat.type,cat.color,cat.sort,cat.parent]]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const row = await apiFindRow('Kategorien', id).catch(()=>null);
+    if(row){
+      const ok = await _syncUpdate(`Kategorien!A${row}:F${row}`,[[id,newName,cat.type,cat.color,cat.sort,cat.parent]]);
+      if(!ok){ cat.name=oldName; DATA.categories.filter(c=>c.parent===newName).forEach(c=>{ c.parent=oldName; }); return; }
+    }
   }
   toast(`Umbenannt in «${newName}»`);
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
@@ -1615,17 +1620,16 @@ async function confirmDeleteOberkategorie(id, fallbackParent){
   // Mark deleted
   cat.id='DELETED'; cat.name='DELETED';
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
-      // Update reassigned subcategories
-      for(const sub of subs){
-        const r2=await apiFindRow('Kategorien',sub.id);
-        if(r2) await apiUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
-      }
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const row = await apiFindRow('Kategorien', id).catch(()=>null);
+    if(row){
+      const ok = await _syncUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
+      if(!ok) return;
+    }
+    // Update reassigned subcategories (best-effort — errors logged but don't abort)
+    for(const sub of subs){
+      const r2 = await apiFindRow('Kategorien', sub.id).catch(()=>null);
+      if(r2) await _syncUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
+    }
   }
   toast('Oberkategorie gelöscht');
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
