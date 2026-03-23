@@ -235,7 +235,7 @@ function checkDueRecurrings(){
   const todayMo  = now.getMonth();   // 0-based
   const todayWd  = now.getDay();     // 0=Sun … 6=Sat
 
-  DATA.recurring.filter(r=>r.active).forEach(r=>{
+  DATA.recurring.filter(r=>r.active && (!r.endDate || r.endDate >= todayStr)).forEach(r=>{
     const interval = r.interval || 'monatlich';
     let isDue = false;
 
@@ -2552,6 +2552,8 @@ function applyThemeMode(){
   }
   document.documentElement.dataset.theme = effective;
   CFG.theme = effective;
+  // Re-apply accent color so mode-dependent presets (e.g. Lime dark vs light) update
+  if(typeof applyAccentColor === 'function') applyAccentColor();
   // Sync meta theme-color and desktop sidebar
   if(typeof Device !== 'undefined') Device.syncThemeColor();
 }

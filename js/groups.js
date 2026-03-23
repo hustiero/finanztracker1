@@ -221,19 +221,39 @@ async function deleteGroup(id){
   if(!g) return;
   if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe löschen','err'); return; }
   if(!confirm('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.')) return;
+
+  // Collect affected entry IDs before local mutation
+  const affectedExpenses = DATA.expenses.filter(e=>e.groupId===id);
+  const affectedIncomes  = DATA.incomes.filter(e=>e.groupId===id);
+
+  // Optimistic local update
   DATA.groups = DATA.groups.filter(x=>x.id!==id);
   DATA.expenses.forEach(e=>{ if(e.groupId===id){ delete e.groupId; delete e.splitData; } });
   DATA.incomes.forEach(e=>{ if(e.groupId===id) delete e.groupId; });
+
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
       const row = await groupsApiFindRow('Groups', id);
       if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);
+
+      // Sync groupId removal from affected expenses in the user's Ausgaben sheet
+      await Promise.all(affectedExpenses.map(e =>
+        apiFindRow('Ausgaben', e.id)
+          .then(r => { if(r) return apiUpdate(`Ausgaben!I${r}:J${r}`, [['','']]); })
+          .catch(err => console.warn('deleteGroup: expense sync', e.id, err.message))
+      ));
+      // Sync groupId removal from affected incomes
+      await Promise.all(affectedIncomes.map(e =>
+        apiFindRow('Einnahmen', e.id)
+          .then(r => { if(r) return apiUpdate(`Ausgaben!I${r}`, [['']]); })
+          .catch(err => console.warn('deleteGroup: income sync', e.id, err.message))
+      ));
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); toast('Gruppe konnte nicht gelöscht werden: '+e.message,'err'); }
   }
   dataCacheSave();
-  markDirty('groups');
+  markDirty('groups','verlauf');
   renderGroups();
 }
 

@@ -257,9 +257,7 @@ function updatePageSub(){
     '';
 }
 
-// getRecurringInstances() has been removed — use getRecurringOccurrences() from data.js instead.
-// getRecurringOccurrences(startStr, endStr, capToToday, skipMaterialized)
-// supports all intervals including quartalsweise + zweiwöchentlich.
+// Recurring occurrences: use getRecurringOccurrences(startStr, endStr, capToToday, skipMaterialized) from data.js.
 
 // ═══════════════════════════════════════════════════════════════
 // VERLAUF — 3-Ebenen-Navigation

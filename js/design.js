@@ -112,18 +112,13 @@ const ACCENT_PRESETS = [
 
 function applyAccentColor(){
   const root = document.documentElement;
-  const c = CFG.accentColor;
-  if(c){
-    root.style.setProperty('--accent', c);
-    // Derive a slightly darker accent2
-    root.style.setProperty('--accent2', _darkenHex(c, 20));
-    // Update glow
-    root.style.setProperty('--glow-accent', c + '0F');
-  } else {
-    root.style.removeProperty('--accent');
-    root.style.removeProperty('--accent2');
-    root.style.removeProperty('--glow-accent');
-  }
+  const isLight = root.dataset.theme === 'light';
+  // When no custom accent is set, use the Lime preset's mode-appropriate default
+  // rather than letting the CSS fallback always use the dark-mode value.
+  const c = CFG.accentColor || (isLight ? ACCENT_PRESETS[0].light : ACCENT_PRESETS[0].dark);
+  root.style.setProperty('--accent', c);
+  root.style.setProperty('--accent2', _darkenHex(c, 20));
+  root.style.setProperty('--glow-accent', c + '0F');
 }
 
 function setAccentColor(color){
@@ -293,6 +288,7 @@ function setBgPreset(key){
 // Clear all backgrounds
 function clearBgImage(){
   CFG.bgPreset = '';
+  CFG.bgImgBlur = 0;
   CFG.designPackageId = '_custom'; CFG.designPackage = null;
   _saveBgImageData('');
   cfgSave(); autoSyncProfile();
