@@ -11,7 +11,7 @@ Object.assign(App.Data, {
   // Date/cycle helpers
   getCycleRange, getMonthsBetween,
   // Recurring expansion
-  getRecurringOccurrences, getRecurringInstances,
+  getRecurringOccurrences,
   // Core data access
   getAusgaben, getEinnahmen, getNetto, getFixkosten,
   isFixkostenEntry, toggleFixkostenKat,

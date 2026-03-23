@@ -18,17 +18,22 @@ function _groupsBaseUrl(){
 async function groupsApiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const baseUrl = _groupsBaseUrl();
-  if(!baseUrl){
-    // Script-URL-Modus ohne Admin-Sheet: Gruppen nicht verfügbar
-    throw new Error('Gruppen sind nur im Account-Modus verfügbar.');
-  }
+  if(!baseUrl) throw new Error('Gruppen sind nur im Account-Modus verfügbar.');
   const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
   const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
-  const r = await fetch(url);
+  let r;
+  try { r = await fetch(url); } catch(e){ throw new Error('Netzwerkfehler: '+e.message); }
+  if(r.status === 401){
+    CFG.sessionToken=''; CFG.authRole=''; cfgSave();
+    toast('Sitzung abgelaufen – bitte neu anmelden','err');
+    setTimeout(()=>location.reload(), 2500);
+    throw new Error('HTTP 401 – Sitzung abgelaufen');
+  }
   if(!r.ok) throw new Error('HTTP '+r.status);
-  const data = await r.json();
-  if(data.error){
-    if((data.error||'').includes('Sitzung abgelaufen')){
+  let data;
+  try { data = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort (kein JSON)'); }
+  if(data?.error){
+    if((data.error||'').includes('Sitzung abgelaufen') || (data.error||'').includes('session expired')){
       CFG.sessionToken=''; CFG.authRole=''; cfgSave();
       toast('Sitzung abgelaufen – bitte neu anmelden','err');
       setTimeout(()=>location.reload(), 2500);
@@ -38,22 +43,30 @@ async function groupsApiCall(params){
   return data;
 }
 
-function groupsApiGet(range){
-  return groupsApiCall({action:'groupsGet', range});
-}
+function groupsApiGet(range){ return groupsApiCall({action:'groupsGet', range}); }
+
+// Row cache for groups sheets — same pattern as data.js _rowCache
+const _groupsRowCache = {};
+function _groupsRowCacheInvalidate(sheet){ delete _groupsRowCache[sheet]; }
+
 function groupsApiAppend(sheet, values){
+  _groupsRowCacheInvalidate(sheet);
   return groupsApiCall({action:'groupsAppend', sheet, values: JSON.stringify(values)});
 }
 function groupsApiUpdate(range, values){
   return groupsApiCall({action:'groupsUpdate', range, values: JSON.stringify(values)});
 }
+
 async function groupsApiFindRow(sheet, id){
+  if(_groupsRowCache[sheet]?.[String(id)]) return _groupsRowCache[sheet][String(id)];
   const res = await groupsApiGet(sheet+'!A:A');
   const rows = res.values||[];
+  _groupsRowCache[sheet] = {};
   for(let i=0;i<rows.length;i++){
-    if(String(rows[i][0])===String(id)) return i+1;
+    const rowId = String(rows[i]?.[0] ?? '');
+    if(rowId) _groupsRowCache[sheet][rowId] = i+1;
   }
-  return null;
+  return _groupsRowCache[sheet][String(id)] || null;
 }
 
 // ── 2. Helper: identity ──────────────────────────────────────
