@@ -11,13 +11,18 @@ const mvWdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
 // ── Dashboard year navigation ──────────────────────────────────
 let dashYear = new Date().getFullYear();
 
+// Cached booked-years list — rebuilt only when data lengths change.
+// Parses year directly from YYYY-MM-DD string to avoid Date object allocation.
+let _bookedYearsCache = null, _bookedYearsCacheKey = null;
 function getBookedYears(){
+  const key = DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_bookedYearsCache && _bookedYearsCacheKey===key) return _bookedYearsCache;
   const years = new Set([new Date().getFullYear()]);
-  [...DATA.expenses, ...DATA.incomes].forEach(e=>{
-    const y = new Date(e.date+'T12:00:00').getFullYear();
-    if(y>2000 && y<2100) years.add(y);
-  });
-  return [...years].sort((a,b)=>a-b);
+  for(const e of DATA.expenses){ const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
+  for(const e of DATA.incomes){  const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
+  _bookedYearsCache = [...years].sort((a,b)=>a-b);
+  _bookedYearsCacheKey = key;
+  return _bookedYearsCache;
 }
 
 function prevDashYear(){

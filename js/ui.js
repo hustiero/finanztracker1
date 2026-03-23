@@ -227,8 +227,12 @@ function unpinTab(key){
 // MODULE: NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════
 
+// Run at most once per calendar day per session
+let _dueRecurringsCheckedDate = null;
 function checkDueRecurrings(){
   const todayStr = today();
+  if(_dueRecurringsCheckedDate === todayStr) return;
+  _dueRecurringsCheckedDate = todayStr;
   if(!CFG.notifications) CFG.notifications = [];
   const now = new Date();
   const todayDay = now.getDate();
@@ -301,7 +305,12 @@ const NOTIF_TYPES = [
 
 function notifOn(key){ const ns=CFG.notifSettings||{}; const t=NOTIF_TYPES.find(x=>x.key===key); return ns[key]===undefined ? (t?t.def:true) : ns[key]; }
 
+// Skip re-check if called again with the same data snapshot (e.g. multiple renderAll calls)
+let _notifsCheckedKey = null;
 function checkAllNotifications(){
+  const checkKey = today()+'|'+DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_notifsCheckedKey === checkKey) return;
+  _notifsCheckedKey = checkKey;
   if(!CFG.notifications) CFG.notifications = [];
   const ns = CFG.notifSettings||{};
   const todayStr = today();
@@ -862,14 +871,24 @@ function buildBalanceChart(months){
   </svg>`;
 }
 
+// Cached frequency maps for dropdown sort (rebuilt when data lengths change)
+let _freqMaps = null, _freqMapsKey = null;
+function _getFreqMaps(){
+  const key = DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_freqMaps && _freqMapsKey===key) return _freqMaps;
+  const exp={}, inc={};
+  DATA.expenses.forEach(e=>{ if(e.cat) exp[e.cat]=(exp[e.cat]||0)+1; });
+  DATA.incomes.forEach(e=>{  if(e.cat) inc[e.cat]=(inc[e.cat]||0)+1; });
+  _freqMaps = {ausgabe:exp, einnahme:inc};
+  _freqMapsKey = key;
+  return _freqMaps;
+}
+
 function fillDropdown(elId, type, selected=''){
   const el = document.getElementById(elId);
   if(!el) return;
   const cats = DATA.categories.filter(c=>c.type===type&&c.id!=='DELETED'&&c.name!=='DELETED');
-  // Count usage frequency per category
-  const src = type==='einnahme' ? DATA.incomes : DATA.expenses;
-  const freq = {};
-  src.forEach(e=>{ if(e.cat) freq[e.cat]=(freq[e.cat]||0)+1; });
+  const freq = _getFreqMaps()[type]||{};
   cats.sort((a,b)=>(freq[b.name]||0)-(freq[a.name]||0));
   el.innerHTML = cats.map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${c.name}</option>`).join('');
   if(!selected && cats.length) el.value = cats[0].name;

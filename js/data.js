@@ -331,8 +331,7 @@ function toggleFixkostenKat(cat){
   // Invalidate caches that depend on fixkostenKats
   invalidateCatCache();  // _fixkostKatsSet is part of invalidateCatCache
   _zyklusCache = null;
-  renderLohn();
-  renderAll();
+  markDirty('all');
 }
 
 // ── Budget helpers (private) ──────────────────────────────────────────────────
