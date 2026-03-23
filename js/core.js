@@ -67,7 +67,11 @@ function flushRender(){
     if(RENDER_FN_MAP[tab]){
       // Only render if tab is currently visible OR it's a global element
       if(tab === currentTab || RENDER_GLOBAL_TABS.has(tab)){
-        RENDER_FN_MAP[tab]();
+        try {
+          RENDER_FN_MAP[tab]();
+        } catch(e){
+          console.error(`[render error: ${tab}]`, e);
+        }
       }
     }
   }

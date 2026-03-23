@@ -170,6 +170,7 @@ function getGesamtGewinnVerlust() {
 
 // ── Kurse-Cache (Sheet persistence) ──────────────────────────────────────────
 let _kurseCacheLoaded = false;
+let _fxAutoFetched    = false;  // guard: auto-fetch FX rates at most once per session
 
 async function loadKurseCache() {
   if (CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
@@ -712,6 +713,23 @@ async function renderAktien() {
 
 async function _renderAktienInner() {
   if (!_kurseCacheLoaded) { _kurseCacheLoaded = true; await loadKurseCache(); }
+
+  // Auto-fetch FX rates when active foreign-currency positions have no cached rate.
+  // Runs once per session (guarded by _fxAutoFetched) so it doesn't call the
+  // backend on every tab switch.
+  if (!_fxAutoFetched) {
+    const uc = curr().toUpperCase();
+    const needsFx = SDATA.stocks.some(s => {
+      if (calcPosition(s.id).qty <= 0.0001) return false;
+      const sc = (getCachedStock(s.ticker)?.currency || s.currency || '').toUpperCase();
+      return sc && sc !== uc && !hasFxRate(sc);
+    });
+    if (needsFx && CFG.url) {
+      _fxAutoFetched = true;
+      syncKurseSheet().then(() => renderAktien()).catch(() => {});
+      // Render now with what we have; re-render will follow once rates arrive.
+    }
+  }
 
   renderAktienDashboardTop();
   renderFxRates();

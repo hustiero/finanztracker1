@@ -447,7 +447,6 @@ function openNotifDetail(id){
   const n = (CFG.notifications||[]).find(n=>n.id===id);
   if(!n) return;
   if(n.type==='group_activity'){
-    // Navigate to group detail
     dismissNotif(id);
     if(n.groupId){
       goTab('groups');
@@ -457,6 +456,28 @@ function openNotifDetail(id){
     dismissNotif(id);
     toast(`${n.title} — ${n.body}`,'ok');
   } else if(n.type==='dauerauftrag'){
+    dismissNotif(id);
+  } else if(n.type==='budgetWarning' || n.type==='overspend' || n.type==='cycleStart'){
+    dismissNotif(id);
+    closeNotifOverlay();
+    goTab('lohn');
+  } else if(n.type==='bigExpense'){
+    dismissNotif(id);
+    closeNotifOverlay();
+    // Extract expense id from notification id ("bigexp-<expenseId>")
+    const expId = n.id.startsWith('bigexp-') ? n.id.slice(7) : null;
+    const exp = expId ? DATA.expenses.find(e=>e.id===expId) : null;
+    if(exp){
+      goTab('verlauf');
+      setTimeout(()=>openEditModal(expId,'ausgabe'), 100);
+    } else {
+      goTab('verlauf');
+    }
+  } else if(n.type==='weeklyReport' || n.type==='dailyReport' || n.type==='monthEnd'){
+    dismissNotif(id);
+    closeNotifOverlay();
+    goTab('dashboard');
+  } else {
     dismissNotif(id);
   }
 }

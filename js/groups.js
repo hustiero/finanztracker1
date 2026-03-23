@@ -788,9 +788,7 @@ async function deleteGroupEntry(entryId, groupId){
   const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
   if(!entry) return;
 
-  const myId = _myGroupId();
-  const canDelete = entry.authorId === myId || entry.isMine || isGroupAdmin(group);
-  if(!canDelete){ toast('Du kannst nur eigene Einträge löschen','err'); return; }
+  if(!entry.isMine && !isGroupAdmin(group)){ toast('Du kannst nur eigene Einträge löschen','err'); return; }
   if(!confirm('Gruppen-Eintrag löschen?')) return;
 
   // Optimistic local delete
@@ -830,8 +828,7 @@ async function updateGroupEntry(entryId, groupId, updates){
   const entry = (DATA.groupEntries||[]).find(e=>e.id===entryId && e.groupId===groupId);
   if(!entry) return;
 
-  const myId = _myGroupId();
-  if(entry.authorId !== myId && !entry.isMine && !isGroupAdmin(group)){
+  if(!entry.isMine && !isGroupAdmin(group)){
     toast('Du kannst nur eigene Einträge bearbeiten','err'); return;
   }
 
