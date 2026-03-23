@@ -782,14 +782,14 @@ async function deleteGroupEntry(entryId, groupId){
     try{
       const tab = _groupEntryTab(groupId);
       const row = await groupsApiFindRow(tab, entryId);
-      if(row){
-        await groupsApiUpdate(tab + '!K' + row, [['1']]); // deleted=1
-      }
+      if(!row) throw new Error('Eintrag nicht im Sheet gefunden');
+      await groupsApiUpdate(tab + '!K' + row, [['1']]); // deleted=1
       setSyncStatus('online');
       toast('Eintrag gelöscht','ok');
     }catch(e){
       // Revert on failure
       DATA.groupEntries.push(entry);
+      dataCacheSave();
       markDirty('groups','verlauf');
       setSyncStatus('error');
       toast('Fehler beim Löschen: '+e.message,'err');

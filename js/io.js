@@ -656,6 +656,22 @@ async function saveEntryOrRecurring(){
   }
 }
 
+// ── Shared API-sync helper ────────────────────────────────────────────────────
+// Appends a row to a sheet, manages sync status, and shows a toast on failure.
+// Returns true on success, false on failure (caller should return/rollback).
+async function _syncAppend(sheet, row){
+  setSyncStatus('syncing');
+  try{
+    await apiAppend(sheet, [row]);
+    setSyncStatus('online');
+    return true;
+  }catch(e){
+    setSyncStatus('error');
+    toast('Sync-Fehler: '+e.message,'err');
+    return false;
+  }
+}
+
 // Guard against concurrent saves (double-tap / rapid submit)
 let _saveEntryInProgress = false;
 
@@ -673,7 +689,9 @@ async function _saveEntryImpl(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(!amt||!date||!what){ toast('Betrag, Datum & Beschreibung erforderlich','err'); return; }
+  if(isNaN(amt) || amt <= 0){ toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ toast('Datum erforderlich','err'); return; }
+  if(!what){ toast('Beschreibung erforderlich','err'); return; }
 
   // Group & split data from form
   const groupSel = document.getElementById('f-group');
@@ -698,11 +716,8 @@ async function _saveEntryImpl(){
     if(splitData) entry.splitData = splitData;
     DATA.expenses.push(entry);
     if(!CFG.demo){
-      setSyncStatus('syncing');
-      try{
-        await apiAppend('Ausgaben',[[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']]);
-        setSyncStatus('online');
-      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+      const ok = await _syncAppend('Ausgaben',[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']);
+      if(!ok){ DATA.expenses = DATA.expenses.filter(e=>e.id!==id); return; }
     }
   } else {
     const isLohn = document.getElementById('f-lohn-switch')?.classList.contains('on')||false;
@@ -710,11 +725,8 @@ async function _saveEntryImpl(){
     if(groupId) entry.groupId = groupId;
     DATA.incomes.push(entry);
     if(!CFG.demo){
-      setSyncStatus('syncing');
-      try{
-        await apiAppend('Einnahmen',[[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']]);
-        setSyncStatus('online');
-      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+      const ok = await _syncAppend('Einnahmen',[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']);
+      if(!ok){ DATA.incomes = DATA.incomes.filter(e=>e.id!==id); return; }
     }
   }
 
@@ -790,11 +802,7 @@ async function updateEntry(){
     const entry = {id:newId, date, what, cat, amt, note:note||'', recurringId, isFixkosten:isFixk};
     DATA.expenses.push(entry);
     if(!CFG.demo){
-      setSyncStatus('syncing');
-      try{
-        await apiAppend('Ausgaben',[[newId,date,what,cat,amt,note||'',recurringId,isFixk?'1':'0']]);
-        setSyncStatus('online');
-      } catch(err){ setSyncStatus('error'); toast('Sync-Fehler: '+err.message,'err'); }
+      await _syncAppend('Ausgaben',[newId,date,what,cat,amt,note||'',recurringId,isFixk?'1':'0']);
     }
     closeModal('edit-modal');
     toast('✓ Dauerauftrag gebucht','ok');
@@ -906,11 +914,8 @@ async function saveRecurring(prefix='r'){
   DATA.recurring.push(rec);
 
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const ok = await _syncAppend('Daueraufträge',[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']);
+    if(!ok){ DATA.recurring = DATA.recurring.filter(r=>r.id!==id); return; }
   }
 
   // Clear form
