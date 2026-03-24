@@ -184,7 +184,10 @@ Object.assign(App.UI, {
   // Aktien views
   setAktienView, setAktienTabView, deleteAktie,
   // Admin
-  copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs,
+  copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs, copyAdminCodeGs,
+  adminSetScriptUrl, adminApproveUser, adminRejectUser,
+  openUserManagement, closeUserManagement, refreshUserList, filterUsers,
+  adminResetPw, adminDeleteUser, adminToggleRole,
   setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign, setAdminAccentColor,
 });
 

@@ -498,6 +498,9 @@ async function renderAdmin(){
 async function _renderAdminScriptUrl(){
   const inp = document.getElementById('admin-script-url-input');
   if(inp && !inp.value) inp.value = CFG.adminUrl || '';
+  // Show current active URL
+  const curEl = document.getElementById('admin-current-url');
+  if(curEl) curEl.textContent = CFG.adminUrl || '–';
   // Fetch history from backend
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'get_app_config'}));
@@ -505,6 +508,7 @@ async function _renderAdminScriptUrl(){
     if(d.config && d.config.adminUrl){
       const entry = d.config.adminUrl;
       if(inp && !inp.value) inp.value = entry.value || CFG.adminUrl || '';
+      if(curEl && entry.value) curEl.textContent = entry.value;
       _renderUrlHistory(entry);
     }
   }catch(e){ /* silent */ }
@@ -539,10 +543,9 @@ async function adminSetScriptUrl(){
     cfgSave();
     toast('✓ URL gespeichert — alle Nutzer erhalten sie beim nächsten Start','ok');
     _renderAdminScriptUrl();
-    if(typeof invEl !== 'undefined'){
-      const invEl2 = document.getElementById('admin-invite-link');
-      if(invEl2) invEl2.textContent = _buildInviteUrl();
-    }
+    // Update invite link (was broken before — invEl is not in this scope)
+    const invEl = document.getElementById('admin-invite-link');
+    if(invEl) invEl.textContent = _buildInviteUrl();
   }catch(e){ toast('Fehler: '+e.message,'err'); }
 }
 
@@ -693,15 +696,24 @@ function _showMoreUsers(){
 }
 
 function _userRowHtml(u){
+  const isSelf = u.username === CFG.authUser;
+  const isAdmin = u.role === 'admin';
+  const roleBtn = !isSelf ? `<button onclick="adminToggleRole('${esc(u.username)}','${esc(u.role)}')"
+    style="font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;
+           border:1px solid ${isAdmin?'rgba(255,165,0,.35)':'rgba(200,245,60,.3)'};
+           background:${isAdmin?'rgba(255,165,0,.08)':'rgba(200,245,60,.07)'};
+           color:${isAdmin?'#ffa500':'var(--accent)'}"
+    >${isAdmin?'→ User':'→ Admin'}</button>` : '';
   return `<div class="admin-user-row">
     <div style="min-width:0">
-      <div class="admin-user-name">${esc(u.username)}<span class="admin-badge ${u.role==='admin'?'':'user'}">${u.role==='admin'?'Admin':'User'}</span></div>
+      <div class="admin-user-name">${esc(u.username)}<span class="admin-badge ${isAdmin?'':'user'}">${isAdmin?'Admin':'User'}</span>${isSelf?'<span style="font-size:10px;color:var(--text3);margin-left:5px">(du)</span>':''}</div>
       <div class="admin-user-meta">Erstellt: ${u.createdAt?u.createdAt.slice(0,10):'–'} · Login: ${u.lastLogin?u.lastLogin.slice(0,10):'–'}</div>
       ${u.sheetUrl?`<div class="admin-user-meta"><a href="${esc(u.sheetUrl)}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:10px">Sheet öffnen ↗</a></div>`:''}
     </div>
     <div class="admin-user-actions">
-      <button onclick="adminResetPw('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">Reset PW</button>
-      ${u.username!==CFG.authUser?`<button onclick="adminDeleteUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:var(--red);cursor:pointer">Löschen</button>`:''}
+      <button onclick="adminResetPw('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer">PW Reset</button>
+      ${roleBtn}
+      ${!isSelf?`<button onclick="adminDeleteUser('${esc(u.username)}')" style="font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:var(--red);cursor:pointer">Löschen</button>`:''}
     </div>
   </div>`;
 }
@@ -725,6 +737,20 @@ async function adminDeleteUser(target){
     const d = await r.json();
     if(d.error) throw new Error(d.error);
     toast('✓ Benutzer gelöscht','ok');
+    _adminUserCache = null;
+    _fetchAndRenderUsers();
+  }catch(e){ toast('Fehler: '+e.message,'err'); }
+}
+
+async function adminToggleRole(target, currentRole){
+  const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const label = newRole === 'admin' ? 'zum Admin befördern' : 'Admin-Rolle entziehen';
+  if(!confirm(`"${target}" ${label}?`)) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_set_role',token:CFG.sessionToken,target,newRole}));
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    toast(`✓ ${target} ist jetzt ${newRole==='admin'?'Admin':'User'}`, 'ok');
     _adminUserCache = null;
     _fetchAndRenderUsers();
   }catch(e){ toast('Fehler: '+e.message,'err'); }
