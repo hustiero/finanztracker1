@@ -874,7 +874,7 @@ function buildBalanceChart(months){
 // Cached frequency maps for dropdown sort (rebuilt when data lengths change)
 let _freqMaps = null, _freqMapsKey = null;
 function _getFreqMaps(){
-  const key = DATA.expenses.length+'|'+DATA.incomes.length;
+  const key = DATA.expenses.length+'|'+DATA.incomes.length+'|'+DATA.categories.length;
   if(_freqMaps && _freqMapsKey===key) return _freqMaps;
   const exp={}, inc={};
   DATA.expenses.forEach(e=>{ if(e.cat) exp[e.cat]=(exp[e.cat]||0)+1; });

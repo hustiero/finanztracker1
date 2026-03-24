@@ -796,7 +796,13 @@ function openMaterializeModal(recurId, date){
   openModal('edit-modal');
 }
 
+let _updateEntryBusy = false;
 async function updateEntry(){
+  if(_updateEntryBusy) return;
+  _updateEntryBusy = true;
+  try { await _updateEntryImpl(); } finally { _updateEntryBusy = false; }
+}
+async function _updateEntryImpl(){
   const f = readForm('edit', ['id','type','amt','date','what','cat','note']);
   const id = f.id, type = f.type;
   const amt = parseFloat(f.amt);
@@ -805,7 +811,9 @@ async function updateEntry(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(!amt||!date||!what){ toast('Felder ausfüllen','err'); return; }
+  if(isNaN(amt)||amt<=0){ toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ toast('Datum erforderlich','err'); return; }
+  if(!what){ toast('Beschreibung erforderlich','err'); return; }
 
   // New entry from recurring (manual materialization of a future Dauerauftrag)
   const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
