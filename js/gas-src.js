@@ -245,6 +245,7 @@ function _handle(p) {
   if (p.action === 'admin_list')            return _adminList(ss);
   if (p.action === 'admin_delete')          return _adminDelete(ss, p);
   if (p.action === 'admin_reset_pw')        return _adminResetPw(ss, p);
+  if (p.action === 'admin_set_role')        return _adminSetRole(ss, p);
   if (p.action === 'admin_set_admin_url')   return _adminSetAdminUrl(ss, p);
   if (p.action === 'admin_list_pending')    return _adminListPending(ss);
   if (p.action === 'admin_approve')         return _adminApprove(ss, p);
@@ -480,6 +481,18 @@ function _adminResetPw(ss, p) {
   return { error: 'Benutzer nicht gefunden' };
 }
 
+function _adminSetRole(ss, p) {
+  if (!p.target || !p.newRole) return { error: 'target + newRole fehlen' };
+  if (p.newRole !== 'admin' && p.newRole !== 'user') return { error: 'Ungültige Rolle' };
+  const sheet = ss.getSheetByName('Users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++)
+    if (String(rows[i][0]).toLowerCase() === p.target.toLowerCase()) {
+      sheet.getRange(i + 1, 6).setValue(p.newRole); return { ok: true };
+    }
+  return { error: 'Benutzer nicht gefunden' };
+}
+
 function _getAppConfig(ss) {
   var sh = ss.getSheetByName('AppConfig');
   if (!sh) return { config: {} };
@@ -551,6 +564,7 @@ function _initUserSheet(ss) {
    ['Daueraufträge',['ID','Was','Kategorie','Betrag','Intervall','Tag','Kommentar','Aktiv','nextDate','startDate','endDate','lastBooked']],
    ['Kategorien',['ID','Name','Typ','Farbe','Sortierung']],
    ['Einstellungen',['Schlüssel','Wert']],
+   ['Sparziele',['ID','Name','Zielbetrag','Startbetrag','Gespart','Deadline','Typ','Priorität','SteuerPct','SteuerBetrag','Deleted']],
    ['Aktien',['ID','Titel','ISIN','Ticker','Währung','Deleted']],
    ['Trades',['ID','AktieID','Typ','Datum','Anzahl','Preis','Währung','Courtage','Gesamt','Deleted']],
    ['Kurse',['Ticker','Kurs','Währung']],
