@@ -360,7 +360,7 @@ async function fetchStockPrice(ticker) {
       if (typeof json?.contents === 'string') json = JSON.parse(json.contents);
       const meta = json?.chart?.result?.[0]?.meta;
       if (!meta?.regularMarketPrice) continue;
-      const result = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null, currency: meta.currency || '', ts: Date.now() };
+      const result = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null, currency: meta.currency || '', name: meta.longName || meta.shortName || '', ts: Date.now() };
       stockPriceCache[key] = result;
       return result;
     } catch { /* try next proxy */ }
@@ -953,45 +953,82 @@ async function refreshStockPrice(stockId) {
 }
 
 // ── CRUD: Stocks ──────────────────────────────────────────────────────────────
+
+// Shared helper: update the search result UI for a ticker lookup modal.
+// prefix: 'na' or 'ea'
+function _tickerResultUI(prefix, data, ticker) {
+  const resultEl  = document.getElementById(prefix + '-search-result');
+  const errorEl   = document.getElementById(prefix + '-search-error');
+  const spinnerEl = document.getElementById(prefix + '-ticker-spinner');
+  if (spinnerEl) spinnerEl.style.display = 'none';
+  if (!data?.price) {
+    if (resultEl) resultEl.style.display = 'none';
+    if (errorEl) { errorEl.textContent = `Kein Kurs für «${ticker}» gefunden — Ticker prüfen.`; errorEl.style.display = 'block'; }
+    return;
+  }
+  if (errorEl) errorEl.style.display = 'none';
+  if (resultEl) {
+    const nameEl  = document.getElementById(prefix + '-result-name');
+    const priceEl = document.getElementById(prefix + '-result-price');
+    if (nameEl)  nameEl.textContent  = data.name || ticker;
+    if (priceEl) priceEl.textContent = `${fmtPrice(data.price)} ${data.currency}${data.prevClose ? ` · Vortag ${fmtPrice(data.prevClose)}` : ''}`;
+    resultEl.style.display = 'block';
+  }
+  // Auto-fill currency
+  if (data.currency) {
+    const sel = document.getElementById(prefix + '-currency');
+    const opt = sel && [...sel.options].find(o => o.value.toUpperCase() === data.currency.toUpperCase());
+    if (opt) sel.value = opt.value;
+  }
+  // Auto-fill title only if the field is currently empty
+  if (data.name) {
+    const titleEl = document.getElementById(prefix + '-title');
+    if (titleEl && !titleEl.value.trim()) titleEl.value = data.name;
+  }
+}
+
+// Debounced ticker auto-search (new aktie)
+let _naTickerTimer = null;
+function _naTickerInput(val) {
+  clearTimeout(_naTickerTimer);
+  const resultEl  = document.getElementById('na-search-result');
+  const errorEl   = document.getElementById('na-search-error');
+  const spinnerEl = document.getElementById('na-ticker-spinner');
+  if (resultEl)  resultEl.style.display  = 'none';
+  if (errorEl)   errorEl.style.display   = 'none';
+  if (!val.trim()) { if (spinnerEl) spinnerEl.style.display = 'none'; return; }
+  if (spinnerEl) spinnerEl.style.display = 'block';
+  _naTickerTimer = setTimeout(() => _naTickerLookup(val.trim()), 600);
+}
+async function _naTickerLookup(ticker) {
+  delete stockPriceCache[ticker];
+  delete stockPriceCache[normalizeTickerForGF(ticker)];
+  const data = await fetchStockPrice(ticker);
+  _tickerResultUI('na', data, ticker);
+}
+
 function openNewAktieModal() {
   clearForm('na', ['title', 'isin', 'ticker']);
   fillForm('na', { currency: 'USD' });
-  const res = document.getElementById('na-ticker-result');
-  if (res) res.textContent = '—';
+  ['na-search-result','na-search-error'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  const sp = document.getElementById('na-ticker-spinner'); if (sp) sp.style.display = 'none';
+  clearTimeout(_naTickerTimer);
   openModal('new-aktie-modal');
-}
-
-async function testTickerFromNew() {
-  const ticker = document.getElementById('na-ticker').value.trim().toUpperCase();
-  const res    = document.getElementById('na-ticker-result');
-  if (!ticker) { if (res) res.textContent = 'Kein Ticker'; return; }
-  if (res) { res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
-  delete stockPriceCache[ticker];
-  const data = await fetchStockPrice(ticker);
-  if (res) {
-    if (data?.price) {
-      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
-      res.style.color = 'var(--green)';
-      if (data.currency) {
-        const sel = document.getElementById('na-currency');
-        const opt = sel && [...sel.options].find(o => o.value.toUpperCase() === data.currency.toUpperCase());
-        if (opt) sel.value = opt.value;
-      }
-    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
-  }
+  setTimeout(() => document.getElementById('na-ticker')?.focus(), 150);
 }
 
 function saveNewAktie() {
   const f = readForm('na', ['title', 'isin', 'ticker', 'currency']);
-  const title = f.title.trim();
-  if (!title) { toast('Titel erforderlich', 'err'); return; }
-  const s = { id: 'st_' + Date.now(), title, isin: f.isin.trim().toUpperCase(), ticker: f.ticker.trim().toUpperCase(), currency: f.currency };
+  const ticker = f.ticker.trim().toUpperCase();
+  const title  = f.title.trim();
+  if (!ticker) { toast('Ticker eingeben', 'err'); return; }
+  if (!title)  { toast('Name / Bezeichnung eingeben', 'err'); return; }
+  const s = { id: 'st_' + Date.now(), title, isin: f.isin.trim().toUpperCase(), ticker, currency: f.currency };
   SDATA.stocks.push(s);
   sdataSave();
   if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
     apiAppend('Aktien', [[s.id, s.title, s.isin, s.ticker, s.currency, '', '', '', '']])
       .catch(e => toast('Aktie Sheet-Sync: ' + e.message, 'err'));
-    // Fetch price for the new ticker and write it to the sheet
     if (s.ticker) syncKurseSheet([normalizeTickerForGF(s.ticker)]).then(() => writeKursesToAktienSheet());
   }
   closeModal('new-aktie-modal');
@@ -999,32 +1036,38 @@ function saveNewAktie() {
   renderAktien();
 }
 
+// Debounced ticker auto-search (edit aktie)
+let _eaTickerTimer = null;
+function _eaTickerInput(val) {
+  clearTimeout(_eaTickerTimer);
+  const resultEl  = document.getElementById('ea-search-result');
+  const errorEl   = document.getElementById('ea-search-error');
+  const spinnerEl = document.getElementById('ea-ticker-spinner');
+  if (resultEl)  resultEl.style.display  = 'none';
+  if (errorEl)   errorEl.style.display   = 'none';
+  if (!val.trim()) { if (spinnerEl) spinnerEl.style.display = 'none'; return; }
+  if (spinnerEl) spinnerEl.style.display = 'block';
+  _eaTickerTimer = setTimeout(() => _eaTickerLookup(val.trim()), 600);
+}
+async function _eaTickerLookup(ticker) {
+  delete stockPriceCache[ticker];
+  delete stockPriceCache[normalizeTickerForGF(ticker)];
+  const data = await fetchStockPrice(ticker);
+  _tickerResultUI('ea', data, ticker);
+}
+
 function openEditAktieModal(stockId) {
   const s = SDATA.stocks.find(s => s.id === stockId);
   if (!s) return;
   fillForm('ea', { id: s.id, title: s.title || '', isin: s.isin || '', ticker: s.ticker || '', currency: s.currency || 'USD' });
-  const res = document.getElementById('ea-ticker-result');
-  if (res) { res.textContent = '—'; res.style.color = 'var(--text3)'; }
+  ['ea-search-result','ea-search-error'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  const sp = document.getElementById('ea-ticker-spinner'); if (sp) sp.style.display = 'none';
+  clearTimeout(_eaTickerTimer);
   openModal('edit-aktie-modal');
-}
-
-async function testTickerFromEdit() {
-  const ticker = document.getElementById('ea-ticker').value.trim().toUpperCase();
-  const res    = document.getElementById('ea-ticker-result');
-  if (!ticker) { if (res) res.textContent = 'Kein Ticker'; return; }
-  if (res) { res.textContent = 'Lädt…'; res.style.color = 'var(--text3)'; }
-  delete stockPriceCache[ticker];
-  const data = await fetchStockPrice(ticker);
-  if (res) {
-    if (data?.price) {
-      res.textContent = `${fmtPrice(data.price)} ${data.currency}`;
-      res.style.color = 'var(--green)';
-      if (data.currency) {
-        const sel = document.getElementById('ea-currency');
-        const opt = sel && [...sel.options].find(o => o.value.toUpperCase() === data.currency.toUpperCase());
-        if (opt) sel.value = opt.value;
-      }
-    } else { res.textContent = 'Kein Kurs'; res.style.color = 'var(--red)'; }
+  // Immediately show current price for existing ticker
+  if (s.ticker) {
+    const cached = stockPriceCache[s.ticker.toUpperCase()] || stockPriceCache[normalizeTickerForGF(s.ticker)];
+    if (cached?.price) _tickerResultUI('ea', cached, s.ticker);
   }
 }
 
