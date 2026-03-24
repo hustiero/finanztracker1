@@ -11,13 +11,18 @@ const mvWdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
 // ── Dashboard year navigation ──────────────────────────────────
 let dashYear = new Date().getFullYear();
 
+// Cached booked-years list — rebuilt only when data lengths change.
+// Parses year directly from YYYY-MM-DD string to avoid Date object allocation.
+let _bookedYearsCache = null, _bookedYearsCacheKey = null;
 function getBookedYears(){
+  const key = DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_bookedYearsCache && _bookedYearsCacheKey===key) return _bookedYearsCache;
   const years = new Set([new Date().getFullYear()]);
-  [...DATA.expenses, ...DATA.incomes].forEach(e=>{
-    const y = new Date(e.date+'T12:00:00').getFullYear();
-    if(y>2000 && y<2100) years.add(y);
-  });
-  return [...years].sort((a,b)=>a-b);
+  for(const e of DATA.expenses){ const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
+  for(const e of DATA.incomes){  const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
+  _bookedYearsCache = [...years].sort((a,b)=>a-b);
+  _bookedYearsCacheKey = key;
+  return _bookedYearsCache;
 }
 
 function prevDashYear(){
@@ -257,9 +262,7 @@ function updatePageSub(){
     '';
 }
 
-// getRecurringInstances() has been removed — use getRecurringOccurrences() from data.js instead.
-// getRecurringOccurrences(startStr, endStr, capToToday, skipMaterialized)
-// supports all intervals including quartalsweise + zweiwöchentlich.
+// Recurring occurrences: use getRecurringOccurrences(startStr, endStr, capToToday, skipMaterialized) from data.js.
 
 // ═══════════════════════════════════════════════════════════════
 // VERLAUF — 3-Ebenen-Navigation
@@ -364,22 +367,7 @@ function buildMonthlyBarData(kat, typ){
   });
   const maxAmt = Math.max(...Object.values(monthData), 0.01);
   if(Object.values(monthData).every(v=>v===0)) return null;
-  const W=320, H=72, padB=16, padT=4;
-  const chartW=W, chartH=H-padB-padT;
-  const barW = Math.max(1, chartW/months-2);
-  const bars = monthLabels.map((m,i)=>{
-    const amt = monthData[m.key];
-    const bh = amt>0 ? Math.max(2,(amt/maxAmt)*chartH) : 0;
-    const x = i*(chartW/months);
-    const y = padT+chartH-bh;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${catColor(kat)}" opacity="0.75" rx="1"/>`;
-  });
-  const labels = monthLabels.map((m,i)=>{
-    if(i%3!==0 && i!==months-1) return '';
-    const x = i*(chartW/months);
-    return `<text x="${x.toFixed(1)}" y="${H-3}" font-size="8" fill="var(--text3)" font-family="DM Mono,monospace">${m.label}</text>`;
-  }).filter(Boolean);
-  return `<svg viewBox="0 0 ${W} ${H}" height="${H}" class="w-full">${bars.join('')}${labels.join('')}</svg>`;
+  return buildBarChartSVG(monthLabels, monthData, maxAmt, catColor(kat));
 }
 
 // ── Einträge nach Datum gruppiert rendern ─────────────────────────────────────
@@ -863,31 +851,17 @@ function setVerlaufCustomRange(){
   renderVerlauf();
 }
 
-// Baut SVG-Donut (nur äusserer Ring) für Kategorie-Anteile
-// segments: [{name, amt, color}], total: Gesamtbetrag
-function buildDonutSVG(segments, total, size=100){
-  if(!total || !segments.length) return '';
-  const r=42, ir=26, cx=size/2, cy=size/2;
-  let paths='', angle=-Math.PI/2;
-  segments.forEach(seg=>{
-    const frac = seg.amt/total;
-    if(frac<0.001) return;
-    const endA = angle + frac*2*Math.PI;
-    const largeArc = frac>0.5?1:0;
-    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
-    const x2=cx+r*Math.cos(endA), y2=cy+r*Math.sin(endA);
-    const ix1=cx+ir*Math.cos(endA), iy1=cy+ir*Math.sin(endA);
-    const ix2=cx+ir*Math.cos(angle), iy2=cy+ir*Math.sin(angle);
-    const d=`M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${ix1.toFixed(2)} ${iy1.toFixed(2)} A${ir} ${ir} 0 ${largeArc} 0 ${ix2.toFixed(2)} ${iy2.toFixed(2)}Z`;
-    paths+=`<path d="${d}" fill="${seg.color}" opacity="0.9"/>`;
-    angle=endA;
-  });
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="flex-shrink-0">${paths}</svg>`;
-}
+// buildDonutSVG → moved to js/charts.js
+
+// Cache for verlaufCalcSummary — invalidated whenever data or filter changes.
+let _verlaufSummaryCache = null;
+let _verlaufSummaryCacheKey = null;
 
 // Berechnet Zeitraum-Summary (Ausgaben/Einnahmen/Netto + Top-Segmente für Donut)
 function verlaufCalcSummary(){
   const {von, bis} = verlaufGetRange();
+  const cacheKey = (von||'')+'|'+(bis||'')+'|'+DATA.expenses.length+'|'+DATA.incomes.length;
+  if(_verlaufSummaryCache && _verlaufSummaryCacheKey === cacheKey) return _verlaufSummaryCache;
   let ausgaben=0, einnahmen=0;
   const byKat={};
   DATA.expenses.forEach(e=>{
@@ -907,7 +881,10 @@ function verlaufCalcSummary(){
     ...top5.map(([name,amt])=>({name,amt,color:catColor(name)})),
     ...(weitereAmt>0?[{name:'Weitere',amt:weitereAmt,color:'#666'}]:[])
   ];
-  return {ausgaben,einnahmen,netto:einnahmen-ausgaben,segments,top5,weitereAmt};
+  const result = {ausgaben,einnahmen,netto:einnahmen-ausgaben,segments,top5,weitereAmt};
+  _verlaufSummaryCache = result;
+  _verlaufSummaryCacheKey = cacheKey;
+  return result;
 }
 
 function renderVerlaufFilterSummary(){
@@ -1849,19 +1826,7 @@ function renderWidgetAktienVerteilung(){
   })).filter(d=>d.value>0);
   const total = data.reduce((s,d)=>s+d.value,0);
   if(total===0) return `<div><div class="widget-title">Portfolio-Verteilung</div><div class="t-muted">Keine Daten.</div></div>`;
-  // SVG pie chart
-  const cx=70,cy=70,r=58;
-  let angle=-Math.PI/2;
-  const slices=data.map(d=>{
-    const frac=d.value/total; const sweep=frac*2*Math.PI;
-    const ea=angle+sweep; const la=frac>0.5?1:0;
-    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
-    const x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea);
-    const path=frac>0.9999?`M${cx-r},${cy} A${r},${r} 0 1 1 ${cx+r},${cy} A${r},${r} 0 1 1 ${cx-r},${cy}`
-      :`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${la} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
-    angle=ea;
-    return {...d,path,pct:(frac*100).toFixed(1)};
-  });
+  const slices=buildPieSlices(data,total,70,70,58);
   return `<div>
     <div class="widget-title">Portfolio-Verteilung</div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">

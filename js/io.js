@@ -375,6 +375,7 @@ function dataCacheLoad(){
       if(Date.now() - parsed.ts <= DATA_CACHE_TTL){
         if(parsed.DATA) Object.assign(DATA, parsed.DATA);
         if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+        invalidateCatCache(); invalidateRecurCache();
         return true;
       }
     }
@@ -393,6 +394,7 @@ async function dataCacheLoadIDB(){
     if(!parsed || Date.now() - parsed.ts > DATA_CACHE_TTL) return false;
     if(parsed.DATA) Object.assign(DATA, parsed.DATA);
     if(parsed.SDATA) Object.assign(SDATA, parsed.SDATA);
+    invalidateCatCache(); invalidateRecurCache();
     return true;
   } catch(e){ return false; }
 }
@@ -408,6 +410,7 @@ function _parseCategories(res, hadCache){
       .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'ausgabe',color:r[3]||'#888',sort:parseInt(r[4])||99,parent:r[5]||'',emoji:r[6]||''}))
       .sort((a,b)=>a.sort-b.sort);
   } else if(!hadCache){ DATA.categories=[]; }
+  invalidateCatCache();
 }
 
 function _parseExpenses(res, hadCache){
@@ -447,6 +450,7 @@ function _parseRecurring(res, hadCache){
         active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),
         affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
   } else if(!hadCache){ DATA.recurring=[]; }
+  invalidateRecurCache();
 }
 
 function _parseSparziele(res){
@@ -656,13 +660,27 @@ async function saveEntryOrRecurring(){
   }
 }
 
-// ── Shared API-sync helper ────────────────────────────────────────────────────
-// Appends a row to a sheet, manages sync status, and shows a toast on failure.
-// Returns true on success, false on failure (caller should return/rollback).
+// ── Shared API-sync helpers ───────────────────────────────────────────────────
+// Both helpers manage sync status and show a toast on failure.
+// Return true on success, false on failure (caller should return/rollback).
+
 async function _syncAppend(sheet, row){
   setSyncStatus('syncing');
   try{
     await apiAppend(sheet, [row]);
+    setSyncStatus('online');
+    return true;
+  }catch(e){
+    setSyncStatus('error');
+    toast('Sync-Fehler: '+e.message,'err');
+    return false;
+  }
+}
+
+async function _syncUpdate(range, values){
+  setSyncStatus('syncing');
+  try{
+    await apiUpdate(range, values);
     setSyncStatus('online');
     return true;
   }catch(e){
@@ -778,7 +796,13 @@ function openMaterializeModal(recurId, date){
   openModal('edit-modal');
 }
 
+let _updateEntryBusy = false;
 async function updateEntry(){
+  if(_updateEntryBusy) return;
+  _updateEntryBusy = true;
+  try { await _updateEntryImpl(); } finally { _updateEntryBusy = false; }
+}
+async function _updateEntryImpl(){
   const f = readForm('edit', ['id','type','amt','date','what','cat','note']);
   const id = f.id, type = f.type;
   const amt = parseFloat(f.amt);
@@ -787,7 +811,9 @@ async function updateEntry(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(!amt||!date||!what){ toast('Felder ausfüllen','err'); return; }
+  if(isNaN(amt)||amt<=0){ toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ toast('Datum erforderlich','err'); return; }
+  if(!what){ toast('Beschreibung erforderlich','err'); return; }
 
   // New entry from recurring (manual materialization of a future Dauerauftrag)
   const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
@@ -921,6 +947,7 @@ async function saveRecurring(prefix='r'){
   // Clear form
   ['what','amt','note','start','end'].forEach(f=>{ const el=document.getElementById(prefix+'-'+f); if(el) el.value=''; });
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
+  invalidateRecurCache(); _zyklusCache = null;
   toast('✓ Dauerauftrag hinzugefügt','ok');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home','lohn');
@@ -950,6 +977,7 @@ async function updateRecurring(){
   const type = DATA.recurring[idx].type||'ausgabe';
   const isLohn = DATA.recurring[idx].isLohn||false;
   DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
+  invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home','lohn');
@@ -968,6 +996,7 @@ async function deleteRecurring(){
   if(!confirm('Dauerauftrag wirklich löschen?')) return;
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx!==-1) DATA.recurring.splice(idx,1);
+  invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home');
@@ -1005,13 +1034,11 @@ async function addCategory(){
   if(document.getElementById('new-cat-emoji')) document.getElementById('new-cat-emoji').value='';
 
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Kategorien',[[id,name,type,color,sort,parent,emoji]]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); return; }
+    const ok = await _syncAppend('Kategorien',[id,name,type,color,sort,parent,emoji]);
+    if(!ok){ DATA.categories.pop(); return; }
   }
 
+  invalidateCatCache();
   toast('✓ Kategorie hinzugefügt','ok');
   renderCategories(); fillAllDropdowns();
 }
@@ -1087,6 +1114,7 @@ async function updateCategory(){
     DATA.incomes.forEach(e=>{ if(e.cat===oldName) e.cat=name; });
     DATA.recurring.forEach(r=>{ if(r.cat===oldName) r.cat=name; });
   }
+  invalidateCatCache();
 
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');
@@ -1125,6 +1153,7 @@ async function deleteCategory(){
 
   const idx = DATA.categories.findIndex(c=>c.id===id);
   if(idx!==-1) DATA.categories.splice(idx,1);
+  invalidateCatCache();
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns();
 
@@ -1451,12 +1480,10 @@ async function deleteSparGoal(id){
   closeGenericModal();
   renderSparen();
   toast('Gelöscht');
-  setSyncStatus('syncing');
-  try{
-    const rowNum = await apiFindRow('Sparziele', id);
-    if(rowNum) await apiUpdate(`Sparziele!K${rowNum}`, [['1']]);
-    setSyncStatus('online');
-  }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); }
+  if(!CFG.demo){
+    const rowNum = await apiFindRow('Sparziele', id).catch(()=>null);
+    if(rowNum) await _syncUpdate(`Sparziele!K${rowNum}`, [['1']]);
+  }
 }
 
 
@@ -1553,13 +1580,11 @@ async function createOberkategorie(){
   const cat={id,name,type:typ,color:randomCatColor(),sort:DATA.categories.length,parent:''};
   DATA.categories.push(cat);
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      await apiAppend('Kategorien',[[id,name,typ,cat.color,cat.sort,'']]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const ok = await _syncAppend('Kategorien',[id,name,typ,cat.color,cat.sort,'']);
+    if(!ok){ DATA.categories = DATA.categories.filter(c=>c.id!==id); return; }
   }
   document.getElementById('new-okt-name').value='';
+  invalidateCatCache();
   toast(`Oberkategorie «${name}» erstellt`);
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
@@ -1577,13 +1602,13 @@ async function renameOberkategoriePrompt(id){
   DATA.expenses.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
   DATA.incomes.filter(e=>e.cat===oldName).forEach(e=>{ e.cat=newName; });
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}:F${row}`,[[id,newName,cat.type,cat.color,cat.sort,cat.parent]]);
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const row = await apiFindRow('Kategorien', id).catch(()=>null);
+    if(row){
+      const ok = await _syncUpdate(`Kategorien!A${row}:F${row}`,[[id,newName,cat.type,cat.color,cat.sort,cat.parent]]);
+      if(!ok){ cat.name=oldName; DATA.categories.filter(c=>c.parent===newName).forEach(c=>{ c.parent=oldName; }); return; }
+    }
   }
+  invalidateCatCache();
   toast(`Umbenannt in «${newName}»`);
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
@@ -1615,18 +1640,18 @@ async function confirmDeleteOberkategorie(id, fallbackParent){
   // Mark deleted
   cat.id='DELETED'; cat.name='DELETED';
   if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
-      // Update reassigned subcategories
-      for(const sub of subs){
-        const r2=await apiFindRow('Kategorien',sub.id);
-        if(r2) await apiUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
-      }
-      setSyncStatus('online');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+    const row = await apiFindRow('Kategorien', id).catch(()=>null);
+    if(row){
+      const ok = await _syncUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
+      if(!ok) return;
+    }
+    // Update reassigned subcategories (best-effort — errors logged but don't abort)
+    for(const sub of subs){
+      const r2 = await apiFindRow('Kategorien', sub.id).catch(()=>null);
+      if(r2) await _syncUpdate(`Kategorien!A${r2}:F${r2}`,[[sub.id,sub.name,sub.type,sub.color,sub.sort,fallbackParent]]);
+    }
   }
+  invalidateCatCache();
   toast('Oberkategorie gelöscht');
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }

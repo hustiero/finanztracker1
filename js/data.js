@@ -2,6 +2,35 @@
 // MODULE: SHEETS API (via Google Apps Script, GET-only)
 // ═══════════════════════════════════════════════════════════════
 
+/** Sum the .amt field of an array of entries. */
+const sumAmt = arr => arr.reduce((s, e) => s + e.amt, 0);
+
+// ── Lookup caches (invalidated on data load / CRUD) ──────────────
+// Category name → category object
+let _catLookup = null;
+function _getCatLookup(){
+  if(!_catLookup) _catLookup = new Map(DATA.categories.map(c=>[c.name, c]));
+  return _catLookup;
+}
+/** Call after any change to DATA.categories or CFG.fixkostenKats. */
+function invalidateCatCache(){ _catLookup = null; _fixkostKatsSet = null; }
+
+// Set of recurring IDs with affectsAvg===false (= fixkosten recurring)
+let _fixRecurIds = null;
+function _getFixRecurIds(){
+  if(!_fixRecurIds) _fixRecurIds = new Set(DATA.recurring.filter(r=>!r.affectsAvg).map(r=>r.id));
+  return _fixRecurIds;
+}
+/** Call after any change to DATA.recurring. */
+function invalidateRecurCache(){ _fixRecurIds = null; }
+
+// CFG.fixkostenKats as a Set (fast .has() checks)
+let _fixkostKatsSet = null;
+function _getFixkostKatsSet(){
+  if(!_fixkostKatsSet) _fixkostKatsSet = new Set(CFG.fixkostenKats||[]);
+  return _fixkostKatsSet;
+}
+
 async function apiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const baseUrl = isAccountMode ? CFG.adminUrl : CFG.scriptUrl;
@@ -197,17 +226,10 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
 function isFixkostenEntry(e){
   if(!e) return false;
   if(e.isFixkosten) return true;
-  if((CFG.fixkostenKats||[]).includes(e.cat)) return true;
-  if(e.recurringId){
-    const r = DATA.recurring.find(r=>r.id===e.recurringId);
-    if(r && !r.affectsAvg) return true;
-  }
-  // Virtual recurring entries from getRecurringOccurrences (isRecurring:true + _recurId)
-  // or from the legacy getRecurringInstances (_type:'recurring' + _recurId)
-  if(e.isRecurring || e._type==='recurring'){
-    const r = DATA.recurring.find(r=>r.id===e._recurId);
-    if(r && !r.affectsAvg) return true;
-  }
+  if(_getFixkostKatsSet().has(e.cat)) return true;
+  const fixIds = _getFixRecurIds();
+  if(e.recurringId && fixIds.has(e.recurringId)) return true;
+  if((e.isRecurring || e._type==='recurring') && e._recurId && fixIds.has(e._recurId)) return true;
   return false;
 }
 
@@ -242,9 +264,7 @@ function getEinnahmen(von, bis){
 
 // Returns net balance (incomes - expenses incl. recurring) for a date range
 function getNetto(von, bis){
-  const inc = getEinnahmen(von,bis).reduce((s,e)=>s+e.amt,0);
-  const out = getAusgaben(von,bis).reduce((s,e)=>s+e.amt,0);
-  return inc - out;
+  return sumAmt(getEinnahmen(von,bis)) - sumAmt(getAusgaben(von,bis));
 }
 
 // Returns fixkosten entries for a date range (manual + recurring fixed costs)
@@ -308,8 +328,10 @@ function toggleFixkostenKat(cat){
   if(idx===-1) arr.push(cat); else arr.splice(idx,1);
   CFG.fixkostenKats = arr;
   cfgSave();
-  renderLohn();
-  renderAll();
+  // Invalidate caches that depend on fixkostenKats
+  invalidateCatCache();  // _fixkostKatsSet is part of invalidateCatCache
+  _zyklusCache = null;
+  markDirty('all');
 }
 
 // ── Budget helpers (private) ──────────────────────────────────────────────────
@@ -321,12 +343,12 @@ function toggleFixkostenKat(cat){
  */
 function _calcLohnInRange(startStr, endStr){
   const win3 = dateStr(new Date(new Date(startStr+'T12:00:00').getTime()+2*86400000));
-  let lohn = DATA.incomes.filter(e=>{
+  let lohn = sumAmt(DATA.incomes.filter(e=>{
     if(e.date<startStr||e.date>endStr) return false;
     if(e.isLohn===true) return true;
     if(e.isLohn===undefined||e.isLohn===null) return e.date<=win3; // backward compat
     return false;
-  }).reduce((s,e)=>s+e.amt,0);
+  }));
   if(lohn===0){
     const lohnRec = DATA.recurring.find(r=>r.active && r.isLohn && r.type==='einnahme');
     if(lohnRec){
@@ -345,10 +367,10 @@ function _calcLohnInRange(startStr, endStr){
  */
 function _calcFixKosten(startStr, endStr, capToToday=false){
   const recur = getRecurringOccurrences(startStr, endStr, capToToday, true);
-  return [
+  return sumAmt([
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
     ...recur.filter(e=>isFixkostenEntry(e))
-  ].reduce((s,e)=>s+e.amt,0);
+  ]);
 }
 
 /**
@@ -364,7 +386,16 @@ function _calcVarSpent(startStr, endStr){
   ].reduce((s,e)=>s+getOwnShare(e), 0);
 }
 
+// Cache for getZyklusInfo — key encodes all inputs that affect the result.
+// Invalidated automatically when data lengths or config changes.
+let _zyklusCache = null, _zykulsCacheKey = null;
+
 function getZyklusInfo(){
+  // Key: today + lohnTag + income count + expense count + sparziel config
+  const key = today()+'|'+(CFG.lohnTag||25)+'|'+DATA.incomes.length+'|'+DATA.expenses.length
+             +'|'+(CFG.mSparziel||0)+'|'+DATA.sparziele.length;
+  if(_zyklusCache && _zykulsCacheKey===key) return _zyklusCache;
+
   const {start,end} = getCycleRange();
   const now = new Date();
   const startStr = dateStr(start), endStr = dateStr(end);
@@ -400,13 +431,15 @@ function getZyklusInfo(){
   const varRemaining= varBudget - varSpent;
   const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
 
-  return {start,end,startStr,endStr,lohn,fixKosten,varBudget,
+  _zyklusCache = {start,end,startStr,endStr,lohn,fixKosten,varBudget,
     cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,
     hasSalary:lohn>0,prevCarryover,mSparziel};
+  _zykulsCacheKey = key;
+  return _zyklusCache;
 }
 
 // Returns parent category name of a given category (empty string if top-level)
-function parentOf(catName){ const c=DATA.categories.find(c=>c.name===catName); return c?c.parent:''; }
+function parentOf(catName){ const c=_getCatLookup().get(catName); return c?c.parent:''; }
 
 // Avg daily variable spend for a month (excluding Fixkosten; includes affectsAvg recurring)
 function avgDailyVarSpend(mo, yr, daysElapsed){
@@ -433,7 +466,7 @@ function avgDailyVarSpendPrevComp(currMo, currYr){
     const d=new Date(e.date+'T12:00:00');
     return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!isFixkostenEntry(e)&&!e.excludeAvg;
   });
-  const total = [...expEntries,...recur].reduce((s,e)=>s+e.amt,0);
+  const total = sumAmt([...expEntries,...recur]);
   return {avg:daysInPrev>0?total/daysInPrev:0, prevMo, prevYr};
 }
 // Avg daily variable spend for a full year
@@ -441,17 +474,20 @@ function avgDailyVarSpendYear(yr){
   const now = new Date();
   const isCurrentYear = yr === now.getFullYear();
   const fixCats = new Set(DATA.recurring.filter(r=>r.active&&!r.affectsAvg).map(r=>r.cat));
-  const total = DATA.expenses.filter(e=>{
+  const total = sumAmt(DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
     return d.getFullYear()===yr && !fixCats.has(e.cat) && !e.excludeAvg && !e.isFixkosten;
-  }).reduce((s,e)=>s+e.amt,0);
+  }));
   const daysElapsed = isCurrentYear
     ? Math.floor((now - new Date(yr,0,1))/86400000)+1
     : (new Date(yr+1,0,1)-new Date(yr,0,1))/86400000;
   return daysElapsed>0 ? total/daysElapsed : 0;
 }
-function fmtDate(s){ if(!s)return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('de-CH',{day:'numeric',month:'short',year:'numeric'}); }
-function fmtAmt(n){ return (Math.abs(n)).toLocaleString('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// Cached Intl formatters — created once, reused on every call
+const _numFmt  = new Intl.NumberFormat('de-CH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _dateFmt = new Intl.DateTimeFormat('de-CH',{day:'numeric',month:'short',year:'numeric'});
+function fmtDate(s){ if(!s)return ''; try{ return _dateFmt.format(new Date(s+'T12:00:00')); }catch{ return s; } }
+function fmtAmt(n){ return _numFmt.format(Math.abs(n)); }
 
 // Normalize date from Google Sheets (various formats → YYYY-MM-DD)
 function normalizeDate(s){
@@ -480,9 +516,9 @@ function normalizeAmt(s){
   const str = String(s||'').trim().replace(/['''\s]/g,'').replace(/,(\d{1,2})$/,'.$1');
   return parseFloat(str)||0;
 }
-function catColor(name){ const c=DATA.categories.find(c=>c.name===name); return c?c.color:'#888'; }
+function catColor(name){ const c=_getCatLookup().get(name); return c?c.color:'#888'; }
 function catEmoji(name){
-  const cat = DATA.categories.find(c=>c.name===name);
+  const cat = _getCatLookup().get(name);
   if(cat && cat.emoji) return cat.emoji;
   const map={'Zmittag':'🍱','Snack':'🍫','Ferien':'✈️','Poschte':'🛒','Znacht':'🍽️','Gschänk':'🎁','Chleider':'👕','Technik':'💻','Mieti':'🏠','Gsundheit':'💊','Internet':'📡','Handy':'📱','Alkohol':'🍺','Essen in Reschti':'🍷','Rudern':'🚣','Bildung':'📚','Verlochet':'🎉','SBB':'🚆','Möbel o.Ä.':'🪑','Gipfeli':'🥐','Buch':'📖','Sport':'⚽','Freiziit':'🎮','Diverses':'📦','Siemens':'💼','Twint':'📲','Schenkung':'🎀','Übertrag':'🔄'};
   return map[name]||'💰';
@@ -504,7 +540,7 @@ function getGroupIncomes(groupId){
 
 // Total spent in a group
 function getGroupTotal(groupId){
-  return getGroupExpenses(groupId).reduce((s,e)=>s+e.amt,0);
+  return sumAmt(getGroupExpenses(groupId));
 }
 
 // For split groups: calculate balances for each member

@@ -296,7 +296,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
   border-radius:var(--r2);padding:11px 14px;color:var(--text);font-size:14px;
   font-family:'DM Mono',monospace;margin-bottom:12px;
 }
-.setup-input:focus{border-color:var(--accent)}
+:focus-visible{border-color:var(--accent)}
 .setup-input::placeholder{color:var(--text3)}
 .setup-input:last-child{margin-bottom:0}
 .btn-primary{
@@ -430,7 +430,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
   border-radius:var(--r2);padding:11px 14px;color:var(--text);font-size:15px;
   -webkit-appearance:none;appearance:none;
 }
-.form-input:focus{border-color:var(--accent)}
+.form-input:focus-visible{border-color:var(--accent)}
 .form-select{
   width:100%;background:var(--bg2);border:1px solid var(--border);
   border-radius:var(--r2);padding:11px 14px;color:var(--text);font-size:15px;
@@ -439,7 +439,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
   background-repeat:no-repeat;background-position:right 14px center;
   padding-right:36px;
 }
-.form-select:focus{border-color:var(--accent)}
+.form-select:focus-visible{border-color:var(--accent)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-amount{
   font-size:28px;font-family:'DM Mono',monospace;font-weight:500;
@@ -456,16 +456,17 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
   font-weight:500;color:var(--text);
   background:none;padding:0;
 }
-.amount-input:focus{outline:none}
+/* .amount-input:focus outline suppressed by global :focus rule */
 .amount-wrap:focus-within{border-color:var(--accent)}
 
-.save-btn{
-  width:100%;padding:14px;border-radius:var(--r);
-  font-size:16px;font-weight:700;margin-top:4px;
+/* save-btn = standalone full-width save; btn-save = modal-row flex save */
+:is(.save-btn,.btn-save){
   background:var(--accent);color:var(--btn-text);
-  transition:opacity .15s,transform .1s;letter-spacing:-.2px;
+  border-radius:var(--r);font-weight:700;
+  transition:opacity .15s,transform .1s;
 }
-.save-btn:active{transform:scale(.98);opacity:.85}
+:is(.save-btn,.btn-save):active{transform:scale(.98);opacity:.85}
+.save-btn{width:100%;padding:14px;font-size:16px;margin-top:4px;letter-spacing:-.2px;}
 
 /* ═══════════════════════════════════════════════════
    VERLAUF / HISTORY
@@ -563,7 +564,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
   flex:1;background:none;color:var(--text);font-size:14px;
   padding:4px 0;border-bottom:1px solid var(--border2);
 }
-.add-input:focus{border-bottom-color:var(--accent)}
+.add-input:focus-visible{border-bottom-color:var(--accent)}
 .add-input::placeholder{color:var(--text3)}
 .add-select-small{
   background:var(--bg3);border:1px solid var(--border2);
@@ -649,26 +650,17 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 .modal-actions{
   display:flex;gap:10px;padding:0 20px;margin-top:8px;
 }
-.btn-save{
-  flex:1;padding:13px;border-radius:var(--r);
-  background:var(--accent);color:var(--btn-text);
-  font-size:15px;font-weight:700;transition:opacity .15s;
+/* modal-row action buttons share base */
+:is(.btn-save,.btn-delete,.btn-cancel){
+  border-radius:var(--r);font-size:15px;padding:13px;transition:opacity .15s;
 }
-.btn-save:active{opacity:.8}
+:is(.btn-delete,.btn-cancel):active{opacity:.8}
+.btn-save{flex:1;font-weight:700;}
 .btn-delete{
-  padding:13px 18px;border-radius:var(--r);
-  background:rgba(255,77,109,.15);color:var(--red);
-  font-size:15px;font-weight:700;border:1px solid rgba(255,77,109,.3);
-  transition:opacity .15s;
+  padding:13px 18px;font-weight:700;
+  background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);
 }
-.btn-delete:active{opacity:.8}
-.btn-cancel{
-  padding:13px 18px;border-radius:var(--r);
-  background:var(--bg3);color:var(--text2);
-  font-size:15px;font-weight:600;
-  transition:opacity .15s;
-}
-.btn-cancel:active{opacity:.8}
+.btn-cancel{padding:13px 18px;font-weight:600;background:var(--bg3);color:var(--text2);}
 
 /* Color picker */
 .color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
@@ -855,181 +847,103 @@ body.has-bg-image::before{background:rgba(0,0,0,0.40) !important}
 [data-theme="light"] body.has-bg-image::before{background:rgba(0,0,0,0.20) !important}
 
 /* ══ Glass surface hierarchy ══════════════════════════════
-   Level 1 – Primary cards: .card, .widget-card
-   Level 2 – Stat/tile cards: .stat-card, .aktie-card, .aktie-summary-card,
-             .spar-goal-card, .verlauf-tile, .sparen-explainer
-   Level 3 – Navigation/bars: #nav, .top-bar, .mv-bar (use glass-nav-alpha)
-   Level 4 – Overlays/modals: .modal, .notif-overlay, .menu-overlay-sheet
-   Level 5 – Small elements: buttons, inputs, toggles (glass-alpha)
-   All levels can be disabled with body.glass-clean to show a flat look.
+   Three alpha levels:
+   --gg   = card/element alpha  (--glass-alpha)
+   --gg-n = nav/modal alpha     (--glass-nav-alpha)
+   --gg-b = top-bar alpha       (--glass-bar-alpha)
+   --gg-bd = border shorthand
+   All backdrop-filter calls consolidated to avoid repetition.
 ═══════════════════════════════════════════════════════════ */
+body.glass-on{
+  --gg:   rgba(var(--glass-rgb),var(--glass-alpha));
+  --gg-n: rgba(var(--glass-rgb),var(--glass-nav-alpha));
+  --gg-b: rgba(var(--glass-rgb),var(--glass-bar-alpha));
+  --gg-bd:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha));
+}
 
-/* ── Level 1 + 2: All card surfaces (consolidated) ── */
-body.glass-on :is(.card, .widget-card,
-  .stat-card, .aktie-card, .aktie-summary-card,
-  .spar-goal-card, .sparen-explainer, .verlauf-tile){
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-  box-shadow:0 4px 30px rgba(0,0,0,0.12);
-}
-body.glass-on #aktien-fx-rates > div{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
+/* ── Setup card ─────────────────────────────────────────── */
+body.glass-on .setup-card{
+  background:rgba(var(--glass-rgb),0.28) !important;
   backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+  border:var(--gg-bd) !important;
 }
-/* ── Small interactive elements with glass bg ── */
-body.glass-on :is(.top-bar-circle-btn, .btn-cancel, .type-toggle){
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+[data-theme="light"] body.glass-on .setup-card{background:rgba(var(--glass-rgb),0.55) !important}
+
+/* ── Level 1: card-alpha surfaces (bg + blur + border) ──── */
+body.glass-on :is(
+  .card, .widget-card, .stat-card, .aktie-card, .aktie-summary-card,
+  .spar-goal-card, .sparen-explainer, .verlauf-tile,
+  #aktien-fx-rates > div,
+  .top-bar-circle-btn, .btn-cancel, .type-toggle,
+  .form-input, .form-select, .amount-input,
+  .save-btn, .btn-save,
+  .verlauf-search-wrap, .home-edit-btn, .chart-period-btn,
+  .notif-overlay-close, .spar-add-btn
+){
+  background:var(--gg) !important;
+  backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
+  border:var(--gg-bd) !important;
 }
-/* Spar add buttons */
-body.glass-on .spar-add-btn{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border:1px solid rgba(200,245,60,.25) !important;
+/* spar-add-btn keeps its green tint border */
+body.glass-on .spar-add-btn{border-color:rgba(200,245,60,.25) !important}
+
+/* ── Level 2: nav-alpha surfaces ─────────────────────────── */
+body.glass-on :is(#nav, .modal-overlay .modal, .notif-overlay, .menu-overlay-sheet, #toast, .mv-bar){
+  background:var(--gg-n) !important;
+  backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
 }
-/* glass-clean is now driven by glassIntensity ≤ 5 (set via JS classes) */
-/* Nav — override light-mode solid bg */
-body.glass-on #nav,
-[data-theme="light"] body.glass-on #nav{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border-top:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Top-bar — override light-mode solid bg */
+/* Level 2 borders (direction varies per element) */
+body.glass-on #nav                   { border-top:var(--gg-bd)    !important }
+body.glass-on [data-theme="light"] #nav { border-top:var(--gg-bd) !important }
+body.glass-on .modal-overlay .modal  { border:var(--gg-bd)        !important }
+body.glass-on .notif-overlay         { border-bottom:var(--gg-bd) !important }
+body.glass-on .menu-overlay-sheet    { border-left:var(--gg-bd)   !important }
+body.glass-on #toast                 { border:var(--gg-bd)        !important }
+[data-theme="light"] body.glass-on .modal-overlay .modal{ background:rgba(var(--glass-rgb),0.75) !important }
+
+/* ── Level 3: top-bar ─────────────────────────────────────── */
 body.glass-on .top-bar,
 [data-theme="light"] body.glass-on .top-bar{
-  background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
+  background:var(--gg-b) !important;
+  backdrop-filter:var(--glass-bd);-webkit-backdrop-filter:var(--glass-bd);
+  border-bottom:var(--gg-bd) !important;
 }
-/* .type-toggle glass — handled by :is() rule above *
-/* Modal in glass mode */
-body.glass-on .modal-overlay .modal{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-[data-theme="light"] body.glass-on .modal-overlay .modal{
-  background:rgba(var(--glass-rgb),0.75) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-}
-/* Notification overlay — glass */
-body.glass-on .notif-overlay{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border-bottom:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Notification bell icon — glass circle */
+
+/* ── Settings bell icon ─────────────────────────────────── */
 body.glass-on .settings-btn{
-  background:rgba(var(--glass-rgb),var(--glass-alpha));
+  background:var(--gg);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha));
-  border-radius:50%;
+  border:var(--gg-bd);border-radius:50%;
 }
-/* Menu overlay — glass */
-body.glass-on .menu-overlay-sheet{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:var(--glass-bd);
-  -webkit-backdrop-filter:var(--glass-bd);
-  border-left:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Toast — glass */
-body.glass-on #toast{
-  background:rgba(var(--glass-rgb),var(--glass-nav-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Form inputs, selects in glass */
-body.glass-on .form-input,
-body.glass-on .form-select,
-body.glass-on .amount-input{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-/* Section titles, settings rows in glass */
-body.glass-on .settings-row{border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important}
-/* ── Glass: make remaining opaque elements transparent ── */
-body.glass-on .divider{background:rgba(var(--glass-rgb),var(--glass-border-alpha))}
-body.glass-on .save-btn,
-body.glass-on .btn-save{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  border:1px solid rgba(var(--glass-rgb),var(--glass-border-alpha));
-}
-body.glass-on .btn-delete{
-  background:rgba(255,77,109,.15) !important;
-  border:1px solid rgba(255,77,109,.25);
-}
-body.glass-on .verlauf-search-wrap{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-body.glass-on .home-edit-btn{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-body.glass-on .toggle-switch{
-  background:rgba(var(--glass-rgb),0.25) !important;
-}
-body.glass-on .chart-period-btn{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-body.glass-on .notif-overlay-close{
-  background:rgba(var(--glass-rgb),var(--glass-alpha)) !important;
-  border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important;
-}
-body.glass-on .notif-item{border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important}
-body.glass-on .notif-item-icon{background:rgba(255,209,102,.08)}
-body.glass-on .mv-bar{
-  background:rgba(var(--glass-rgb),var(--glass-bar-alpha)) !important;
-  backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
-}
-body.glass-on .month-view{background:transparent !important}
-/* Aktie-Detail slideover needs an opaque background so underlying content doesn't bleed through */
+
+/* ── Misc overrides ─────────────────────────────────────── */
+body.glass-on .settings-row{ border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important }
+body.glass-on .divider      { background:rgba(var(--glass-rgb),var(--glass-border-alpha)) }
+body.glass-on .btn-delete   { background:rgba(255,77,109,.15) !important; border:1px solid rgba(255,77,109,.25) }
+body.glass-on .toggle-switch{ background:rgba(var(--glass-rgb),0.25) !important }
+body.glass-on .notif-item   { border-color:rgba(var(--glass-rgb),var(--glass-border-alpha)) !important }
+body.glass-on .notif-item-icon{ background:rgba(255,209,102,.08) }
+body.glass-on .month-view   { background:transparent !important }
+body.glass-on .section-title{ font-weight:700 }
+/* Aktie-Detail: extra-opaque so underlying content doesn't bleed through */
 body.glass-on #aktie-detail{
   background:rgba(var(--glass-rgb),0.92) !important;
   backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
   -webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
 }
-/* Reduced motion: no blur, keep tint for legibility */
+/* Reduced motion: remove blur, keep tint */
 @media (prefers-reduced-motion:reduce){
-  body.glass-on .card,body.glass-on .widget-card,
-  body.glass-on #nav,body.glass-on .top-bar{
+  body.glass-on :is(.card,.widget-card,#nav,.top-bar){
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
     background:rgba(var(--glass-rgb),0.72) !important;
   }
 }
-/* ── Smart contrast: boost muted text in glass mode ── */
-/* Dark mode: secondary/tertiary text is too dark against bright backgrounds */
-body.glass-on:not(.has-custom-font){
-  --text2:#B8B8C8;
-  --text3:#8888A0;
-}
-/* Light mode: secondary/tertiary text stays dark enough against light glass */
-[data-theme="light"] body.glass-on:not(.has-custom-font){
-  --text2:#333340;
-  --text3:#545462;
-}
-/* Text-shadow on bars/nav — see TEXT GLOW section at bottom for overrides */
-/* ── Contrast boost for standalone text over bg image (no card behind) ── */
-body.has-bg-image .section-title{
-  color:var(--text);font-weight:700;
-}
-[data-theme="light"] body.has-bg-image .section-title{
-  color:#18181E;
-}
-body.glass-on .section-title{font-weight:700}
+/* Smart contrast: boost muted text in glass mode */
+body.glass-on:not(.has-custom-font){--text2:#B8B8C8;--text3:#8888A0}
+[data-theme="light"] body.glass-on:not(.has-custom-font){--text2:#333340;--text3:#545462}
+/* Contrast boost for standalone text over bg image */
+body.has-bg-image .section-title{color:var(--text);font-weight:700}
+[data-theme="light"] body.has-bg-image .section-title{color:#18181E}
 
 /* ═══════════════════════════════════════════════════
    MENU OVERLAY (right-side frosted glass)
@@ -1142,7 +1056,7 @@ body.glass-on .section-title{font-weight:700}
   border-radius:var(--r2);padding:9px 12px 9px 34px;
   color:var(--text);font-size:14px;
 }
-.verlauf-search:focus{border-color:var(--accent)}
+.verlauf-search:focus-visible{border-color:var(--accent)}
 .verlauf-search::placeholder{color:var(--text3)}
 
 /* Aktien search suggest */
@@ -1263,7 +1177,7 @@ body.glass-on .section-title{font-weight:700}
 .user-mgmt-title{flex:1;font-size:17px;font-weight:700}
 .user-mgmt-search-wrap{position:relative;padding:10px 16px;flex-shrink:0}
 .user-mgmt-search{width:100%;padding:10px 10px 10px 36px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);font-size:14px;outline:none}
-.user-mgmt-search:focus{border-color:var(--accent)}
+.user-mgmt-search:focus-visible{border-color:var(--accent)}
 .user-mgmt-search-icon{position:absolute;left:26px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2}
 .user-mgmt-body{flex:1;overflow-y:auto;padding:0 16px 24px}
 .user-mgmt-count{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding:8px 0 4px}
@@ -1730,4 +1644,23 @@ body.is-android .filter-row{touch-action:pan-x}
   .desktop-sidebar{display:none !important}
   .desktop-main{display:contents !important}
 }
+
+/* ── Keyboard focus: :focus-visible only (no mouse-focus ring) ── */
+:focus{ outline:none }
+:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:4px;
+}
+/* Inputs: use border highlight instead of outline */
+.form-input:focus-visible,
+.form-select:focus-visible,
+.amount-input:focus-visible,
+.setup-input:focus-visible{
+  outline:none;
+  border-color:var(--accent) !important;
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb,180,230,0),.18);
+}
+/* Nav buttons: slightly larger radius to match pill shape */
+#nav button:focus-visible{ border-radius:12px; }
 

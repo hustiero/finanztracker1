@@ -42,6 +42,8 @@ let _renderRAF = null;
 
 function markDirty(...tabs){
   tabs.forEach(t => _dirtyTabs.add(t));
+  // Invalidate verlauf summary cache whenever data changes
+  if(typeof _verlaufSummaryCache !== 'undefined') _verlaufSummaryCache = null;
   if(!_renderRAF){
     _renderRAF = requestAnimationFrame(flushRender);
   }
@@ -65,7 +67,11 @@ function flushRender(){
     if(RENDER_FN_MAP[tab]){
       // Only render if tab is currently visible OR it's a global element
       if(tab === currentTab || RENDER_GLOBAL_TABS.has(tab)){
-        RENDER_FN_MAP[tab]();
+        try {
+          RENDER_FN_MAP[tab]();
+        } catch(e){
+          console.error(`[render error: ${tab}]`, e);
+        }
       }
     }
   }

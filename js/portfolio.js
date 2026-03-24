@@ -170,6 +170,7 @@ function getGesamtGewinnVerlust() {
 
 // ── Kurse-Cache (Sheet persistence) ──────────────────────────────────────────
 let _kurseCacheLoaded = false;
+let _fxAutoFetched    = false;  // guard: auto-fetch FX rates at most once per session
 
 async function loadKurseCache() {
   if (CFG.demo || (!CFG.scriptUrl && !CFG.sessionToken)) return;
@@ -422,7 +423,10 @@ async function saveAktienTradeFromEingabe() {
     try {
       await apiAppend('Trades', [[id, stockId, aktienTradeTyp, qty, price, date, note]]);
       setSyncStatus('online');
-    } catch (e) { setSyncStatus('error'); toast('Sync-Fehler: ' + e.message, 'err'); return; }
+    } catch (e) {
+      SDATA.trades = SDATA.trades.filter(t => t.id !== id);
+      setSyncStatus('error'); toast('Sync-Fehler: ' + e.message, 'err'); return;
+    }
   }
   document.getElementById('at-qty').value = '';
   document.getElementById('at-price').value = '';
@@ -515,18 +519,7 @@ function buildPortfolioPieChart(stocks) {
   const data = stocks.map(s => ({ label: s.ticker || s.title, value: getPositionsWert(s.id), color: aktieColor(s.id) })).filter(d => d.value > 0);
   const total = data.reduce((a, d) => a + d.value, 0);
   if (!total || !data.length) return '';
-  const cx = 90, cy = 90, r = 75;
-  let angle = -Math.PI / 2;
-  const slices = data.map(d => {
-    const frac = d.value / total, sweep = frac * 2 * Math.PI, ea = angle + sweep, la = frac > 0.5 ? 1 : 0;
-    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
-    const x2 = cx + r * Math.cos(ea),   y2 = cy + r * Math.sin(ea);
-    const path = frac > 0.9999
-      ? `M${cx - r},${cy} A${r},${r} 0 1 1 ${cx + r},${cy} A${r},${r} 0 1 1 ${cx - r},${cy}`
-      : `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${la} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
-    angle = ea;
-    return { ...d, path, pct: (frac * 100).toFixed(1) };
-  });
+  const slices = buildPieSlices(data, total, 90, 90, 75);
   return `
   <div class="widget-title">Portfolio-Verteilung</div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -709,6 +702,23 @@ async function renderAktien() {
 
 async function _renderAktienInner() {
   if (!_kurseCacheLoaded) { _kurseCacheLoaded = true; await loadKurseCache(); }
+
+  // Auto-fetch FX rates when active foreign-currency positions have no cached rate.
+  // Runs once per session (guarded by _fxAutoFetched) so it doesn't call the
+  // backend on every tab switch.
+  if (!_fxAutoFetched) {
+    const uc = curr().toUpperCase();
+    const needsFx = SDATA.stocks.some(s => {
+      if (calcPosition(s.id).qty <= 0.0001) return false;
+      const sc = (getCachedStock(s.ticker)?.currency || s.currency || '').toUpperCase();
+      return sc && sc !== uc && !hasFxRate(sc);
+    });
+    if (needsFx && CFG.url) {
+      _fxAutoFetched = true;
+      syncKurseSheet().then(() => renderAktien()).catch(() => {});
+      // Render now with what we have; re-render will follow once rates arrive.
+    }
+  }
 
   renderAktienDashboardTop();
   renderFxRates();
