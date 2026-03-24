@@ -102,28 +102,31 @@ function toggleSettingsGroup(id){
   if(btn) btn.classList.toggle('open', !isOpen);
 }
 
-// Toggle the "Anpassen" customize section in settings
+// Toggle the "Weitere Optionen" expert customize section in settings
 function toggleCustomizeSection(){
   const sec = document.getElementById('customize-section');
   if(!sec) return;
   const isOpen = sec.style.display !== 'none';
   sec.style.display = isOpen ? 'none' : '';
   const btn = document.getElementById('customize-toggle-btn');
-  if(btn) btn.innerHTML = isOpen
-    ? '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Anpassen'
-    : '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="6 9 12 15 18 9"/></svg> Schliessen';
+  if(btn){
+    const gearIcon = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    const chevronIcon = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="6 9 12 15 18 9"/></svg>';
+    btn.innerHTML = isOpen ? gearIcon + ' Weitere Optionen' : chevronIcon + ' Weniger anzeigen';
+  }
 }
 
-// Update the design summary text shown above the Anpassen button
+// Update the design summary text shown in quick tweaks area
 function updateDesignSummary(){
   const el = document.getElementById('design-summary');
   if(!el) return;
   const pkgId = CFG.designPackageId;
   const pkg = typeof DESIGN_PACKAGES!=='undefined' && DESIGN_PACKAGES[pkgId];
   if(pkg){
-    el.textContent = pkg.label + ' — Einzelne Einstellungen unten anpassen';
+    const mode = pkg.theme === 'light' ? 'Hell' : 'Dunkel';
+    el.textContent = pkg.label + ' · ' + mode;
   } else if(CFG.designPackage){
-    el.textContent = 'Benutzerdefiniert — Einzelne Einstellungen unten anpassen';
+    el.textContent = 'Benutzerdefiniert';
   } else {
     const parts = [];
     const hasImg = !!localStorage.getItem('ft_bg_image');
@@ -131,8 +134,6 @@ function updateDesignSummary(){
     else if(CFG.bgPreset && BG_PRESETS[CFG.bgPreset]) parts.push(BG_PRESETS[CFG.bgPreset].label);
     else parts.push('Standard');
     if(CFG.glassEnabled) parts.push('Glass');
-    if(CFG.fontColor && CFG.fontColor!=='standard' && FONT_COLOR_PRESETS[CFG.fontColor])
-      parts.push(FONT_COLOR_PRESETS[CFG.fontColor].label);
     el.textContent = parts.join(' · ');
   }
 }
