@@ -15,9 +15,13 @@ Backend is a Google Apps Script (`CFG.url`).
 | `js/data.js` | Sheets API, DATA state, calculations, formatting | ~400 |
 | `js/io.js` | Init/Load, Entry/Recurring/Category CRUD, Export, Sparziele | ~1 430 |
 | `js/groups.js` | Groups: API layer, CRUD, invitations, notifications, admin panel | ~400 |
-| `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 020 |
-| `js/ui.js` | UI helpers, Notifications, Auth, Demo, CodeGS, Settings | ~1 630 |
-| `js/aktien.js` | Stocks: data, rendering, trade, CRUD | ~960 |
+| `js/charts.js` | Pure SVG chart builders: buildDonutSVG, buildPieSlices, buildBarChartSVG | ~80 |
+| `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 000 |
+| `js/gas-src.js` | CODE_GS + ADMIN_CODE_GS string constants (canonical source: gas/*.gs) | ~530 |
+| `js/ui.js` | UI helpers, Notifications, Auth, Demo, Settings | ~2 150 |
+| `gas/code.gs` | Google Apps Script for user sheets (deploy via Setup page) | ~127 |
+| `gas/admin-code.gs` | Google Apps Script for admin sheet (deploy separately) | ~400 |
+| `js/portfolio.js` | Stocks: data, rendering, trade, CRUD | ~960 |
 | `js/design.js` | Theme, glassmorphism, background, fonts, accent color | ~500 |
 | `js/device.js` | Device detection, history nav, desktop sidebar, theme-color | ~180 |
 | `js/init.js` | Namespace wiring (Object.assign), RENDER_FN_MAP | ~200 |
@@ -30,7 +34,9 @@ Backend is a Google Apps Script (`CFG.url`).
 <script src="js/data.js"></script>     <!-- 2. Data layer + API -->
 <script src="js/io.js"></script>       <!-- 3. CRUD + sync -->
 <script src="js/groups.js"></script>   <!-- 3b. Groups: API, CRUD, invites, notifs -->
+<script src="js/charts.js"></script>   <!-- 3c. Pure SVG chart builders -->
 <script src="js/render.js"></script>   <!-- 4. All renderers -->
+<script src="js/gas-src.js"></script>  <!-- 4b. GAS source strings -->
 <script src="js/ui.js"></script>       <!-- 5. UI logic + events -->
 <script src="js/aktien.js"></script>   <!-- 6. Stocks module -->
 <script src="js/design.js"></script>   <!-- 7. Theming -->

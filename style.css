@@ -459,13 +459,14 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 /* .amount-input:focus outline suppressed by global :focus rule */
 .amount-wrap:focus-within{border-color:var(--accent)}
 
-.save-btn{
-  width:100%;padding:14px;border-radius:var(--r);
-  font-size:16px;font-weight:700;margin-top:4px;
+/* save-btn = standalone full-width save; btn-save = modal-row flex save */
+:is(.save-btn,.btn-save){
   background:var(--accent);color:var(--btn-text);
-  transition:opacity .15s,transform .1s;letter-spacing:-.2px;
+  border-radius:var(--r);font-weight:700;
+  transition:opacity .15s,transform .1s;
 }
-.save-btn:active{transform:scale(.98);opacity:.85}
+:is(.save-btn,.btn-save):active{transform:scale(.98);opacity:.85}
+.save-btn{width:100%;padding:14px;font-size:16px;margin-top:4px;letter-spacing:-.2px;}
 
 /* ═══════════════════════════════════════════════════
    VERLAUF / HISTORY
@@ -649,26 +650,17 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 .modal-actions{
   display:flex;gap:10px;padding:0 20px;margin-top:8px;
 }
-.btn-save{
-  flex:1;padding:13px;border-radius:var(--r);
-  background:var(--accent);color:var(--btn-text);
-  font-size:15px;font-weight:700;transition:opacity .15s;
+/* modal-row action buttons share base */
+:is(.btn-save,.btn-delete,.btn-cancel){
+  border-radius:var(--r);font-size:15px;padding:13px;transition:opacity .15s;
 }
-.btn-save:active{opacity:.8}
+:is(.btn-delete,.btn-cancel):active{opacity:.8}
+.btn-save{flex:1;font-weight:700;}
 .btn-delete{
-  padding:13px 18px;border-radius:var(--r);
-  background:rgba(255,77,109,.15);color:var(--red);
-  font-size:15px;font-weight:700;border:1px solid rgba(255,77,109,.3);
-  transition:opacity .15s;
+  padding:13px 18px;font-weight:700;
+  background:rgba(255,77,109,.15);color:var(--red);border:1px solid rgba(255,77,109,.3);
 }
-.btn-delete:active{opacity:.8}
-.btn-cancel{
-  padding:13px 18px;border-radius:var(--r);
-  background:var(--bg3);color:var(--text2);
-  font-size:15px;font-weight:600;
-  transition:opacity .15s;
-}
-.btn-cancel:active{opacity:.8}
+.btn-cancel{padding:13px 18px;font-weight:600;background:var(--bg3);color:var(--text2);}
 
 /* Color picker */
 .color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}

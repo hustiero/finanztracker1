@@ -519,18 +519,7 @@ function buildPortfolioPieChart(stocks) {
   const data = stocks.map(s => ({ label: s.ticker || s.title, value: getPositionsWert(s.id), color: aktieColor(s.id) })).filter(d => d.value > 0);
   const total = data.reduce((a, d) => a + d.value, 0);
   if (!total || !data.length) return '';
-  const cx = 90, cy = 90, r = 75;
-  let angle = -Math.PI / 2;
-  const slices = data.map(d => {
-    const frac = d.value / total, sweep = frac * 2 * Math.PI, ea = angle + sweep, la = frac > 0.5 ? 1 : 0;
-    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
-    const x2 = cx + r * Math.cos(ea),   y2 = cy + r * Math.sin(ea);
-    const path = frac > 0.9999
-      ? `M${cx - r},${cy} A${r},${r} 0 1 1 ${cx + r},${cy} A${r},${r} 0 1 1 ${cx - r},${cy}`
-      : `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${la} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
-    angle = ea;
-    return { ...d, path, pct: (frac * 100).toFixed(1) };
-  });
+  const slices = buildPieSlices(data, total, 90, 90, 75);
   return `
   <div class="widget-title">Portfolio-Verteilung</div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
