@@ -191,6 +191,7 @@ function _profileExportable(){
     fontColors:        CFG.fontColors||{},
     accentColor:       CFG.accentColor||'',
     textGlow:          CFG.textGlow ?? 100,
+    adminUrl:          CFG.adminUrl||'',
   };
 }
 function _profileApply(prof){
@@ -218,6 +219,8 @@ function _profileApply(prof){
   if(prof.fontColors        !== undefined) CFG.fontColors        = prof.fontColors||{};
   if(prof.accentColor       !== undefined) CFG.accentColor       = prof.accentColor||'';
   if(prof.textGlow          !== undefined) CFG.textGlow          = +prof.textGlow;
+  // Restore admin URL so new devices can discover the groups backend after profile sync
+  if(prof.adminUrl && !CFG.adminUrl) CFG.adminUrl = prof.adminUrl;
   cfgSave();
   applyAppBackground();
   applyFontColors();
