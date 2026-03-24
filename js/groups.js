@@ -134,6 +134,45 @@ function _rowToGroup(r){
 // Session-level flag — avoid 2 redundant API calls on every loadGroups()
 let _groupsSheetsEnsured = false;
 
+// ── Personal sheet "Gruppen" tab — cross-device membership index ──────
+// Columns: A=id, B=name, C=type, D=currency, E=status, F=adminId, G=joinedAt
+// Only maintained in script-URL mode (CFG.scriptUrl set, no session token).
+// Gives each device a durable list of group IDs → reliable cross-device discovery.
+
+let _personalGroupsSheetEnsured = false;
+
+async function _ensurePersonalGroupsSheet(){
+  if(_personalGroupsSheetEnsured || !CFG.scriptUrl || CFG.sessionToken) return;
+  try{
+    await apiCall({action:'ensureSheet', sheet:'Gruppen',
+      headers: JSON.stringify(['id','name','type','currency','status','adminId','joinedAt'])});
+    _personalGroupsSheetEnsured = true;
+  }catch(e){
+    console.warn('_ensurePersonalGroupsSheet:', e.message);
+  }
+}
+
+/**
+ * Upsert a group membership row into the personal sheet "Gruppen" tab.
+ * status: 'active' | 'left' | 'archived' | 'deleted'
+ */
+async function _syncMembershipToPersonalSheet(group, status){
+  if(!CFG.scriptUrl || CFG.sessionToken || CFG.demo) return;
+  await _ensurePersonalGroupsSheet();
+  try{
+    const row = [group.id, group.name||'', group.type||'event', group.currency||'CHF',
+                 status||'active', group.adminId||'', group.created||today()];
+    const rowNum = await apiFindRow('Gruppen', group.id);
+    if(rowNum){
+      await apiUpdate(`Gruppen!A${rowNum}:G${rowNum}`, [row]);
+    } else {
+      await apiAppend('Gruppen', [row]);
+    }
+  }catch(e){
+    console.warn('_syncMembershipToPersonalSheet:', e.message);
+  }
+}
+
 async function ensureGroupsSheets(){
   if(CFG.demo || _groupsSheetsEnsured) return;
   try{
@@ -157,13 +196,40 @@ async function ensureGroupsSheets(){
 async function loadGroups(){
   await ensureGroupsSheets();
   try{
+    // Script-URL mode: read personal "Gruppen" tab first to get a reliable
+    // set of group IDs — more robust than username matching across devices.
+    let personalGroupIds = null;
+    if(CFG.scriptUrl && !CFG.sessionToken){
+      try{
+        await _ensurePersonalGroupsSheet();
+        const pRes = await apiGet('Gruppen!A2:G200');
+        const pRows = (pRes.values||[]).filter(r=>r[0]);
+        if(pRows.length > 0){
+          // Only include groups the user hasn't explicitly left/deleted
+          personalGroupIds = new Set(
+            pRows.filter(r=>r[4]!=='left' && r[4]!=='deleted').map(r=>String(r[0]))
+          );
+        }
+      }catch(e){ /* sheet may not exist yet — fall through to username filter */ }
+    }
+
     const res = await groupsApiGet('Groups!A2:J200');
     const myId = _myGroupId();
     const myName = _myGroupName();
-    DATA.groups = (res.values||[])
+    const loaded = (res.values||[])
       .filter(r=>r[0] && r[5]!=='deleted')
       .map(_rowToGroup)
-      .filter(g => g.members.includes(myId) || g.members.includes(myName));
+      .filter(g => {
+        if(personalGroupIds) return personalGroupIds.has(g.id);
+        return g.members.includes(myId) || g.members.includes(myName);
+      });
+    DATA.groups = loaded;
+
+    // Back-fill personal sheet with any groups found via username match
+    // (covers groups joined before this feature was deployed)
+    if(CFG.scriptUrl && !CFG.sessionToken && !personalGroupIds && loaded.length > 0){
+      loaded.forEach(g => _syncMembershipToPersonalSheet(g, g.status||'active'));
+    }
   }catch(e){
     if(!DATA.groups) DATA.groups = [];
     if(e.message && e.message.includes('Account-Modus')){
@@ -195,6 +261,8 @@ async function saveGroup(name, type, members, currency){
       return null;
     }
   }
+  // Record membership in personal sheet for cross-device discovery
+  _syncMembershipToPersonalSheet(group, 'active');
   dataCacheSave();
   markDirty('groups');
   return group;
@@ -342,6 +410,8 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     if(existing) Object.assign(existing, g);
     else DATA.groups.push(g);
 
+    // Record membership in personal sheet for cross-device discovery
+    _syncMembershipToPersonalSheet(g, 'active');
     dataCacheSave();
     toast('✓ Gruppe beigetreten: '+g.name,'ok');
     markDirty('groups');
@@ -392,6 +462,8 @@ async function leaveGroup(groupId){
       setSyncStatus('online');
     }catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
   }
+  // Mark as left in personal sheet so this device won't re-load the group
+  _syncMembershipToPersonalSheet(g, 'left');
   DATA.groups = DATA.groups.filter(x=>x.id!==groupId);
   dataCacheSave();
   toast('✓ Gruppe verlassen','ok');
