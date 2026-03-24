@@ -1486,6 +1486,20 @@ async function deleteSparGoal(id){
   }
 }
 
+async function addToSparGoal(id, amount){
+  const g = DATA.sparziele.find(x=>x.id===id);
+  if(!g) return;
+  const amt = parseFloat(amount);
+  if(isNaN(amt)||amt===0) return;
+  g.saved = Math.max(0, (g.saved||0) + amt);
+  renderSparen();
+  toast(`${amt>0?'+':''}${fmtAmt(amt)} ${curr()} eingetragen`);
+  if(!CFG.demo){
+    const rowNum = await apiFindRow('Sparziele', id).catch(()=>null);
+    if(rowNum) await _syncUpdate(`Sparziele!E${rowNum}`, [[String(g.saved)]]);
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: GROUPS — CRUD (delegated to js/groups.js)
