@@ -952,39 +952,54 @@
           <svg class="settings-group-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div id="sg-layout" class="settings-group-body" style="display:none">
-          <div class="card" style="padding:0 14px;margin-bottom:10px">
-            <div class="settings-row">
-              <div>
-                <div class="settings-row-label">Design</div>
-                <div class="settings-row-sub" id="theme-mode-sub">Dunkles oder helles Design</div>
-              </div>
+          <!-- ── Theme Studio ────────────────────────────── -->
+          <!-- Filter tabs -->
+          <div class="card" style="padding:12px 14px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:13px;font-weight:600;color:var(--text)">Theme Studio</div>
               <div id="theme-seg" style="display:flex;background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--border);flex-shrink:0">
-                <button onclick="setThemeMode('')" id="theme-btn-dark" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Dunkel</button>
-                <button onclick="setThemeMode('auto')" id="theme-btn-auto" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Auto</button>
-                <button onclick="setThemeMode('light')" id="theme-btn-light" style="padding:6px 12px;font-size:11px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Hell</button>
+                <button onclick="setThemeMode('')" id="theme-btn-dark" style="padding:5px 10px;font-size:10px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Dunkel</button>
+                <button onclick="setThemeMode('auto')" id="theme-btn-auto" style="padding:5px 10px;font-size:10px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Auto</button>
+                <button onclick="setThemeMode('light')" id="theme-btn-light" style="padding:5px 10px;font-size:10px;border:none;cursor:pointer;background:transparent;color:var(--text2);white-space:nowrap;position:relative;z-index:1">Hell</button>
               </div>
             </div>
-          </div>
-          <!-- Design packages -->
-          <div class="card" style="padding:14px;margin-bottom:10px">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Erscheinungsbild</div>
+            <div class="ds-filter-bar">
+              <button class="ds-filter-btn active" data-filter="all" onclick="setDesignFilter('all')">Alle</button>
+              <button class="ds-filter-btn" data-filter="dark" onclick="setDesignFilter('dark')">Dunkel</button>
+              <button class="ds-filter-btn" data-filter="light" onclick="setDesignFilter('light')">Hell</button>
+            </div>
+            <!-- Theme carousel -->
             <div id="design-pkg-grid" class="design-pkg-grid"></div>
           </div>
-          <!-- Anpassen toggle -->
+          <!-- Quick Tweaks (always visible) -->
           <div class="card" style="padding:14px;margin-bottom:10px">
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div style="min-width:0">
-                <div style="font-size:12px;color:var(--text2)" id="design-summary"></div>
-              </div>
-              <button onclick="toggleCustomizeSection()" id="customize-toggle-btn" style="flex-shrink:0;font-size:11px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px">
-                <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                Anpassen
-              </button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:600;color:var(--text)">Schnellanpassung</div>
+              <div style="font-size:11px;color:var(--text3)" id="design-summary"></div>
             </div>
+            <!-- Accent color quick picks -->
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Akzentfarbe</div>
+            <div id="accent-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px"></div>
+            <!-- Glass intensity single slider -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:11px;color:var(--text2)">Glaseffekt</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3)" id="glass-intensity-val">50%</span>
+                <div class="toggle-switch toggle-switch-sm" id="glass-enabled-sw" onclick="toggleGlass()"></div>
+              </div>
+            </div>
+            <input id="glass-intensity-slider" type="range" min="0" max="100" value="50" style="width:100%;accent-color:var(--accent)" oninput="updateGlassIntensity(+this.value)">
           </div>
-          <!-- Collapsible customize section -->
+          <!-- Anpassen / Expert toggle -->
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <button onclick="toggleCustomizeSection()" id="customize-toggle-btn" style="width:100%;font-size:12px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Weitere Optionen
+            </button>
+          </div>
+          <!-- Expert / Collapsible customize section -->
           <div id="customize-section" style="display:none">
-            <!-- Erscheinungsbild -->
+            <!-- Hintergrund -->
             <div class="card" style="padding:14px;margin-bottom:10px">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Hintergrund</div>
               <div id="bg-preset-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
@@ -1003,42 +1018,45 @@
                 </div>
                 <input id="bg-blur-slider" type="range" min="0" max="30" value="0" style="width:100%;accent-color:var(--accent)" oninput="updateBgBlur(+this.value)">
               </div>
-              <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
-              <div class="settings-row" style="padding:0 0 10px">
-                <div>
-                  <div class="settings-row-label">Glassmorphism</div>
-                  <div class="settings-row-sub">Kacheln und Navigationsleiste mit Glaseffekt</div>
+            </div>
+            <!-- Glasmorphismus -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Glasmorphismus</div>
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
+                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
                 </div>
-                <div class="toggle-switch" id="glass-enabled-sw" onclick="toggleGlass()"></div>
+                <input id="glass-blur-slider" type="range" min="2" max="30" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
               </div>
-              <div id="glass-sliders" style="display:none;margin-top:4px">
-                <div style="margin-bottom:12px">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span style="font-size:12px;color:var(--text2)">Unschärfe</span>
-                    <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-blur-val">12px</span>
-                  </div>
-                  <input id="glass-blur-slider" type="range" min="2" max="30" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassBlur(+this.value)">
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text2)">Transparenz</span>
+                  <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
                 </div>
-                <div style="margin-bottom:12px">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span style="font-size:12px;color:var(--text2)">Transparenz</span>
-                    <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="glass-alpha-val">12%</span>
-                  </div>
-                  <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+                <input id="glass-alpha-slider" type="range" min="2" max="80" value="12" style="width:100%;accent-color:var(--accent)" oninput="updateGlassAlpha(+this.value)">
+              </div>
+              <div class="settings-row p-0">
+                <div>
+                  <div class="settings-row-label" style="font-size:12px">Clean Look</div>
+                  <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
                 </div>
-                <div class="settings-row p-0">
-                  <div>
-                    <div class="settings-row-label" style="font-size:12px">Clean Look</div>
-                    <div class="settings-row-sub" style="font-size:10px">Kacheln ohne Blur — nur transparenter Hintergrund</div>
-                  </div>
-                  <div class="toggle-switch" id="glass-clean-sw" onclick="toggleGlassClean()"></div>
-                </div>
+                <div class="toggle-switch" id="glass-clean-sw" onclick="toggleGlassClean()"></div>
               </div>
             </div>
+            <!-- Farben -->
             <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Schriftfarben</div>
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Farben</div>
+              <!-- Accent custom -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Akzent</span>
+                <input id="accent-custom-picker" type="color" value="#C8F53C" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setAccentColor(this.value)">
+                <button onclick="resetAccentColor()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
+              </div>
+              <!-- Font colors -->
+              <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Schriftfarben</div>
               <div id="font-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
-              <div id="font-color-custom" style="margin-bottom:6px">
+              <div id="font-color-custom" style="margin-bottom:12px">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                   <span style="font-size:12px;color:var(--text2);flex-shrink:0">Hauptfarbe</span>
                   <input id="fc-primary" type="color" value="#F0F0F5" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setFontColorCustom('primary',this.value)">
@@ -1051,30 +1069,7 @@
                   <button onclick="resetFontColors()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Zurücksetzen</button>
                 </div>
               </div>
-            </div>
-            <!-- Accent color -->
-            <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Akzentfarbe</div>
-              <div id="accent-color-presets" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px"></div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--text2);flex-shrink:0">Eigene Farbe</span>
-                <input id="accent-custom-picker" type="color" value="#C8F53C" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent" onchange="setAccentColor(this.value)">
-                <button onclick="resetAccentColor()" style="margin-left:auto;font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
-              </div>
-            </div>
-            <!-- Text Glow -->
-            <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Text-Glow</div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:12px;color:var(--text2)">Intensität</span>
-                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="text-glow-val">100%</span>
-              </div>
-              <input id="text-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateTextGlow(+this.value)">
-              <div style="font-size:11px;color:var(--text3);margin-top:4px">Regelt den Leuchteffekt hinter Titeln und Dashboard-Werten</div>
-            </div>
-            <!-- Farben & Elemente -->
-            <div class="card" style="padding:14px;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Farben &amp; Elemente</div>
+              <div style="height:1px;background:var(--border);margin:6px 0 12px"></div>
               <!-- Button text color -->
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
                 <span style="font-size:12px;color:var(--text2);flex-shrink:0">Button-Text</span>
@@ -1094,6 +1089,16 @@
                 <input id="dv-panel-bg-picker" type="color" value="#1C1C21" style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent;margin-left:auto" onchange="setPanelBgColor(this.value)">
                 <button onclick="resetPanelBgColor()" style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer">Standard</button>
               </div>
+            </div>
+            <!-- Effekte -->
+            <div class="card" style="padding:14px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Effekte</div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text2)">Text-Glow</span>
+                <span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text2)" id="text-glow-val">100%</span>
+              </div>
+              <input id="text-glow-slider" type="range" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent)" oninput="updateTextGlow(+this.value)">
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">Leuchteffekt hinter Titeln und Dashboard-Werten</div>
             </div>
           </div>
           <div class="card" style="padding:14px">

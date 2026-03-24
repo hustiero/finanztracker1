@@ -1395,11 +1395,21 @@ body.glass-on .settings-group-toggle{
 .w-full{width:100%}
 
 /* ═══════════════════════════════════════════════════
-   DESIGN PACKAGE SELECTOR
+   DESIGN PACKAGE SELECTOR — Theme Studio
 ═══════════════════════════════════════════════════ */
-.design-pkg-grid{display:flex;gap:10px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+.ds-filter-bar{display:flex;gap:6px;margin-bottom:12px}
+.ds-filter-btn{
+  flex:1;padding:6px 0;border-radius:8px;font-size:11px;font-weight:500;
+  background:var(--bg3);border:1px solid var(--border);color:var(--text3);
+  cursor:pointer;transition:all .15s;text-align:center;
+}
+.ds-filter-btn.active{background:var(--accent);color:var(--bg0);font-weight:600;border-color:var(--accent)}
+
+.design-pkg-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px;
+  padding:4px 0 4px;
+}
 .design-pkg-card{
-  flex:0 0 120px;scroll-snap-align:start;
   border-radius:var(--r);overflow:hidden;cursor:pointer;
   border:2px solid transparent;transition:border-color .2s,transform .15s;
   position:relative;
@@ -1407,23 +1417,41 @@ body.glass-on .settings-group-toggle{
 .design-pkg-card.active{border-color:var(--accent)}
 .design-pkg-card:active{transform:scale(.96)}
 .design-pkg-preview{
-  height:72px;position:relative;display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-end;padding:6px 8px;
+  height:130px;position:relative;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:6px;
+  background-size:cover;
+}
+.design-pkg-mockup{
+  width:80%;height:100%;pointer-events:none;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.25));
+}
+.design-pkg-info{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 8px;background:var(--bg2);
 }
 .design-pkg-name{
-  font-size:11px;font-weight:600;color:rgba(255,255,255,.9);
-  text-shadow:0 1px 4px rgba(0,0,0,.7);text-align:center;
+  font-size:11px;font-weight:600;text-align:left;
+}
+.design-pkg-badge{
+  font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+  padding:2px 6px;border-radius:4px;flex-shrink:0;
 }
 .design-pkg-check{
-  position:absolute;top:6px;right:6px;width:18px;height:18px;
+  position:absolute;top:6px;right:6px;width:20px;height:20px;
   border-radius:50%;background:var(--accent);
   display:none;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
 }
 .design-pkg-card.active .design-pkg-check{display:flex}
-.design-pkg-accent{
-  display:flex;gap:3px;margin-top:4px;
+
+/* Small toggle for quick tweaks */
+.toggle-switch-sm{transform:scale(0.8);transform-origin:right center}
+
+/* ── Responsive: 2 columns on narrow screens ── */
+@media(max-width:340px){
+  .design-pkg-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .design-pkg-preview{height:110px}
 }
-.design-pkg-accent span{width:12px;height:12px;border-radius:50%;border:1px solid rgba(255,255,255,.3)}
 
 /* Font family picker */
 .font-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
