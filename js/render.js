@@ -247,7 +247,7 @@ function renderAll(){
   renderDashboard();
   if(currentTab==='sparen') renderSparen();
   if(currentTab==='groups') renderGroups();
-  if(currentTab==='lohn') renderLohn();
+  renderLohn();
   updatePageSub();
   // Post-render side-effects (non-blocking)
   autoMaterializeRecurrings();
@@ -1043,8 +1043,9 @@ const WIDGET_CATALOG = [
   { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
   { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
   { key:'sparzieleOverview', label:'Sparziele',              sub:'Übersicht deiner Sparziele mit Fortschrittsbalken' },
+  { key:'einnahmenPanel',   label:'Einnahmen & Budget',     sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
 ];
-const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','topKategorien','tagesavg'];
+const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
 let homeEditMode = false;
 let homeKontoMonths = 3;
 
@@ -1087,7 +1088,7 @@ function moveWidget(key, dir){
 // Sizes: 1x1, 2x1 (wide), 1x2 (tall), 2x2, 2x3, 2x4
 const WIDGET_SIZES = {
   greeting:         '2x1',
-  lohnzyklus:       '2x2',
+  lohnzyklus:       '2x3',
   tagesavg:         '1x1',
   topKategorien:    '1x2',
   monatsverlauf:    '2x1',
@@ -1108,6 +1109,7 @@ const WIDGET_SIZES = {
   aktienVerteilung: '1x2',
   aktienPosition:   '1x1',
   sparzieleOverview:'2x1',
+  einnahmenPanel:   '2x2',
 };
 
 /** Return tile CSS class for a widget key. Falls back to 2x1 (full-width mobile). */
@@ -1119,7 +1121,7 @@ const WIDGET_TAB_MAP = {
   monatsverlauf:'dashboard', heuteAusgaben:'verlauf', sparquote:'lohn',
   monatSummary:'monat', monatKategorien:'kategorien', kontostand:'dashboard',
   jahresSparquote:'dashboard', jahresKategorien:'kategorien',
-  monatsverlaufJahr:'dashboard', verlaufZeitraum:'verlauf',
+  monatsverlaufJahr:'dashboard', verlaufZeitraum:'verlauf', einnahmenPanel:'lohn',
   aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
   aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
   sparzieleOverview:'sparen',
@@ -1208,6 +1210,7 @@ function renderWidgetContent(key){
     case 'aktienVerteilung': return renderWidgetAktienVerteilung();
     case 'aktienPosition':   return renderWidgetAktienPosition();
     case 'sparzieleOverview': return renderWidgetSparzieleOverview();
+    case 'einnahmenPanel':   return renderWidgetEinnahmenPanel();
     default: return '';
   }
 }
@@ -1274,29 +1277,61 @@ function renderWidgetVerlaufZeitraum(){
 
 function renderWidgetLohnzyklus(){
   const z = getZyklusInfo();
+  const startLabel = z.startStr.slice(8)+'.'+z.startStr.slice(5,7)+'.';
+  const endLabel   = z.endStr.slice(8)+'.'+z.endStr.slice(5,7)+'.';
   if(!z.hasSalary){
-    return `<div><div class="widget-title">Lohnzyklus</div><div class="t-muted">Kein Lohneingang erkannt.</div></div>`;
+    return `<div>
+      <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
+      <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Noch kein Lohn erfasst</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">Einnahme erfassen und <strong style="color:var(--text)">«Als Lohn zählen»</strong> aktivieren. Lohntag: ${CFG.lohnTag||25}.</div>
+      </div>
+      <button onclick="event.stopPropagation();setType('einnahme');goTab('eingabe')" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--accent);background:rgba(var(--accent-rgb,100,220,120),.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Einnahme erfassen</button>
+    </div>`;
   }
   const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
   const barColor = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
-  const startLabel = z.startStr.slice(8)+'.'+z.startStr.slice(5,7)+'.';
-  const endLabel   = z.endStr.slice(8)+'.'+z.endStr.slice(5,7)+'.';
+  const remColor = z.varRemaining<0?'var(--red)':'var(--green)';
+  const rateVal  = z.daysLeft>0 && z.varRemaining>0 ? z.varRemaining/z.daysLeft : 0;
+  // Formula rows: compact 2-col layout
+  const row = (label, sign, val, color) =>
+    `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-size:12px">
+      <span style="color:var(--text3)">${sign} ${label}</span>
+      <span style="font-family:'DM Mono',monospace;color:${color}">${curr()} ${fmtAmt(val)}</span>
+    </div>`;
   return `<div>
     <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <span style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${z.varRemaining<0?'var(--red)':'var(--text)'}">${z.varRemaining<0?'− ':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span>
-      <span class="t-muted-sm">${z.varRemaining<0?'überzogen':'verbleibend'}</span>
+
+    <!-- Budget formula -->
+    <div style="margin-bottom:8px">
+      ${row('Lohn / Einnahmen','+', z.lohn,'var(--green)')}
+      ${z.fixKosten>0 ? row('Fixkosten','−', z.fixKosten,'var(--text2)') : ''}
+      ${z.mSparziel>0 ? row('Sparziel','−', z.mSparziel,'var(--accent)') : ''}
+      ${z.prevCarryover!==0 ? row('Übertrag Vorperiode', z.prevCarryover>=0?'+':'−', Math.abs(z.prevCarryover), z.prevCarryover>=0?'var(--green)':'var(--red)') : ''}
+      <div style="border-top:1px solid var(--border);margin:4px 0"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-size:12px">
+        <span style="color:var(--text2);font-weight:600">= Variables Budget</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:600;color:${z.varBudget<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span>
+      </div>
+      ${row('Ausgegeben (variabel)','−', z.varSpent,'var(--red)')}
     </div>
-    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
+
+    <!-- Progress bar -->
+    <div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
       <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
-      <span>Variabel: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varSpent)}</span></span>
-      <span>Budget: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varBudget)}</span></span>
+
+    <!-- Result: Verbleibend + Tagesrate -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div>
+        <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:${remColor}">${z.varRemaining<0?'− ':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</div>
+        <div style="font-size:11px;color:var(--text3)">${z.varRemaining<0?'überzogen':'verbleibend'} · ${pct}% verbraucht</div>
+      </div>
+      ${z.daysLeft>0?`<div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:${rateVal>0?'var(--accent)':'var(--red)'}">${curr()} ${fmtAmt(rateVal)}/Tag</div>
+        <div style="font-size:11px;color:var(--text3)">${z.daysLeft} Tage noch</div>
+      </div>`:''}
     </div>
-    ${z.dailyRate!==null?`<div style="margin-top:6px;font-size:12px;color:var(--text3)">Tagesrate: ${z.daysLeft>0&&z.varRemaining>0
-      ?`<span style="color:var(--accent);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.varRemaining/z.daysLeft)}/Tag</span> (${z.daysLeft} Tage verbleibend)`
-      :`<span style="color:var(--red);font-weight:600">Budget aufgebraucht</span>`}</div>`:''}
   </div>`;
 }
 
@@ -1475,11 +1510,18 @@ function renderWidgetHeuteAusgaben(){
   if(dailyBudget!==null){
     const remaining = dailyBudget - todayVar;
     const remainingDisplay = remaining >= 0
-      ? `noch <span class="t-mono">${curr()} ${fmtAmt(remaining)}</span>`
-      : `− <span class="t-mono">${curr()} ${fmtAmt(Math.abs(remaining))}</span> überzogen`;
-    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap">
-      <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
-      <span style="color:${remaining>=0?'var(--green)':'var(--red)'}">${remainingDisplay}</span>
+      ? `noch <span class="t-mono" style="color:var(--green)">${curr()} ${fmtAmt(remaining)}</span>`
+      : `<span class="t-mono" style="color:var(--red)">− ${curr()} ${fmtAmt(Math.abs(remaining))}</span> überzogen`;
+    // Show where the daily budget comes from: varRemaining ÷ daysLeft
+    const sourceHint = z.daysLeft>0
+      ? `<span style="color:var(--text3);font-size:10px">(${curr()} ${fmtAmt(z.varRemaining)} ÷ ${z.daysLeft} Tage)</span>`
+      : '';
+    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+        <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
+        ${sourceHint}
+      </div>
+      <div style="color:${remaining>=0?'var(--green)':'var(--red)'}">${remainingDisplay} heute</div>
     </div>`;
   } else { html += `<div style="height:6px"></div>`; }
 
@@ -1517,6 +1559,47 @@ function renderWidgetSparquote(){
 }
 
 function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
+
+// ── Widget: Einnahmen & Budget (Lohn-Panel für Home) ────────────────────────
+// Zeigt alle Einnahmen im aktuellen Lohnzyklus + Budgetformel.
+// Ersetzt das fehlende Lohn/Einnahmen-Panel auf der Startseite.
+function renderWidgetEinnahmenPanel(){
+  const z = getZyklusInfo();
+  const cycleInc = DATA.incomes
+    .filter(e=>e.date>=z.startStr&&e.date<=z.endStr)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
+  const incRows = cycleInc.length
+    ? cycleInc.map(e=>`
+      <div onclick="event.stopPropagation();openEditModal('${e.id}','einnahme')" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <div>
+          <div style="font-size:13px;font-weight:500">${esc(e.what)}${e.isLohn?` <span style="font-size:10px;background:rgba(200,245,60,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:600">Lohn</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text3)">${fmtDate(e.date)} · ${esc(e.cat)}</div>
+        </div>
+        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--green)">+${fmtAmt(e.amt)}</span>
+      </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text3);padding:8px 0">Noch keine Einnahmen in diesem Zyklus.</div>`;
+
+  const lohnTotal = cycleInc.reduce((s,e)=>s+e.amt,0);
+
+  return `<div>
+    <div class="widget-title">Einnahmen im Zyklus</div>
+    <div style="margin-bottom:10px">${incRows}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:600;color:var(--text2)">Total Einnahmen</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(lohnTotal)}</span>
+    </div>
+    ${z.hasSalary?`
+    <div style="font-size:11px;color:var(--text3);background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      ${lohnTotal>0?`${curr()} ${fmtAmt(lohnTotal)}`:'Einnahmen'}
+      ${z.fixKosten>0?` − ${curr()} ${fmtAmt(z.fixKosten)} Fixkosten`:''}
+      ${z.mSparziel>0?` − ${curr()} ${fmtAmt(z.mSparziel)} Sparziel`:''}
+      ${z.prevCarryover!==0?` ${z.prevCarryover>0?'+':'−'} ${curr()} ${fmtAmt(Math.abs(z.prevCarryover))} Übertrag`:''}
+      <strong style="color:var(--text)"> = ${curr()} ${fmtAmt(z.varBudget)} Budget</strong>
+    </div>`:''}
+    <button onclick="event.stopPropagation();setType('einnahme');goTab('eingabe')" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--accent);background:rgba(var(--accent-rgb,100,220,120),.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Einnahme erfassen</button>
+  </div>`;
+}
 
 function renderWidgetMonatSummary(mo, yr){
   const now = new Date();
