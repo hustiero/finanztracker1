@@ -390,10 +390,18 @@ function _calcVarSpent(startStr, endStr){
 // Invalidated automatically when data lengths or config changes.
 let _zyklusCache = null, _zykulsCacheKey = null;
 
+// Expose cache invalidation so ui.js toggle handlers can call it directly.
+function invalidateZyklusCache(){ _zyklusCache = null; _zykulsCacheKey = null; }
+
 function getZyklusInfo(){
-  // Key: today + lohnTag + income count + expense count + sparziel config
+  // Budget formula toggles (default true for backward-compat if not yet saved)
+  const inclCarryover = CFG.budgetInclCarryover !== false;
+  const inclSparziel  = CFG.budgetInclSparziel  !== false;
+
+  // Key: today + lohnTag + data lengths + config that affects the result
   const key = today()+'|'+(CFG.lohnTag||25)+'|'+DATA.incomes.length+'|'+DATA.expenses.length
-             +'|'+(CFG.mSparziel||0)+'|'+DATA.sparziele.length;
+             +'|'+(CFG.mSparziel||0)+'|'+DATA.sparziele.length
+             +'|'+(inclCarryover?1:0)+'|'+(inclSparziel?1:0);
   if(_zyklusCache && _zykulsCacheKey===key) return _zyklusCache;
 
   const {start,end} = getCycleRange();
@@ -407,33 +415,54 @@ function getZyklusInfo(){
   // for a future date immediately reduces the daily rate.
   const fixKosten = _calcFixKosten(startStr, endStr, false);
 
-  // Previous cycle carryover
+  // Previous cycle dates & full breakdown (always computed for transparency display)
   const prevEnd   = new Date(start.getTime()-86400000);
   const prevStart = prevEnd.getDate()>=lt
     ? new Date(prevEnd.getFullYear(),prevEnd.getMonth(),lt)
     : new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,lt);
-  const prevStartStr = dateStr(prevStart), prevEndStr = dateStr(prevEnd);
-  const prevLohn     = _calcLohnInRange(prevStartStr, prevEndStr);
-  const prevFixKosten= _calcFixKosten(prevStartStr, prevEndStr, true);
-  const prevVarSpent = _calcVarSpent(prevStartStr, prevEndStr);
-  const prevCarryover= prevLohn>0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
+  const prevStartStr  = dateStr(prevStart), prevEndStr = dateStr(prevEnd);
+  const prevLohn      = _calcLohnInRange(prevStartStr, prevEndStr);
+  const prevFixKosten = _calcFixKosten(prevStartStr, prevEndStr, true);
+  const prevVarSpent  = _calcVarSpent(prevStartStr, prevEndStr);
+  // Raw carryover always calculated; only applied to budget when toggle is on
+  const prevCarryoverRaw = prevLohn > 0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
+  const prevCarryover    = inclCarryover ? prevCarryoverRaw : 0;
 
   // Savings target: dynamic Sparziele total or static CFG.mSparziel
-  const sparMonthly = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0)
+  const sparMonthly  = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0)
     ? sparTotalMonthly() : 0;
-  const mSparziel = sparMonthly > 0 ? sparMonthly : (CFG.mSparziel||0);
+  const mSparzielRaw = sparMonthly > 0 ? sparMonthly : (CFG.mSparziel||0);
+  const mSparziel    = inclSparziel ? mSparzielRaw : 0;
 
-  const cycleDays   = Math.round((end-start)/86400000)+1;
-  const daysElapsed = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
-  const daysLeft    = cycleDays - daysElapsed;
-  const varBudget   = lohn - fixKosten + prevCarryover - mSparziel;
-  const varSpent    = _calcVarSpent(startStr, endStr);
-  const varRemaining= varBudget - varSpent;
-  const dailyRate   = daysLeft>0 ? varRemaining/daysLeft : null;
+  // Days: cycleDays = total days in cycle; daysElapsed includes today;
+  // daysLeft = days from TOMORROW to end (what dailyRate divides by).
+  const cycleDays    = Math.round((end-start)/86400000)+1;
+  const daysElapsed  = Math.min(Math.round((now-start)/86400000)+1, cycleDays);
+  const daysLeft     = cycleDays - daysElapsed;
+  // First remaining day is tomorrow — used for display only
+  const daysLeftStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
 
-  _zyklusCache = {start,end,startStr,endStr,lohn,fixKosten,varBudget,
-    cycleDays,daysElapsed,daysLeft,varSpent,varRemaining,dailyRate,
-    hasSalary:lohn>0,prevCarryover,mSparziel};
+  const varBudget    = lohn - fixKosten + prevCarryover - mSparziel;
+  const varSpent     = _calcVarSpent(startStr, endStr);
+  const varRemaining = varBudget - varSpent;
+  const dailyRate    = daysLeft > 0 ? varRemaining / daysLeft : null;
+
+  _zyklusCache = {
+    // Current cycle
+    start, end, startStr, endStr,
+    lohn, fixKosten, varBudget,
+    cycleDays, daysElapsed, daysLeft, daysLeftStart,
+    varSpent, varRemaining, dailyRate,
+    hasSalary: lohn > 0,
+    // Carryover — raw value always available for detail view
+    prevCarryover, prevCarryoverRaw,
+    prevStart, prevEnd, prevStartStr, prevEndStr,
+    prevLohn, prevFixKosten, prevVarSpent,
+    // Savings target — raw always available
+    mSparziel, mSparzielRaw,
+    // Toggle state (consumed by widgets)
+    inclCarryover, inclSparziel,
+  };
   _zykulsCacheKey = key;
   return _zyklusCache;
 }

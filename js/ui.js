@@ -525,32 +525,81 @@ function renderLohn(){
     const cycleInc = DATA.incomes.filter(e=>e.date>=z.startStr&&e.date<=z.endStr).sort((a,b)=>a.date.localeCompare(b.date));
     const cycleExp = DATA.expenses.filter(e=>e.date>=z.startStr&&e.date<=z.endStr).sort((a,b)=>a.date.localeCompare(b.date));
     const cycleAll = [...cycleInc.map(e=>({...e,_type:'inc'})),...cycleExp.map(e=>({...e,_type:'exp'}))].sort((a,b)=>a.date.localeCompare(b.date));
+    // Helper for exact day-range label
+    const fmtD = s => s ? s.slice(8)+'.'+s.slice(5,7)+'.' : '';
+    const prevLbl = `${fmtD(z.prevStartStr)}–${fmtD(z.prevEndStr)}`;
+    const dls = z.daysLeftStart;
+    const daysRangeLabel = z.daysLeft>0
+      ? `${dls.getDate()}.${String(dls.getMonth()+1).padStart(2,'0')}.–${fmtD(z.endStr)} (${z.daysLeft} Tage ab morgen)`
+      : `Letzter Tag`;
+
+    // Toggle chip helper (inline HTML string)
+    const chip = (label, active, fn) =>
+      `<button onclick="${fn}()" style="font-size:11px;padding:3px 10px;border-radius:12px;cursor:pointer;
+         background:${active?'rgba(var(--accent-rgb,100,220,120),.12)':'var(--bg3)'};
+         border:1px solid ${active?'var(--accent)':'var(--border)'};
+         color:${active?'var(--accent)':'var(--text2)'};"
+       title="${active?'Klick: ausschliessen':'Klick: einbeziehen'}">${active?'✓ ':'+ '}${label}</button>`;
+
     zSec.innerHTML = `
     <div class="section pt-0">
       <div class="section-title">Lohnzyklus</div>
       <div class="zy-card">
         <div class="zy-header">
           <div class="zy-title">${z.start.getDate()}. ${mNames[z.start.getMonth()]} – ${z.end.getDate()}. ${mNames[z.end.getMonth()]} ${z.end.getFullYear()}</div>
-          <div class="zy-period">${z.daysElapsed} / ${z.cycleDays} Tage</div>
+          <div class="zy-period">Tag ${z.daysElapsed} / ${z.cycleDays}</div>
         </div>
         <div class="zy-body">
           ${z.hasSalary ? `
-          <div class="zy-row"><span class="zy-row-label">Lohn</span><span class="zy-row-val" style="color:var(--green)">+ ${curr()} ${fmtAmt(z.lohn)}</span></div>
-          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">Fixkosten</span><span class="zy-row-val t-text2">− ${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
-          ${z.prevCarryover!==0?`<div class="zy-row"><span class="zy-row-label">Übertrag Vorperiode</span><span class="zy-row-val" style="color:${z.prevCarryover>=0?'var(--green)':'var(--red)'}">${z.prevCarryover>=0?'+ ':'− '}${curr()} ${fmtAmt(Math.abs(z.prevCarryover))}</span></div>`:''}
-          ${z.mSparziel>0?`<div class="zy-row"><span class="zy-row-label">Sparziel</span><span class="zy-row-val t-accent">− ${curr()} ${fmtAmt(z.mSparziel)}</span></div>`:''}
+          <div class="zy-row"><span class="zy-row-label">+ Lohn / Einnahmen</span><span class="zy-row-val" style="color:var(--green)">${curr()} ${fmtAmt(z.lohn)}</span></div>
+          ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">− Fixkosten</span><span class="zy-row-val t-text2">${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
+
+          <!-- Sparziel with toggle -->
+          <div class="zy-row" style="align-items:center;gap:6px">
+            <span class="zy-row-label" style="display:flex;align-items:center;gap:6px">
+              ${chip('Sparziel', z.inclSparziel, 'toggleBudgetSparziel')}
+              ${z.inclSparziel && z.mSparzielRaw>0 ? '− Sparziel' : ''}
+            </span>
+            <span class="zy-row-val" style="color:var(--accent)">
+              ${z.inclSparziel && z.mSparzielRaw>0 ? `${curr()} ${fmtAmt(z.mSparzielRaw)}` : '<span style="font-size:11px;color:var(--text3);font-style:italic">nicht einbezogen</span>'}
+            </span>
+          </div>
+
+          <!-- Übertrag with toggle + detail -->
+          <div class="zy-row" style="align-items:center;gap:6px">
+            <span class="zy-row-label" style="display:flex;align-items:center;gap:6px">
+              ${chip('Übertrag', z.inclCarryover, 'toggleBudgetCarryover')}
+              ${z.inclCarryover && z.prevCarryoverRaw!==0 ? (z.prevCarryoverRaw>=0?'+ Übertrag':'− Übertrag') : ''}
+            </span>
+            <span class="zy-row-val" style="color:${z.prevCarryoverRaw>=0?'var(--green)':'var(--red)'}">
+              ${z.inclCarryover && z.prevCarryoverRaw!==0 ? `${curr()} ${fmtAmt(Math.abs(z.prevCarryoverRaw))}` : '<span style="font-size:11px;color:var(--text3);font-style:italic">' + (z.inclCarryover?'Vorperiode: 0':'nicht einbezogen') + '</span>'}
+            </span>
+          </div>
+          ${z.inclCarryover && z.prevCarryoverRaw!==0 ? `
+          <div style="font-size:11px;color:var(--text3);background:var(--bg2);border-radius:8px;padding:8px 10px;margin:4px 0 4px 0;line-height:1.8">
+            <div style="font-weight:600;color:var(--text2);margin-bottom:2px">Vorperiode ${prevLbl}:</div>
+            <div style="display:flex;justify-content:space-between"><span>+ Lohn / Einnahmen</span><span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevLohn)}</span></div>
+            <div style="display:flex;justify-content:space-between"><span>− Fixkosten</span><span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevFixKosten)}</span></div>
+            <div style="display:flex;justify-content:space-between"><span>− Variabel ausgegeben</span><span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevVarSpent)}</span></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:3px;padding-top:3px;font-weight:600">
+              <span>= Übertrag</span>
+              <span style="font-family:'DM Mono',monospace;color:${z.prevCarryoverRaw>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(z.prevCarryoverRaw)}</span>
+            </div>
+          </div>` : ''}
+
           <div class="zy-divider"></div>
-          <div class="zy-row bold"><span class="zy-row-label">Frei verfügbar</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span></div>
-          <div class="zy-row"><span class="zy-row-label">Ausgegeben (variabel)</span><span class="zy-row-val t-red">− ${curr()} ${fmtAmt(z.varSpent)}</span></div>
-          <div class="zy-row bold"><span class="zy-row-label">Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(z.varRemaining)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">= Variables Budget</span><span class="zy-row-val">${z.varBudget>=0?'':'− '}${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span></div>
+          <div class="zy-row"><span class="zy-row-label">− Ausgegeben (variabel)</span><span class="zy-row-val t-red">${curr()} ${fmtAmt(z.varSpent)}</span></div>
+          <div class="zy-row bold"><span class="zy-row-label">= Verbleibend</span><span class="zy-row-val" style="color:${z.varRemaining>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</span></div>
           <div class="zy-prog-wrap"><div class="zy-prog-fill" style="width:${budgetPct.toFixed(1)}%;background:${progColor}"></div></div>
-          <div class="zy-prog-labels"><span>${budgetPct.toFixed(0)}% des Budgets verbraucht</span><span>${z.daysLeft} Tage verbleibend</span></div>
+          <div class="zy-prog-labels"><span>${budgetPct.toFixed(0)}% verbraucht</span><span>${daysRangeLabel}</span></div>
           ${z.dailyRate!==null?`
           <div class="zy-rate-wrap">
-            <div style="display:flex;align-items:baseline;gap:8px">
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
               <span class="zy-rate" style="color:${rateColor}">${curr()} ${fmtAmt(Math.abs(z.dailyRate))}</span>
               <span style="font-size:13px;color:var(--text2)">/ Tag ${z.dailyRate>=0?'verfügbar':'überzogen'}</span>
             </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">÷ ${z.daysLeft} Tage (${daysRangeLabel})</div>
           </div>`:''}
           ` : `
           <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 12px">
@@ -719,6 +768,23 @@ function saveLohnTag(){
   cfgSave();
   toast('✓ Gespeichert','ok');
   renderDashboard();
+}
+
+// Budget formula toggles — called from Lohnzyklus widget buttons.
+// event.stopPropagation() must be called at the call site (onclick in widget HTML).
+function toggleBudgetCarryover(){
+  CFG.budgetInclCarryover = CFG.budgetInclCarryover === false ? true : false;
+  cfgSave();
+  invalidateZyklusCache();
+  renderHome();
+  renderLohn();
+}
+function toggleBudgetSparziel(){
+  CFG.budgetInclSparziel = CFG.budgetInclSparziel === false ? true : false;
+  cfgSave();
+  invalidateZyklusCache();
+  renderHome();
+  renderLohn();
 }
 
 async function toggleFixkosten(id){

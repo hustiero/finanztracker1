@@ -1277,8 +1277,9 @@ function renderWidgetVerlaufZeitraum(){
 
 function renderWidgetLohnzyklus(){
   const z = getZyklusInfo();
-  const startLabel = z.startStr.slice(8)+'.'+z.startStr.slice(5,7)+'.';
-  const endLabel   = z.endStr.slice(8)+'.'+z.endStr.slice(5,7)+'.';
+  const fmt = s => s.slice(8)+'.'+s.slice(5,7)+'.';
+  const startLabel = fmt(z.startStr), endLabel = fmt(z.endStr);
+
   if(!z.hasSalary){
     return `<div>
       <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
@@ -1289,31 +1290,86 @@ function renderWidgetLohnzyklus(){
       <button onclick="event.stopPropagation();setType('einnahme');goTab('eingabe')" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--accent);background:rgba(var(--accent-rgb,100,220,120),.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Einnahme erfassen</button>
     </div>`;
   }
-  const pct = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
+
+  const pct      = z.varBudget>0 ? Math.min(100,Math.round(z.varSpent/z.varBudget*100)) : 0;
   const barColor = pct>=90?'var(--red)':pct>=70?'var(--yellow)':'var(--accent)';
   const remColor = z.varRemaining<0?'var(--red)':'var(--green)';
-  const rateVal  = z.daysLeft>0 && z.varRemaining>0 ? z.varRemaining/z.daysLeft : 0;
-  // Formula rows: compact 2-col layout
+  const rateVal  = z.daysLeft>0 ? z.varRemaining/z.daysLeft : 0;
+
+  // Helper: plain formula row
   const row = (label, sign, val, color) =>
     `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-size:12px">
       <span style="color:var(--text3)">${sign} ${label}</span>
       <span style="font-family:'DM Mono',monospace;color:${color}">${curr()} ${fmtAmt(val)}</span>
     </div>`;
-  return `<div>
-    <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span></div>
 
-    <!-- Budget formula -->
-    <div style="margin-bottom:8px">
-      ${row('Lohn / Einnahmen','+', z.lohn,'var(--green)')}
-      ${z.fixKosten>0 ? row('Fixkosten','−', z.fixKosten,'var(--text2)') : ''}
-      ${z.mSparziel>0 ? row('Sparziel','−', z.mSparziel,'var(--accent)') : ''}
-      ${z.prevCarryover!==0 ? row('Übertrag Vorperiode', z.prevCarryover>=0?'+':'−', Math.abs(z.prevCarryover), z.prevCarryover>=0?'var(--green)':'var(--red)') : ''}
+  // Toggle chip: shows active/inactive state, stops propagation
+  const chip = (label, active, fn) =>
+    `<button onclick="event.stopPropagation();${fn}()"
+      style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;
+             background:${active?'rgba(var(--accent-rgb,100,220,120),.15)':'var(--bg3)'};
+             border:1px solid ${active?'var(--accent)':'var(--border)'};
+             color:${active?'var(--accent)':'var(--text3)'};"
+      title="${active?'Klick: ausschliessen':'Klick: einbeziehen'}">${active?'✓ ':'+ '}${label}</button>`;
+
+  // Übertrag: show prev-cycle breakdown inline when it's toggled on and non-zero
+  const prevLbl = `${fmt(z.prevStartStr)}–${fmt(z.prevEndStr)}`;
+  const carryoverDetail = z.inclCarryover && z.prevCarryoverRaw !== 0
+    ? `<div style="font-size:10px;color:var(--text3);background:var(--bg2);border-radius:6px;padding:5px 8px;margin:2px 0 2px 8px;line-height:1.6">
+        Vorperiode ${prevLbl}<br>
+        + Lohn <span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevLohn)}</span>
+        − Fixkosten <span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevFixKosten)}</span>
+        − Variabel <span style="font-family:'DM Mono',monospace">${curr()} ${fmtAmt(z.prevVarSpent)}</span>
+        = <strong style="color:${z.prevCarryoverRaw>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(z.prevCarryoverRaw)}</strong>
+      </div>` : '';
+
+  // Exact day range label for the division: "ab morgen (X Tage: TT.MM. – TT.MM.)"
+  const daysLeftStart = z.daysLeftStart;
+  const daysLeftLabel = z.daysLeft > 0
+    ? `÷ ${z.daysLeft} Tage (${daysLeftStart.getDate()}.${String(daysLeftStart.getMonth()+1).padStart(2,'0')}.–${fmt(z.endStr)})`
+    : `letzter Tag`;
+
+  return `<div>
+    <div class="widget-title">Lohnzyklus <span style="font-weight:400;color:var(--text3)">${startLabel}–${endLabel}</span>
+      <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">Tag ${z.daysElapsed}/${z.cycleDays}</span>
+    </div>
+
+    <!-- Formula -->
+    <div style="margin-bottom:6px">
+      ${row('Lohn / Einnahmen', '+', z.lohn, 'var(--green)')}
+      ${z.fixKosten>0 ? row('Fixkosten', '−', z.fixKosten, 'var(--text2)') : ''}
+
+      <!-- Sparziel row with toggle -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
+        <span style="display:flex;align-items:center;gap:4px;color:var(--text3)">
+          ${chip('Sparziel', z.inclSparziel, 'toggleBudgetSparziel')}
+          ${z.inclSparziel && z.mSparzielRaw>0 ? `<span style="color:var(--text3)">− Sparziel</span>` : ''}
+        </span>
+        ${z.inclSparziel && z.mSparzielRaw>0
+          ? `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(z.mSparzielRaw)}</span>`
+          : `<span style="font-size:10px;color:var(--text3);font-style:italic">nicht einbezogen</span>`}
+      </div>
+
+      <!-- Carryover row with toggle + detail -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
+        <span style="display:flex;align-items:center;gap:4px;color:var(--text3)">
+          ${chip('Übertrag', z.inclCarryover, 'toggleBudgetCarryover')}
+          ${z.inclCarryover && z.prevCarryoverRaw!==0
+            ? `<span style="color:var(--text3)">${z.prevCarryoverRaw>=0?'+ Übertrag':'− Übertrag'}</span>`
+            : ''}
+        </span>
+        ${z.inclCarryover && z.prevCarryoverRaw!==0
+          ? `<span style="font-family:'DM Mono',monospace;color:${z.prevCarryoverRaw>=0?'var(--green)':'var(--red)'}">${curr()} ${fmtAmt(Math.abs(z.prevCarryoverRaw))}</span>`
+          : `<span style="font-size:10px;color:var(--text3);font-style:italic">${z.inclCarryover?'Vorperiode: 0':'nicht einbezogen'}</span>`}
+      </div>
+      ${carryoverDetail}
+
       <div style="border-top:1px solid var(--border);margin:4px 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-size:12px">
         <span style="color:var(--text2);font-weight:600">= Variables Budget</span>
         <span style="font-family:'DM Mono',monospace;font-weight:600;color:${z.varBudget<0?'var(--red)':'var(--text)'}">${curr()} ${fmtAmt(Math.abs(z.varBudget))}</span>
       </div>
-      ${row('Ausgegeben (variabel)','−', z.varSpent,'var(--red)')}
+      ${row('Ausgegeben (variabel)', '−', z.varSpent, 'var(--red)')}
     </div>
 
     <!-- Progress bar -->
@@ -1324,13 +1380,15 @@ function renderWidgetLohnzyklus(){
     <!-- Result: Verbleibend + Tagesrate -->
     <div style="display:flex;justify-content:space-between;align-items:flex-end">
       <div>
-        <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:${remColor}">${z.varRemaining<0?'− ':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</div>
+        <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:${remColor}">${z.varRemaining<0?'−\u00a0':''}${curr()} ${fmtAmt(Math.abs(z.varRemaining))}</div>
         <div style="font-size:11px;color:var(--text3)">${z.varRemaining<0?'überzogen':'verbleibend'} · ${pct}% verbraucht</div>
       </div>
-      ${z.daysLeft>0?`<div style="text-align:right">
-        <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:${rateVal>0?'var(--accent)':'var(--red)'}">${curr()} ${fmtAmt(rateVal)}/Tag</div>
-        <div style="font-size:11px;color:var(--text3)">${z.daysLeft} Tage noch</div>
-      </div>`:''}
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:${rateVal>0?'var(--accent)':'var(--red)'}">
+          ${z.daysLeft>0 ? `${curr()} ${fmtAmt(Math.abs(rateVal))}/Tag` : 'letzter Tag'}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:1px">${daysLeftLabel}</div>
+      </div>
     </div>
   </div>`;
 }
