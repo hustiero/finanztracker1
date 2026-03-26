@@ -55,6 +55,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
     launchApp();
     // Fetch the latest admin URL from the sheet and apply for all users automatically
     _fetchAndApplyAppConfig();
+    // Refresh role from server — self-heals accidental role changes or stale local state
+    _refreshRoleFromServer();
   } else if(CFG.adminUrl){
     // Admin-URL bekannt, aber keine Session → Login anzeigen
     gotoSetupStep(2);
@@ -156,6 +158,30 @@ async function _fetchAndApplyAppConfig(){
       cfgSave();
     }
   }catch(e){ /* silent — don't disrupt the user */ }
+}
+
+/**
+ * Refresh CFG.authRole from the server on startup.
+ * Fixes cases where the local role is stale (e.g. after accidental self-demotion
+ * or session expiry + re-login with changed sheet role).
+ * Requires the get_me action in the GAS (added in admin-code.gs).
+ */
+async function _refreshRoleFromServer(){
+  if(!CFG.sessionToken || !CFG.adminUrl) return;
+  try{
+    const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'get_me', token:CFG.sessionToken}));
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.error || !d.role) return;
+    if(d.role !== CFG.authRole){
+      CFG.authRole = d.role;
+      cfgSave();
+      // Re-render settings if currently open, so admin link appears/disappears
+      if(currentTab === 'einstellungen') renderEinstellungen();
+      // If we just gained admin role, also init the admin tab if it's open
+      if(currentTab === 'admin' && d.role === 'admin') renderAdmin();
+    }
+  }catch(e){ /* silent — get_me may not exist on older GAS deployments */ }
 }
 
 function resetLoginForm(){

@@ -187,6 +187,7 @@ function _handle(p) {
   const user = _getUser(ss, session.username);
   if (!user) return { error: 'Benutzer nicht gefunden.' };
   if (p.action === 'logout')       return _logout(ss, p.token);
+  if (p.action === 'get_me')       return { username: user.username, role: user.role };
   if (p.action === 'get')          return _proxyGet(user.sheetId, p);
   if (p.action === 'append')       return _proxyAppend(user.sheetId, p);
   if (p.action === 'update')       return _proxyUpdate(user.sheetId, p);
