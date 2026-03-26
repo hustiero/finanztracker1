@@ -22,6 +22,7 @@ function _handle(p) {
   const user = _getUser(ss, session.username);
   if (!user) return { error: 'Benutzer nicht gefunden.' };
   if (p.action === 'logout')       return _logout(ss, p.token);
+  if (p.action === 'get_me')       return { username: user.username, role: user.role };
   if (p.action === 'get')          return _proxyGet(user.sheetId, p);
   if (p.action === 'append')       return _proxyAppend(user.sheetId, p);
   if (p.action === 'update')       return _proxyUpdate(user.sheetId, p);
@@ -223,7 +224,7 @@ function _groupsGet(ss, p) {
     var lastRow = sh.getLastRow();
     if (lastRow < 1) return { values: [] };
     // Parse range: A2:L5000 or A:A or A:L
-    var match = rangePart.match(/([A-Z]+)(\\d+):([A-Z]+)(\\d+)/);
+    var match = rangePart.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
     if (match) {
       var startRow = parseInt(match[2]);
       var endRow = Math.min(parseInt(match[4]), lastRow);
