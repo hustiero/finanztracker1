@@ -289,7 +289,7 @@ setInterval(processQueue, 5000);
 // ── Admin URL ────────────────────────────────────────────────
 // Set this once. All users pick it up automatically — no manual URL entry needed.
 // When the Google Apps Script URL changes, update only this constant.
-const ADMIN_URL = '';
+const ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzTQxteXTVipuf6iN4A-ekztfThxD2roR8htdLVUeC1CNGQZF3OLcG8usQDv4TH_7NwPQ/exec';
 
 const CFG_KEY = 'ft_v4';
 let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null,
