@@ -1278,7 +1278,14 @@ function renderSparen(){
   const totalTarget = goals.filter(g=>!g.open).reduce((s,g)=>s+g.target,0);
   const monthlyMin = sparTotalMonthly();
 
+  const _pigSvg = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2"/><path d="M2 9.1C1.8 6.6 3.1 4.7 5.3 4"/></svg>`;
   let html = '';
+
+  // Page header
+  html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 16px 4px">
+    ${_pigSvg}
+    <span style="font-size:18px;font-weight:700;letter-spacing:-.3px">Sparen &amp; Planen</span>
+  </div>`;
 
   // Summary card
   html += `<div class="section">
@@ -1567,8 +1574,9 @@ function closeGenericModal(){
 // Widget: Sparziele overview for Home
 function renderWidgetSparzieleOverview(){
   const goals = getSparzieleNonTax().slice(0,3);
-  if(goals.length===0) return '<div style="font-size:13px;color:var(--text3);padding:8px 0">Keine Sparziele erfasst</div>';
-  let html = '';
+  const pigSvg = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2"/><path d="M2 9.1C1.8 6.6 3.1 4.7 5.3 4"/></svg>`;
+  let html = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px"><span class="widget-title mb-0">${pigSvg} Sparziele</span></div>`;
+  if(goals.length===0) return html+'<div style="font-size:13px;color:var(--text3);padding:4px 0">Keine Sparziele erfasst</div>';
   goals.forEach(g=>{
     const pct = sparGoalPct(g);
     const done = !g.open && pct>=100;

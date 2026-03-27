@@ -245,7 +245,7 @@ function renderAll(){
   renderCategories();
   renderRecurring();
   renderDashboard();
-  if(currentTab==='sparen') renderSparen();
+  renderSparen();
   if(currentTab==='groups') renderGroups();
   renderLohn();
   updatePageSub();
