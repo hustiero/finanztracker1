@@ -293,14 +293,87 @@ function checkDueRecurrings(){
   updateNotifBadge();
 }
 
+// ─── Dauerauftrag renewal notifications ──────────────────────────────────────
+// One confirmation notification per active Dauerauftrag per cycle.
+// Created at cycle start; "Bestätigen" = keep in Fixkosten, "Ausschliessen" = skip.
+
+let _renewalCheckedCycle = null;
+
+function checkCycleRenewals(){
+  if(!notifOn('recurringRenewal')) return;
+  const z = getZyklusInfo();
+  const cycleStart = z.startStr;
+  // Only run once per cycle (resets when cycleStart changes)
+  if(_renewalCheckedCycle === cycleStart) return;
+  _renewalCheckedCycle = cycleStart;
+
+  if(!CFG.notifications) CFG.notifications = [];
+  if(!DATA.recurring.length) return;
+
+  // Get all unique Ausgaben-Daueraufträge that have an occurrence in this cycle
+  const occs = getRecurringOccurrences(z.startStr, z.endStr, false, false);
+  const seen = new Set();
+  occs.forEach(o => {
+    if(seen.has(o._recurId)) return;
+    seen.add(o._recurId);
+    const r = DATA.recurring.find(r => r.id === o._recurId);
+    if(!r || !r.active || r.type === 'einnahme') return;
+    const notifId = `renewal-${r.id}-${cycleStart}`;
+    if(CFG.notifications.find(n => n.id === notifId)) return;
+    CFG.notifications.push({
+      id: notifId,
+      type: 'dauerauftrag_renewal',
+      recurId: r.id,
+      cycleStart,
+      date: cycleStart,
+      title: r.what,
+      body: `${curr()} ${fmtAmt(r.amt)} · ${r.interval||'monatlich'} · ${r.cat}`,
+      dismissed: false,
+      confirmed: false,
+    });
+  });
+  cfgSave();
+  updateNotifBadge();
+}
+
+function confirmRecurringRenewal(notifId){
+  const n = (CFG.notifications||[]).find(n => n.id === notifId);
+  if(!n) return;
+  n.dismissed = true;
+  n.confirmed = true;
+  cfgSave();
+  renderNotifications();
+  updateNotifBadge();
+  toast(`✓ ${esc(n.title)} — im Budget einbezogen`, 'ok');
+}
+
+function skipRecurringRenewal(notifId){
+  const n = (CFG.notifications||[]).find(n => n.id === notifId);
+  if(!n) return;
+  n.dismissed = true;
+  // Record the skip so _calcFixKosten excludes this recurring for this cycle
+  if(!CFG.recurringSkips) CFG.recurringSkips = {};
+  const arr = CFG.recurringSkips[n.recurId] || [];
+  if(!arr.includes(n.cycleStart)) arr.push(n.cycleStart);
+  CFG.recurringSkips[n.recurId] = arr;
+  cfgSave();
+  invalidateZyklusCache();
+  renderHome();
+  renderLohn();
+  renderNotifications();
+  updateNotifBadge();
+  toast(`${esc(n.title)} für diesen Zyklus ausgeschlossen`, '');
+}
+
 const NOTIF_TYPES = [
-  { key:'dailyReport',   label:'Tagesreport',           sub:'Ausgaben-Zusammenfassung des heutigen Tages', def:true },
-  { key:'overspend',     label:'Überbudget-Warnung',     sub:'Wenn Lohnzyklus-Budget überschritten wird', def:true },
-  { key:'monthEnd',      label:'Monatsabschluss',        sub:'Rapport am ersten des Monats', def:true },
-  { key:'cycleStart',    label:'Lohnzyklus gestartet',   sub:'Bei erkanntem Lohneingang im Zyklus', def:true },
-  { key:'budgetWarning', label:'Budget 80% erreicht',    sub:'Frühwarnung im laufenden Lohnzyklus', def:true },
-  { key:'bigExpense',    label:'Grosse Ausgabe',         sub:'Bei Einzelbuchung über CHF 200', def:false },
-  { key:'weeklyReport',  label:'Wochenrückblick',        sub:'Zusammenfassung jeden Sonntag', def:false },
+  { key:'dailyReport',       label:'Tagesreport',                sub:'Ausgaben-Zusammenfassung des heutigen Tages', def:true },
+  { key:'overspend',         label:'Überbudget-Warnung',         sub:'Wenn Lohnzyklus-Budget überschritten wird', def:true },
+  { key:'monthEnd',          label:'Monatsabschluss',            sub:'Rapport am ersten des Monats', def:true },
+  { key:'cycleStart',        label:'Lohnzyklus gestartet',       sub:'Bei erkanntem Lohneingang im Zyklus', def:true },
+  { key:'budgetWarning',     label:'Budget 80% erreicht',        sub:'Frühwarnung im laufenden Lohnzyklus', def:true },
+  { key:'bigExpense',        label:'Grosse Ausgabe',             sub:'Bei Einzelbuchung über CHF 200', def:false },
+  { key:'weeklyReport',      label:'Wochenrückblick',            sub:'Zusammenfassung jeden Sonntag', def:false },
+  { key:'recurringRenewal',  label:'Dauerauftrag-Erneuerung',    sub:'Bestätigung aktiver Daueraufträge bei jedem neuen Lohnzyklus', def:true },
 ];
 
 function notifOn(key){ const ns=CFG.notifSettings||{}; const t=NOTIF_TYPES.find(x=>x.key===key); return ns[key]===undefined ? (t?t.def:true) : ns[key]; }
@@ -381,7 +454,7 @@ function toggleNotifSetting(key){
 function updateNotifBadge(){
   const badge = document.getElementById('notif-badge');
   if(!badge) return;
-  const pending = (CFG.notifications||[]).filter(n=>!n.dismissed&&(!n.confirmed||n.type==='dauerauftrag_info')).length;
+  const pending = (CFG.notifications||[]).filter(n=>!n.dismissed&&(!n.confirmed||n.type==='dauerauftrag_info'||n.type==='dauerauftrag_renewal')).length;
   if(pending > 0){
     badge.textContent = pending > 9 ? '9+' : pending;
     badge.style.display = 'flex';
@@ -425,12 +498,43 @@ function renderNotifications(){
     return;
   }
 
-  body.innerHTML = notifs.map(n=>{
-    // Icon varies by type
+  // Group renewal notifications together at the top if any are pending
+  const renewals = notifs.filter(n=>n.type==='dauerauftrag_renewal');
+  const others   = notifs.filter(n=>n.type!=='dauerauftrag_renewal');
+
+  const renderRenewalGroup = () => {
+    if(!renewals.length) return '';
+    const skips = CFG.recurringSkips || {};
+    return `<div style="background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--yellow);margin-bottom:6px">
+        ↻ Daueraufträge bestätigen — neuer Lohnzyklus
+      </div>
+      ${renewals.map(n => {
+        const isSkipped = (skips[n.recurId]||[]).includes(n.cycleStart);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">${esc(n.title||'')}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(n.body||'')}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;margin-left:8px">
+            <button onclick="event.stopPropagation();confirmRecurringRenewal('${n.id}')"
+              style="font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(100,220,120,.1);color:var(--green);cursor:pointer;font-weight:600">
+              ✓ Ja
+            </button>
+            <button onclick="event.stopPropagation();skipRecurringRenewal('${n.id}')"
+              style="font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer">
+              Ausschliessen
+            </button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  };
+
+  const renderOtherNotif = n => {
     const icon = n.type==='group_activity'
       ? '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
       : '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>';
-
     return `<div class="notif-item${n.dismissed?' dismissed':''}" onclick="openNotifDetail('${n.id}')">
       <div class="notif-item-icon">
         <svg viewBox="0 0 24 24">${icon}</svg>
@@ -442,7 +546,9 @@ function renderNotifications(){
       </div>
       ${!n.dismissed?`<button onclick="event.stopPropagation();dismissNotif('${n.id}')" style="background:none;color:var(--text3);font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;flex-shrink:0">Verwerfen</button>`:''}
     </div>`;
-  }).join('');
+  };
+
+  body.innerHTML = renderRenewalGroup() + others.map(renderOtherNotif).join('');
 }
 
 function dismissNotif(id){
@@ -461,6 +567,10 @@ function openNotifDetail(id){
       goTab('groups');
       setTimeout(()=>openGroupDetail(n.groupId), 100);
     }
+  } else if(n.type==='dauerauftrag_renewal'){
+    // Tapping the renewal item (outside action buttons) just navigates to recurring tab
+    closeNotifOverlay();
+    goTab('dauerauftraege');
   } else if(n.type==='dauerauftrag_info'){
     dismissNotif(id);
     toast(`${n.title} — ${n.body}`,'ok');

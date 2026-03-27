@@ -252,6 +252,7 @@ function renderAll(){
   // Post-render side-effects (non-blocking)
   autoMaterializeRecurrings();
   checkDueRecurrings();
+  checkCycleRenewals();
   checkAllNotifications();
 }
 

@@ -367,9 +367,12 @@ function _calcLohnInRange(startStr, endStr){
  */
 function _calcFixKosten(startStr, endStr, capToToday=false){
   const recur = getRecurringOccurrences(startStr, endStr, capToToday, true);
+  // Respect per-cycle renewal skips: CFG.recurringSkips[recurId] = [cycleStartStr, ...]
+  // startStr doubles as the cycle identifier (it is the cycle start for both current and prev cycle calls)
+  const skips = CFG.recurringSkips || {};
   return sumAmt([
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr&&isFixkostenEntry(e)),
-    ...recur.filter(e=>isFixkostenEntry(e))
+    ...recur.filter(e=>isFixkostenEntry(e) && !(skips[e._recurId]||[]).includes(startStr))
   ]);
 }
 
