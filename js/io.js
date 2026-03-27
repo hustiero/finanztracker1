@@ -973,9 +973,10 @@ async function saveRecurring(prefix='r'){
     if(!ok){ DATA.recurring = DATA.recurring.filter(r=>r.id!==id); return; }
   }
 
-  // Clear form
+  // Clear form + close collapsible form
   ['what','amt','note','start','end'].forEach(f=>{ const el=document.getElementById(prefix+'-'+f); if(el) el.value=''; });
   const cbEl=document.getElementById(prefix+'-affects-avg'); if(cbEl) cbEl.checked=false;
+  if(typeof toggleAboForm === 'function'){ const w=document.getElementById('abo-form-wrap'); if(w&&w.style.display!=='none') toggleAboForm(); }
   invalidateRecurCache(); _zyklusCache = null;
   toast('✓ Dauerauftrag hinzugefügt','ok');
   dataCacheSave();
@@ -988,6 +989,25 @@ function openRecModal(id){
   fillForm('rec-edit', { id, what:rec.what, amt:rec.amt, day:rec.day, start:rec.start||'', end:rec.endDate||'', note:rec.note||'', interval:rec.interval });
   document.getElementById('rec-edit-affects-avg').checked = rec.affectsAvg||false;
   fillDropdown('rec-edit-cat','ausgabe',rec.cat);
+  // Show next payment date
+  const infoEl = document.getElementById('rec-next-info');
+  if(infoEl){
+    const todayStr = today();
+    const expired = rec.endDate && rec.endDate < todayStr;
+    if(expired){
+      infoEl.style.display = '';
+      infoEl.innerHTML = `<span style="color:var(--red)">⚠ Abgelaufen am ${fmtDate(rec.endDate)}</span>`;
+    } else if(typeof _nextRecurDate === 'function'){
+      const next = _nextRecurDate(rec);
+      if(next){
+        const iv = rec.interval||'monatlich';
+        const monthly = typeof _recurMonthlyAmt === 'function' ? _recurMonthlyAmt(rec) : rec.amt;
+        const monthlyNote = iv!=='monatlich' ? ` · monatl. Äquivalent: ${curr()} ${fmtAmt(monthly)}` : '';
+        infoEl.style.display = '';
+        infoEl.innerHTML = `<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:var(--blue);fill:none;stroke-width:2;vertical-align:middle;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><strong>Nächste Zahlung:</strong> ${fmtDate(next)}${monthlyNote}`;
+      } else { infoEl.style.display='none'; }
+    } else { infoEl.style.display='none'; }
+  }
   openModal('rec-modal');
 }
 
