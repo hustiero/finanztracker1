@@ -541,7 +541,7 @@ async function loadAll(){
   // Show cached data immediately while fetching (stale-while-revalidate)
   let hadCache = dataCacheLoad();
   if(!hadCache) hadCache = await dataCacheLoadIDB();
-  if(hadCache){ renderAll(); hideSplash(); }
+  if(hadCache) renderAll();
 
   try{
     const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] =
