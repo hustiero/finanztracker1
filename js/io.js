@@ -645,7 +645,7 @@ function updateLohnToggleUI(){
   const sw = document.getElementById('f-lohn-switch');
   const row = document.getElementById('f-lohn-row');
   if(sw) sw.className = 'toggle-switch'+(lohnMode?' on':'');
-  if(row) row.className = 'lohn-toggle-row'+(lohnMode?' active':'');
+  if(row){ row.className = 'lohn-toggle-row'+(lohnMode?' active':''); row.setAttribute('aria-checked', lohnMode?'true':'false'); }
 }
 
 function toggleRecurringFields(){
@@ -660,7 +660,7 @@ function updateRecurToggleUI(){
   const btn = document.getElementById('f-save-btn');
   const dateLabel = document.getElementById('f-date-label');
   if(sw) sw.className = 'toggle-switch'+(recurringMode?' on':'');
-  if(row) row.className = 'recur-toggle-row'+(recurringMode?' active':'');
+  if(row){ row.className = 'recur-toggle-row'+(recurringMode?' active':''); row.setAttribute('aria-checked', recurringMode?'true':'false'); }
   if(sec) sec.style.display = recurringMode?'block':'none';
   if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
   if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';

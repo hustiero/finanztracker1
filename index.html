@@ -328,7 +328,7 @@
 
         <!-- Lohn toggle (only for Einnahme) -->
         <div id="f-lohn-toggle-wrap" style="display:none;margin-bottom:12px">
-          <div class="lohn-toggle-row" id="f-lohn-row" onclick="toggleLohnField()">
+          <div class="lohn-toggle-row" id="f-lohn-row" role="switch" aria-checked="false" tabindex="0" onclick="toggleLohnField()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleLohnField()}">
             <span class="lohn-toggle-label">Als Lohn zählen</span>
             <div class="toggle-switch" id="f-lohn-switch"></div>
           </div>
@@ -336,7 +336,7 @@
 
         <!-- Wiederkehrende Buchung toggle (only for Ausgabe) -->
         <div id="f-recur-toggle-wrap" style="margin-bottom:12px">
-          <div class="recur-toggle-row" id="f-recur-row" onclick="toggleRecurringFields()">
+          <div class="recur-toggle-row" id="f-recur-row" role="switch" aria-checked="false" tabindex="0" onclick="toggleRecurringFields()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleRecurringFields()}">
             <span class="recur-toggle-label">↻ Wiederkehrende Buchung</span>
             <div class="toggle-switch" id="f-recur-switch"></div>
           </div>
