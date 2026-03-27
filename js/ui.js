@@ -634,6 +634,17 @@ function setLohnSubtab(t){
   if(t === 'abos') renderRecurring();
 }
 
+function toggleAboForm(){
+  const wrap = document.getElementById('abo-form-wrap');
+  const btn  = document.getElementById('abo-add-btn');
+  if(!wrap) return;
+  const open = wrap.style.display !== 'none';
+  wrap.style.display = open ? 'none' : '';
+  if(btn) btn.style.background = open ? 'var(--accent)' : 'var(--bg3)';
+  if(btn) btn.style.color      = open ? 'var(--bg0)'    : 'var(--text2)';
+  if(!open) setTimeout(()=>document.getElementById('r-what')?.focus(), 50);
+}
+
 function renderLohn(){
   // Sync subtab visibility + button states
   const zDiv = document.getElementById('lohn-sub-zyklus');

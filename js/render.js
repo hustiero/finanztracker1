@@ -1131,34 +1131,108 @@ function renderCategories(){
   });
 }
 
+// Monthly equivalent of a recurring amount (for amortized total)
+function _recurMonthlyAmt(r){
+  if(!r.active) return 0;
+  const iv = r.interval||'monatlich';
+  if(iv==='monatlich')    return r.amt;
+  if(iv==='wöchentlich')  return r.amt * 52 / 12;
+  if(iv==='jährlich')     return r.amt / 12;
+  if(iv==='halbjährlich') return r.amt / 6;
+  if(iv==='semestral')    return r.amt / 6;
+  return r.amt;
+}
+
+// Compute the next occurrence date of a recurring entry (on or after today)
+function _nextRecurDate(r){
+  const t = today();
+  const start = r.start || t;
+  const iv = r.interval || 'monatlich';
+  const _ds = d => {
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  };
+  if(iv==='monatlich'){
+    const now = new Date();
+    const d = Math.min(r.day||1, new Date(now.getFullYear(), now.getMonth()+1, 0).getDate());
+    let cand = new Date(now.getFullYear(), now.getMonth(), d);
+    if(_ds(cand) < t) cand = new Date(now.getFullYear(), now.getMonth()+1, Math.min(r.day||1, new Date(now.getFullYear(), now.getMonth()+2, 0).getDate()));
+    return _ds(cand);
+  }
+  if(iv==='wöchentlich'){
+    let d = new Date(start.replace(/-/g,'/'));
+    const td = new Date(t.replace(/-/g,'/'));
+    while(d < td) d = new Date(d.getTime() + 7*86400000);
+    return _ds(d);
+  }
+  const mkd = (base, monthAdd) => {
+    const b = new Date(base.replace(/-/g,'/'));
+    const m = b.getMonth() + monthAdd;
+    return new Date(b.getFullYear() + Math.floor(m/12), ((m%12)+12)%12, b.getDate());
+  };
+  if(iv==='jährlich'){
+    let d = new Date(start.replace(/-/g,'/'));
+    const td = new Date(t.replace(/-/g,'/'));
+    while(d < td) d = new Date(d.getFullYear()+1, d.getMonth(), d.getDate());
+    return _ds(d);
+  }
+  if(iv==='halbjährlich'||iv==='semestral'){
+    let d = new Date(start.replace(/-/g,'/'));
+    const td = new Date(t.replace(/-/g,'/'));
+    while(d < td){ const m=d.getMonth()+6; d=new Date(d.getFullYear()+Math.floor(m/12), m%12, d.getDate()); }
+    return _ds(d);
+  }
+  return null;
+}
+
 function renderRecurring(){
   const container = document.getElementById('rec-list');
-  if(!DATA.recurring.length){
-    container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Daueraufträge</div></div>`;
+  if(!container) return;
+  // Fix deletion bug: only show active entries (active===false means deleted/deactivated on Sheet)
+  const recs = DATA.recurring.filter(r=>r.active!==false);
+  if(!recs.length){
+    container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Abos / Daueraufträge</div></div>`;
     return;
   }
   const todayStr = today();
-  const totalFix = DATA.recurring.filter(r=>r.active).reduce((s,r)=>s+r.amt,0);
-  container.innerHTML = DATA.recurring.map(r=>{
+  // Amortized monthly total (non-monthly items pro-rated)
+  const totalMonthly = recs.reduce((s,r)=>s+_recurMonthlyAmt(r),0);
+  const hasMixed = recs.some(r=>(r.interval||'monatlich')!=='monatlich');
+
+  container.innerHTML = recs.map(r=>{
     const expired = r.endDate && r.endDate < todayStr;
     const expiringSoon = r.endDate && !expired && r.endDate <= dateStr(new Date(Date.now()+30*86400000));
     let endBadge = '';
-    if(expired) endBadge=`<span style="background:var(--red)22;color:var(--red);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">abgelaufen</span>`;
+    if(expired)       endBadge=`<span style="background:var(--red)22;color:var(--red);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">abgelaufen</span>`;
     else if(expiringSoon) endBadge=`<span style="background:var(--yellow)22;color:var(--yellow);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">bis ${fmtDate(r.endDate)}</span>`;
     else if(r.endDate) endBadge=`<span style="color:var(--text3);font-size:11px"> · bis ${fmtDate(r.endDate)}</span>`;
+
+    // Next payment date
+    const nextDate = !expired ? _nextRecurDate(r) : null;
+    const nextLabel = nextDate ? `<span style="color:var(--text3);font-size:11px"> · nächste: ${fmtDate(nextDate)}</span>` : '';
+
+    // Interval badge for non-monthly
+    const iv = r.interval||'monatlich';
+    const ivBadge = iv!=='monatlich'
+      ? `<span style="background:rgba(96,165,250,.15);color:var(--blue);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">${iv}</span>`
+      : '';
+
     return `
     <div class="card-row" onclick="openRecModal('${r.id}')" style="${expired?'opacity:0.5':''}">
       <div class="card-row-icon" style="background:${catColor(r.cat)}22">
         <span>${catEmoji(r.cat)}</span>
       </div>
       <div class="card-row-body">
-        <div class="card-row-title">${esc(r.what)}${endBadge}</div>
-        <div class="card-row-sub">${r.interval} · ${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${r.affectsAvg?' · <span style="color:var(--accent);font-size:10px">Ø</span>':''}${r.note?' · '+esc(r.note):''}</div>
+        <div class="card-row-title">${esc(r.what)}${ivBadge}${endBadge}</div>
+        <div class="card-row-sub">${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${nextLabel}${r.affectsAvg?' · <span style="color:var(--accent);font-size:10px">Ø</span>':''}${r.note?' · '+esc(r.note):''}</div>
       </div>
       <div class="card-row-amount expense">${curr()} ${fmtAmt(r.amt)}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
-  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px"><span class="t-text3">Total Fixkosten / Monat</span><span class="t-mono-bold">${curr()} ${fmtAmt(totalFix)}</span></div>`;
+  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px">
+    <span class="t-text3">∑ Fixkosten / Monat${hasMixed?' <span style="font-size:10px">(anteilig)</span>':''}</span>
+    <span class="t-mono-bold">${curr()} ${fmtAmt(totalMonthly)}</span>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════════

@@ -173,7 +173,7 @@ Object.assign(App.UI, {
   // Dashboard
   setDashboardMonths,
   // Lohn + Abos subtab
-  setLohnMonths, toggleFixkosten, setLohnSubtab,
+  setLohnMonths, toggleFixkosten, setLohnSubtab, toggleAboForm,
   // Notifications
   checkDueRecurrings, checkAllNotifications, renderNotifSettings,
   toggleNotifSetting, updateNotifBadge, toggleNotifOverlay,
