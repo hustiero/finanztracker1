@@ -298,6 +298,8 @@ let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:''
   budgetInclSparziel:  true,   // subtract monthly savings target
   // Dauerauftrag renewal skips: { [recurId]: [cycleStartStr, ...] }
   recurringSkips: {},
+  // Cached: admin groups sheets were already ensured on a previous load
+  groupsSheetsEnsured: false,
 };
 
 // Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.

@@ -551,6 +551,7 @@ async function loadAll(){
     _parseAktienTrades(aktRes, tradeRes);
 
     // Groups (blocking — needed before renderAll so group data is present)
+    _initGroupsSheetsEnsured(); // seed in-memory flag from persisted CFG
     await loadGroups();
 
     dataCacheSave();
