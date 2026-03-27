@@ -130,8 +130,9 @@ function gotoSetupStep(n){
   // Scroll setup to top when switching pages
   const el = document.getElementById('setup');
   if(el) el.scrollTop=0;
-  // When ADMIN_URL is hardcoded, hide URL-configuration UI — users only need username + password
-  if(ADMIN_URL){
+  // Hide URL-configuration UI when the URL is already known (hardcoded or from previous login)
+  const urlAlreadyKnown = !!(ADMIN_URL || CFG.adminUrl);
+  if(urlAlreadyKnown){
     const loginToggleBtn = document.querySelector('#sp-2 .btn-ghost[onclick*="auth-admin-url-wrap"]');
     if(loginToggleBtn) loginToggleBtn.style.display='none';
     const loginUrlWrap = document.getElementById('auth-admin-url-wrap');
