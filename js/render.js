@@ -230,11 +230,12 @@ document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('gesturechange',e=>e.preventDefault());
 
 // ═══════════════════════════════════════════════════════════════
-// Verlauf Navigation State (3 Ebenen)
-let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen'
+// Verlauf Navigation State (3 Ebenen + Gruppen)
+let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen' | 'gruppen'
 let verlaufKat = null;            // null | string — gewählte Kategorie für L3
 let verlaufL3SearchVis = false;   // Suchfeld auf L3 sichtbar?
 let verlaufCatSort = 'amount';    // 'amount' | 'count' — sort for L2 tiles
+let verlaufGruppeId = null;       // null | string — gewählte Gruppe für Gruppen-Detail
 let dashboardChartMonths = 3;
 
 function renderAll(){
@@ -695,10 +696,11 @@ function renderVerlaufL3(){
 // Navigation-State: verlaufType, verlaufKat, verlaufL3SearchVis, verlaufSearch
 function renderVerlauf(){
   const isL3 = verlaufKat !== null;
+  const isGruppen = verlaufType === 'gruppen';
   // Zeitraum-Filter-Label aktualisieren
   const lbl = document.getElementById('verlauf-filter-label');
   if(lbl) lbl.textContent = verlaufGetRangeLabel();
-  // Header: Type-Switch oder Zurück-Button
+  // Header: Typ-Switch, Zurück-Button (L3) oder Gruppen-Ansicht
   const typBar = document.getElementById('verlauf-type-bar');
   const l3Bar = document.getElementById('verlauf-l3-bar');
   if(typBar) typBar.style.display = isL3 ? 'none' : '';
@@ -708,16 +710,27 @@ function renderVerlauf(){
     const titleEl = document.getElementById('verlauf-l3-title');
     if(titleEl) titleEl.textContent = verlaufKat;
   }
+  // Gruppen-Zurück-Bar: eigener Mechanismus im Content
   // Type-Button aktiv-Klassen setzen
   if(!isL3){
-    [['alle',''],['ausgaben',' expense'],['einnahmen',' income']].forEach(([t,cls])=>{
+    [['alle',''],['ausgaben',' expense'],['einnahmen',' income'],['gruppen','']].forEach(([t,cls])=>{
       const btn = document.getElementById('v-btn-'+t);
       if(btn) btn.className = 'type-btn'+(verlaufType===t?' active'+cls:'');
     });
   }
-  // Suchfeld sichtbar: immer auf L1/L2, per Toggle auf L3
+  // Gruppen-Toggle-Button ausblenden wenn Gruppen-Tab aktiv
+  const grpToggle = document.getElementById('verlauf-group-toggle');
+  if(grpToggle) grpToggle.style.display = isGruppen ? 'none' : '';
+  // Suchfeld + Zeitraumfilter: in Gruppen-Ansicht ausblenden
   const sw = document.getElementById('verlauf-search-wrap');
-  if(sw) sw.style.display = (!isL3 || verlaufL3SearchVis) ? '' : 'none';
+  const fb = document.getElementById('verlauf-filter-bar');
+  if(isGruppen){
+    if(sw) sw.style.display = 'none';
+    if(fb) fb.style.display = 'none';
+  } else {
+    if(fb) fb.style.display = '';
+    if(sw) sw.style.display = (!isL3 || verlaufL3SearchVis) ? '' : 'none';
+  }
   // Suchfeld-Icon auf L3 einfärben wenn aktiv
   const sbtn = document.getElementById('verlauf-l3-search-btn');
   if(sbtn) sbtn.style.color = verlaufL3SearchVis ? 'var(--accent)' : 'var(--text3)';
@@ -725,11 +738,14 @@ function renderVerlauf(){
   const l1 = document.getElementById('verlauf-l1-content');
   const l2 = document.getElementById('verlauf-l2-content');
   const l3 = document.getElementById('verlauf-l3-content');
-  if(l1) l1.style.display = (!isL3 && verlaufType==='alle') ? '' : 'none';
-  if(l2) l2.style.display = (!isL3 && verlaufType!=='alle') ? '' : 'none';
+  const gp = document.getElementById('verlauf-gruppen-content');
+  if(l1) l1.style.display = (!isL3 && !isGruppen && verlaufType==='alle') ? '' : 'none';
+  if(l2) l2.style.display = (!isL3 && !isGruppen && verlaufType!=='alle') ? '' : 'none';
   if(l3) l3.style.display = isL3 ? '' : 'none';
+  if(gp) gp.style.display = isGruppen ? '' : 'none';
   // Inhalt rendern
-  if(isL3) renderVerlaufL3();
+  if(isGruppen) renderVerlaufGruppen();
+  else if(isL3) renderVerlaufL3();
   else if(verlaufType!=='alle') renderVerlaufL2();
   else renderVerlaufL1();
 }
@@ -737,7 +753,7 @@ function renderVerlauf(){
 // ── Navigation ────────────────────────────────────────────────────────────────
 // verlaufSetType: wechselt Typ-Ansicht (L1 ↔ L2), resettet Suche und Kategorie
 function verlaufSetType(t){
-  verlaufType = t; verlaufKat = null;
+  verlaufType = t; verlaufKat = null; verlaufGruppeId = null;
   verlaufL3SearchVis = false; verlaufSearch = ''; verlaufL1Page = 1;
   const inp = document.getElementById('verlauf-search');
   if(inp) inp.value = '';
@@ -771,6 +787,133 @@ function verlaufToggleL3Search(){
   else renderVerlaufL3();
 }
 function setDashboardMonths(m){ dashboardChartMonths=m; renderDashboard(); }
+
+// ── Verlauf: Gruppen-Ansicht ───────────────────────────────────────────────
+function verlaufOpenGruppe(id){
+  verlaufGruppeId = id;
+  renderVerlaufGruppen();
+}
+function verlaufGoBackGruppen(){
+  verlaufGruppeId = null;
+  renderVerlaufGruppen();
+}
+
+function renderVerlaufGruppen(){
+  const container = document.getElementById('verlauf-gruppen-content');
+  if(!container) return;
+
+  // Detail-Ansicht: Buchungen einer Gruppe
+  if(verlaufGruppeId){
+    const g = (DATA.groups||[]).find(x=>x.id===verlaufGruppeId);
+    if(!g){ verlaufGruppeId=null; renderVerlaufGruppen(); return; }
+    const expenses = getGroupExpenses(g.id).sort((a,b)=>b.date.localeCompare(a.date));
+    const incomes  = getGroupIncomes(g.id).sort((a,b)=>b.date.localeCompare(a.date));
+    const all = [
+      ...expenses.map(e=>({...e,_type:'ausgabe'})),
+      ...incomes.map(e=>({...e,_type:'einnahme'}))
+    ].sort((a,b)=>b.date.localeCompare(a.date));
+    const total = expenses.reduce((s,e)=>s+e.amt,0);
+    let html = `<div style="padding:12px 16px 0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="verlaufGoBackGruppen()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
+        <span style="flex:1;font-size:16px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(g.name)}</span>
+        <span style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2);flex-shrink:0">${curr()} ${fmtAmt(total)}</span>
+      </div>
+    </div>`;
+    if(all.length===0){
+      html += `<div style="text-align:center;padding:30px 16px;color:var(--text3);font-size:13px">Noch keine Buchungen in dieser Gruppe.</div>`;
+    } else {
+      // Group by date
+      const byDate = {};
+      all.forEach(e=>{ if(!byDate[e.date]) byDate[e.date]=[]; byDate[e.date].push(e); });
+      const sortedDates = Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+      html += sortedDates.map(d=>{
+        const entries = byDate[d];
+        const rows = entries.map(e=>{
+          const isInc = e._type==='einnahme';
+          const col = isInc ? 'var(--green)' : 'var(--red)';
+          const sign = isInc ? '+' : '-';
+          return `<div class="card-row" style="padding:10px 16px">
+            <div class="card-row-icon" style="background:${catColor(e.cat||'')}22">
+              <span>${catEmoji(e.cat||'')}</span>
+            </div>
+            <div class="card-row-body">
+              <div class="card-row-title">${esc(e.what||e.note||'—')}</div>
+              <div class="card-row-sub">${e.cat||''}${e.note&&e.what?' · '+esc(e.note):''}</div>
+            </div>
+            <div class="card-row-amount" style="color:${col}">${sign} ${curr()} ${fmtAmt(e.amt)}</div>
+          </div>`;
+        }).join('');
+        return `<div style="padding:8px 16px 2px"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${fmtDate(d)}</span></div>${rows}`;
+      }).join('');
+    }
+    container.innerHTML = html;
+    return;
+  }
+
+  // Gruppen-Liste
+  const myId = _myGroupId ? _myGroupId() : (CFG.accountId||CFG.userName||'');
+  const myNm = _myGroupName ? _myGroupName() : (CFG.userName||'');
+  const groups = (DATA.groups||[]).filter(g=>
+    g.status!=='deleted' &&
+    (g.members.includes(myId) || g.members.includes(myNm))
+  );
+
+  if(groups.length===0){
+    container.innerHTML = `<div style="text-align:center;padding:40px 16px">
+      <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5;margin-bottom:12px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div style="font-size:13px;color:var(--text3)">Noch keine Gruppen vorhanden.</div>
+      <button onclick="goTab('groups')" style="margin-top:12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:13px;padding:8px 18px;border-radius:8px;cursor:pointer">Gruppen verwalten →</button>
+    </div>`;
+    return;
+  }
+
+  let html = `<div style="padding:12px 16px 0">`;
+  groups.forEach(g=>{
+    const total = getGroupTotal(g.id);
+    const expenses = getGroupExpenses(g.id);
+    const dates = expenses.map(e=>e.date).sort();
+    const lastDate = dates.length ? fmtDate(dates[dates.length-1]) : null;
+    const count = expenses.length;
+    const typeLabel = g.type==='split' ? 'Split' : g.type==='event' ? 'Event' : g.type||'';
+    const typeBg = g.type==='split' ? 'rgba(96,165,250,.15)' : 'rgba(200,245,60,.12)';
+    const typeCol = g.type==='split' ? 'var(--blue)' : 'var(--accent)';
+
+    // For split groups: show my balance
+    let balHtml = '';
+    if(g.type==='split' && typeof calcSplitBalances === 'function'){
+      const balances = calcSplitBalances(g.id);
+      const myBal = balances[myId]||balances[myNm]||0;
+      const balCol = myBal>0.01?'var(--green)':myBal<-0.01?'var(--red)':'var(--text3)';
+      const balTxt = myBal>0.01?`Du bekommst ${curr()} ${fmtAmt(myBal)}`:myBal<-0.01?`Du schuldest ${curr()} ${fmtAmt(Math.abs(myBal))}`:'Ausgeglichen';
+      balHtml = `<span style="font-size:12px;color:${balCol};font-weight:600">${balTxt}</span>`;
+    }
+
+    html += `<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="verlaufOpenGruppe('${g.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:${typeBg};color:${typeCol}">${typeLabel}</span>
+            ${g.status==='archived'?'<span style="font-size:10px;color:var(--text3)">Archiv</span>':''}
+          </div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(g.name)}</div>
+          <div style="font-size:12px;color:var(--text3)">${g.members.length} Mitglieder · ${count} Buchung${count!==1?'en':''}${lastDate?' · zuletzt '+lastDate:''}</div>
+          ${balHtml ? `<div style="margin-top:4px">${balHtml}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace">${curr()} ${fmtAmt(total)}</div>
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;margin-top:4px"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `<div style="padding:4px 0 16px">
+    <button onclick="goTab('groups')" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:13px;padding:10px;border-radius:var(--r);cursor:pointer">
+      Alle Gruppen verwalten →
+    </button>
+  </div></div>`;
+  container.innerHTML = html;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: VERLAUF ZEITRAUM-FILTER

@@ -338,6 +338,10 @@ function cfgLoad(){
   if(!CFG.pinnedTabs){
     CFG.pinnedTabs = Array.isArray(CFG.navSlots) ? CFG.navSlots.filter(k=>!!k) : [];
   }
+  // Migrate: 'dauerauftraege' pin → 'lohn' (now merged as subtab of Lohn)
+  if(Array.isArray(CFG.pinnedTabs) && CFG.pinnedTabs.includes('dauerauftraege')){
+    CFG.pinnedTabs = [...new Set(CFG.pinnedTabs.map(k=>k==='dauerauftraege'?'lohn':k))].slice(0,3);
+  }
   // Migrate old theme toggle to themeMode
   if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';
   // Migrate old flat design fields to design package (deferred — design.js defines migrateOldDesignToPkg)
