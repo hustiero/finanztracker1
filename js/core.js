@@ -296,6 +296,8 @@ let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:''
   // Budget formula toggles (what goes into the variable-budget calculation)
   budgetInclCarryover: true,   // add/subtract previous cycle's leftover
   budgetInclSparziel:  true,   // subtract monthly savings target
+  // Dauerauftrag renewal skips: { [recurId]: [cycleStartStr, ...] }
+  recurringSkips: {},
 };
 
 // Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.
