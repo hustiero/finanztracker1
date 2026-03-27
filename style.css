@@ -1005,6 +1005,9 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 .home-edit-drag{font-size:18px;color:var(--text3);line-height:1;cursor:grab;flex-shrink:0;user-select:none}
 .home-edit-btn{min-width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 6px}
 .home-avail-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border)}
+.home-section-sep{display:flex;align-items:center;gap:10px;margin:6px 16px 2px}
+.home-section-sep-line{flex:1;height:1px;background:var(--border)}
+.home-section-sep-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 .menu-overlay-item{
   width:100%;display:flex;align-items:center;gap:14px;
   padding:14px 20px;background:none;color:var(--text);
@@ -1604,6 +1607,7 @@ body.is-android .filter-row{touch-action:pan-x}
     padding:0 8px 24px;
   }
   .tile-grid .widget-card{margin:0}
+  .tile-grid .home-section-sep{margin:6px 0 2px;grid-column:1/-1}
 
   /* Tile size classes (columns x rows) */
   .tile-1x1{grid-column:span 1;grid-row:span 1}

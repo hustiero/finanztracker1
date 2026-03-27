@@ -560,7 +560,7 @@ async function loadAll(){
 
     // Non-blocking post-load tasks
     loadGroupEntries().then(()=>{
-      if(DATA.groupEntries?.length) markDirty('verlauf','groups');
+      markDirty('verlauf','groups');
     }).catch(()=>{});
 
     if(CFG._pendingGroupJoin){

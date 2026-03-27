@@ -99,6 +99,10 @@ function toggleSettingsGroup(id){
   body.classList.toggle('open', !isOpen);
   body.style.display = isOpen ? 'none' : '';
   if(btn) btn.classList.toggle('open', !isOpen);
+  // When opening the layout section, ensure design package previews are rendered
+  if(id === 'sg-layout' && !isOpen){
+    if(typeof renderDesignPackages === 'function') renderDesignPackages();
+  }
 }
 
 // Toggle the "Weitere Optionen" expert customize section in settings
