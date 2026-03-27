@@ -166,13 +166,14 @@ Object.assign(App.UI, {
   verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufExcludeGroups, toggleVerlaufCatSort,
   setVerlaufZeitraum, setVerlaufCustomRange, setVerlaufSearch,
   renderVerlaufFilterSummary, verlaufCalcSummary,
+  verlaufOpenGruppe, verlaufGoBackGruppen, renderVerlaufGruppen,
   // Home widgets management
   toggleHomeEdit, addWidget, removeWidget, moveWidget,
   saveHomeWidgets, setHomeKontoMonths, tileClass,
   // Dashboard
   setDashboardMonths,
-  // Lohn
-  setLohnMonths, toggleFixkosten,
+  // Lohn + Abos subtab
+  setLohnMonths, toggleFixkosten, setLohnSubtab,
   // Notifications
   checkDueRecurrings, checkAllNotifications, renderNotifSettings,
   toggleNotifSetting, updateNotifBadge, toggleNotifOverlay,
@@ -218,7 +219,7 @@ RENDER_FN_MAP = {
   dashboard:     renderDashboard,
   lohn:          renderLohn,
   kategorien:    renderCategories,
-  dauerauftraege:renderRecurring,
+  dauerauftraege:renderLohn, // legacy key — now subtab of lohn
   sparen:        renderSparen,
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,
