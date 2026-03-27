@@ -352,13 +352,20 @@ function generateAppIcon(){
 
 function showSplash(){
   const s = document.getElementById('splash');
-  if(s){ s.classList.remove('hidden','gone'); }
+  if(!s) return;
+  // Remove both classes instantly (no transition on show)
+  s.classList.remove('gone');
+  // Force reflow so removing 'hidden' is instant (no fade-in)
+  s.style.transition = 'none';
+  s.classList.remove('hidden');
+  s.offsetHeight; // trigger reflow
+  s.style.transition = '';
 }
 function hideSplash(){
   const s = document.getElementById('splash');
-  if(!s) return;
-  s.classList.add('hidden');
-  setTimeout(()=>s.classList.add('gone'), 380);
+  if(!s || s.classList.contains('gone')) return;
+  s.classList.add('hidden'); // triggers fade-out via CSS transition
+  setTimeout(()=>s.classList.add('gone'), 400);
 }
 
 function launchApp(){

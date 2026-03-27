@@ -29,6 +29,8 @@ function renderGroups(){
     const dates = expenses.map(e=>e.date).sort();
     const dateRange = dates.length ? fmtDate(dates[0])+' – '+fmtDate(dates[dates.length-1]) : 'Noch keine Buchungen';
 
+    const gc = (CFG.groupColors||{})[g.id] || {};
+
     if(g.type==='split'){
       const balances = calcSplitBalances(g.id);
       const _myId = _myGroupId();
@@ -36,12 +38,13 @@ function renderGroups(){
       const myBal = balances[_myId]||balances[_myNm]||0;
       const balClass = myBal>0.01?'grp-bal-pos':myBal<-0.01?'grp-bal-neg':'grp-bal-zero';
       const balText = myBal>0.01?'Du bekommst '+fmtAmt(myBal):myBal<-0.01?'Du schuldest '+fmtAmt(Math.abs(myBal)):'Ausgeglichen';
+      const balStyle = gc.bg||gc.color ? ` style="${gc.bg?'background:'+gc.bg+';':''}${gc.color?'color:'+gc.color+';':''}"` : '';
       return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${g.id}')">
         <div class="grp-card-type">Split</div>
         <div class="grp-card-name">${esc(g.name)}</div>
         <div class="grp-card-members">${g.members.length} Teilnehmer</div>
         <div class="grp-card-total">${fmtAmt(total)}</div>
-        <div class="grp-card-bal ${balClass}">${balText}</div>
+        <div class="grp-card-bal ${balClass}"${balStyle}>${balText}</div>
       </div>`;
     } else {
       return `<div class="grp-card grp-card-event" onclick="openGroupDetail('${g.id}')">
@@ -132,6 +135,8 @@ function _renderEventDetail(g, el){
     </div>
     <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
   </div>`;
+
+  html += _grpBadgeColorHtml(g.id);
 
   // Top categories
   if(topCats.length){
@@ -246,6 +251,8 @@ function _renderSplitDetail(g, el){
     </div>
     <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
   </div>`;
+
+  html += _grpBadgeColorHtml(g.id);
 
   // Members section with admin controls
   html += '<div class="grp-section-title">Mitglieder</div><div class="grp-members-list">';
@@ -920,4 +927,52 @@ function copyAdminCodeGs() {
   if(navigator.clipboard) navigator.clipboard.writeText(ADMIN_CODE_GS).then(()=>toast('✓ Admin Code.gs kopiert!','ok')).catch(()=>toast('Clipboard n/a','err'));
   else{ const ta=document.createElement('textarea');ta.value=ADMIN_CODE_GS;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('✓ Admin Code.gs kopiert!','ok'); }
 }
+
+// ── Per-group badge colour customisation ─────────────────────
+function _grpBadgeColorHtml(gid){
+  const gc = (CFG.groupColors||{})[gid] || {};
+  const bg = gc.bg || '';
+  const col = gc.color || '';
+  return `<div class="grp-badge-color-row">
+    <div style="font-size:12px;font-weight:600;color:var(--text2)">Abzeichen-Farben</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3)">
+        <span>Hintergrund</span>
+        <input type="color" value="${bg||'#1e3a5f'}"
+          style="width:32px;height:28px;border:none;border-radius:6px;cursor:pointer;padding:2px;background:var(--bg3)"
+          onchange="saveGroupBadgeColor('${gid}','bg',this.value)">
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3)">
+        <span>Schrift</span>
+        <input type="color" value="${col||'#60a5fa'}"
+          style="width:32px;height:28px;border:none;border-radius:6px;cursor:pointer;padding:2px;background:var(--bg3)"
+          onchange="saveGroupBadgeColor('${gid}','color',this.value)">
+      </label>
+      ${bg||col?`<button onclick="resetGroupBadgeColor('${gid}')"
+        style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0">
+        Zurücksetzen
+      </button>`:''}
+    </div>
+  </div>`;
+}
+
+function saveGroupBadgeColor(gid, key, value){
+  if(!CFG.groupColors) CFG.groupColors = {};
+  if(!CFG.groupColors[gid]) CFG.groupColors[gid] = {};
+  CFG.groupColors[gid][key] = value;
+  cfgSave();
+  renderGroups();
+}
+
+function resetGroupBadgeColor(gid){
+  if(CFG.groupColors) delete CFG.groupColors[gid];
+  cfgSave();
+  renderGroups();
+  // Re-render the detail view to update the reset button visibility
+  if(currentGroupId===gid){
+    const g = DATA.groups.find(x=>x.id===gid);
+    if(g){ const el=document.getElementById('group-detail'); if(el){ if(g.type==='event') _renderEventDetail(g,el); else _renderSplitDetail(g,el); } }
+  }
+}
+
 

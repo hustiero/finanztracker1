@@ -1191,33 +1191,37 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ─── Splash / loading screen ──────────────────────────────── */
 #splash{
-  position:fixed;inset:0;z-index:9999;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:var(--bg);
-  transition:opacity .35s ease;
+  position:fixed;inset:0;z-index:99999;
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;
+  background:var(--bg0);
+  backdrop-filter:blur(24px) saturate(120%);
+  -webkit-backdrop-filter:blur(24px) saturate(120%);
+  padding-top:calc(env(safe-area-inset-top,0px) + 60px);
+  /* appear instantly — only fade out */
 }
-#splash.hidden{opacity:0;pointer-events:none}
+#splash.hidden{opacity:0;pointer-events:none;transition:opacity .35s ease}
 #splash.gone{display:none}
-.splash-center{display:flex;flex-direction:column;align-items:center;gap:28px;flex:1;justify-content:center}
+.splash-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
 .splash-logo{
-  font-family:'DM Mono',monospace;font-size:72px;font-weight:700;
+  font-family:'DM Mono',monospace;font-size:80px;font-weight:700;
   color:var(--accent);letter-spacing:-.05em;line-height:1;
-  filter:drop-shadow(0 0 24px color-mix(in srgb,var(--accent) 40%,transparent));
+  text-shadow:0 0 32px var(--accent);
 }
 .splash-spinner{
-  width:32px;height:32px;
-  border:2.5px solid color-mix(in srgb,var(--accent) 25%,transparent);
+  width:34px;height:34px;
+  border:2.5px solid rgba(var(--accent-rgb,200,245,60),.22);
   border-top-color:var(--accent);
   border-radius:50%;
   animation:spin .7s linear infinite;
 }
 .splash-footer{
-  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 28px);
-  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 20px);
+  display:flex;flex-direction:column;align-items:center;gap:3px;
 }
 .splash-name{
   font-family:'DM Mono',monospace;font-size:13px;font-weight:700;
-  letter-spacing:.18em;color:var(--text);
+  letter-spacing:.2em;color:var(--text);
 }
 .splash-by{
   font-size:10px;font-weight:500;letter-spacing:.12em;
@@ -1229,15 +1233,18 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 .grp-card:active{transform:scale(.98)}
 .grp-card-event{border-left:3px solid var(--accent)}
 .grp-card-split{border-left:3px solid #8b5cf6}
-.grp-card-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
+.grp-card-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:inline-block;padding:2px 7px;border-radius:4px}
+.grp-card-event .grp-card-type{background:rgba(200,245,60,.12);color:var(--accent)}
+.grp-card-split .grp-card-type{background:rgba(139,92,246,.15);color:#a78bfa}
 .grp-card-name{font-size:15px;font-weight:700;margin-bottom:2px}
 .grp-card-meta,.grp-card-members{font-size:11px;color:var(--text3);margin-bottom:4px}
 .grp-card-total{font-size:14px;font-family:'DM Mono',monospace;font-weight:600;margin-bottom:2px}
 .grp-card-count{font-size:11px;color:var(--text3)}
-.grp-card-bal{font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;display:inline-block;margin-top:4px}
-.grp-bal-pos{background:rgba(52,211,153,.12);color:#34d399}
-.grp-bal-neg{background:rgba(255,77,109,.1);color:var(--red)}
-.grp-bal-zero{background:var(--bg3);color:var(--text3)}
+.grp-card-bal{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:6px}
+.grp-bal-pos{background:rgba(61,219,150,.15);color:#3DDB96}
+.grp-bal-neg{background:rgba(255,77,109,.15);color:#ff4d6d}
+.grp-bal-zero{background:rgba(96,165,250,.15);color:#60a5fa}
+.grp-badge-color-row{padding:10px 16px;background:var(--bg2);border-top:1px solid var(--border)}
 .grp-filter-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
 .grp-filter-btn.active{background:var(--accent);color:var(--btn-text);border-color:var(--accent)}
 
