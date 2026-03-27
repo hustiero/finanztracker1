@@ -263,9 +263,18 @@ function _signup(ss, p) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++)
     if (String(rows[i][0]).toLowerCase() === user) return { error: 'Benutzername bereits vergeben.' };
-  const newSs = SpreadsheetApp.create('FTracker – ' + user);
-  _initUserSheet(newSs);
-  sheet.appendRow([user, p.hash, newSs.getId(), newSs.getUrl(), new Date().toISOString(), 'pending', '']);
+  const ownScriptUrl = (p.scriptUrl || '').trim();
+  const hasOwnSheet = ownScriptUrl.indexOf('https://script.google.com/') === 0;
+  let sheetId = '', sheetUrl = '', scriptUrl = '';
+  if (hasOwnSheet) {
+    scriptUrl = ownScriptUrl;
+  } else {
+    const newSs = SpreadsheetApp.create('FTracker – ' + user);
+    _initUserSheet(newSs);
+    sheetId = newSs.getId();
+    sheetUrl = newSs.getUrl();
+  }
+  sheet.appendRow([user, p.hash, sheetId, sheetUrl, new Date().toISOString(), 'pending', '', scriptUrl]);
   return { ok: true, pending: true };
 }
 
@@ -280,7 +289,8 @@ function _login(ss, p) {
       if (role === 'pending') return { error: 'Dein Konto wartet noch auf Freischaltung durch den Admin.' };
       sheet.getRange(i + 1, 7).setValue(new Date().toISOString());
       const token = _createSession(ss, user);
-      return { ok: true, token, username: user, role };
+      const scriptUrl = String(rows[i][7] || '');
+      return { ok: true, token, username: user, role, scriptUrl };
     }
   }
   return { error: 'Benutzername oder Passwort falsch.' };
@@ -331,7 +341,7 @@ function _getUser(ss, username) {
   const rows = ss.getSheetByName('Users').getDataRange().getValues();
   for (let i = 1; i < rows.length; i++)
     if (String(rows[i][0]).toLowerCase() === username.toLowerCase())
-      return { username: rows[i][0], sheetId: rows[i][2], sheetUrl: rows[i][3], role: rows[i][5] || 'user' };
+      return { username: rows[i][0], sheetId: rows[i][2], sheetUrl: rows[i][3], role: rows[i][5] || 'user', scriptUrl: String(rows[i][7] || '') };
   return null;
 }
 
