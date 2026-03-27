@@ -59,19 +59,6 @@
     <div style="height:16px"></div>
     <button class="btn-ghost" onclick="doDemo()" class="t-muted-sm">Demo ansehen</button>
 
-    <!-- Advanced: Script-URL (hidden by default) -->
-    <div style="margin-top:20px;width:100%;max-width:380px;text-align:center">
-      <button class="btn-ghost" style="font-size:11px;color:var(--text3);opacity:.7" onclick="document.getElementById('sp0-scripturl-wrap').style.display=document.getElementById('sp0-scripturl-wrap').style.display==='none'?'block':'none'">Mit Script-URL verbinden ↓</button>
-      <div id="sp0-scripturl-wrap" style="display:none;margin-top:10px">
-        <div class="setup-card mb-10">
-          <div class="setup-label">Script URL</div>
-          <input id="cfg-url" class="setup-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
-        </div>
-        <button id="connect-btn" class="btn-primary w-full" onclick="doConnect()">Verbinden →</button>
-        <div style="height:8px"></div>
-        <button class="btn-ghost" style="font-size:11px;color:var(--text3)" onclick="gotoSetupStep(1)">Einrichtungsanleitung →</button>
-      </div>
-    </div>
   </div>
 
   <!-- Page 2: Login -->
@@ -142,11 +129,35 @@
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw2',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
-      <div id="su-admin-url-wrap">
+      <div class="form-group mb-0">
+        <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
+        <input id="su-admin-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Vom Admin bereitgestellt · wird einmalig gespeichert</div>
+      </div>
+
+      <!-- Storage choice -->
+      <div style="margin-top:14px">
+        <div class="form-label" style="margin-bottom:8px">Datenspeicherung</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="su-store-admin" class="btn-outline-setup" style="flex:1;padding:10px 8px;font-size:12px;font-weight:600;border:2px solid var(--accent);color:var(--accent)" onclick="suToggleStorage('admin')">
+            Auf Admin Drive
+          </button>
+          <button type="button" id="su-store-own" class="btn-outline-setup" style="flex:1;padding:10px 8px;font-size:12px" onclick="suToggleStorage('own')">
+            Eigenes Sheet
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:5px" id="su-store-hint">Dein Sheet wird automatisch auf dem Admin-Drive erstellt.</div>
+      </div>
+
+      <!-- Own script URL (shown when "Eigenes Sheet" is selected) -->
+      <div id="su-own-sheet-wrap" style="display:none;margin-top:12px">
         <div class="form-group mb-0">
-          <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
-          <input id="su-admin-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">Vom Admin bereitgestellt · wird einmalig gespeichert</div>
+          <label class="form-label">Deine Script URL</label>
+          <input id="su-script-url" class="setup-input" autocomplete="off" spellcheck="false" style="font-size:11px" placeholder="https://script.google.com/macros/s/…/exec">
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">
+            Aus deinem eigenen Google Sheet deployen ·
+            <button type="button" class="btn-ghost" style="font-size:11px;padding:0;display:inline;color:var(--accent)" onclick="gotoSetupStep(1)">Anleitung →</button>
+          </div>
         </div>
       </div>
     </div>

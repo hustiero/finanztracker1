@@ -31,10 +31,13 @@ function _getFixkostKatsSet(){
   return _fixkostKatsSet;
 }
 
+const _DATA_ACTIONS = new Set(['get','append','update','meta','ensureSheet','setFormulas','fetchPrices']);
+
 async function apiCall(params){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
-  const baseUrl = isAccountMode ? CFG.adminUrl : CFG.scriptUrl;
-  const allParams = isAccountMode ? {...params, token: CFG.sessionToken} : params;
+  const isHybrid = isAccountMode && CFG.scriptUrl && _DATA_ACTIONS.has(params.action);
+  const baseUrl = isHybrid ? CFG.scriptUrl : (isAccountMode ? CFG.adminUrl : CFG.scriptUrl);
+  const allParams = (isAccountMode && !isHybrid) ? {...params, token: CFG.sessionToken} : params;
   const url = baseUrl + '?' + new URLSearchParams(allParams).toString();
   let r;
   try { r = await fetch(url); } catch(e){ throw new Error('Netzwerkfehler: '+e.message); }

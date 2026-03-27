@@ -41,12 +41,32 @@ async function doAuthLogin(){
     try { d = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort'); }
     if(d.error) throw new Error(d.error);
     CFG.adminUrl=adminUrl; CFG.sessionToken=d.token; CFG.authUser=d.username; CFG.authRole=d.role||'user';
-    CFG.scriptUrl=''; CFG.demo=false;
+    CFG.scriptUrl=d.scriptUrl||''; CFG.demo=false;
     cfgSave();
     launchApp();
   }catch(e){
     showErr(e.message||'Verbindung fehlgeschlagen');
     btn.classList.remove('loading'); btn.disabled=false; btn.textContent='Anmelden →';
+  }
+}
+
+function suToggleStorage(mode){
+  const adminBtn = document.getElementById('su-store-admin');
+  const ownBtn   = document.getElementById('su-store-own');
+  const ownWrap  = document.getElementById('su-own-sheet-wrap');
+  const hint     = document.getElementById('su-store-hint');
+  const accentBorder = '2px solid var(--accent)';
+  const normalBorder = '2px solid var(--border)';
+  if(mode === 'own'){
+    adminBtn.style.border = normalBorder; adminBtn.style.color = '';
+    ownBtn.style.border   = accentBorder; ownBtn.style.color   = 'var(--accent)';
+    ownWrap.style.display = 'block';
+    hint.textContent = 'Deine Daten bleiben auf deinem eigenen Google Drive.';
+  } else {
+    adminBtn.style.border = accentBorder; adminBtn.style.color = 'var(--accent)';
+    ownBtn.style.border   = normalBorder; ownBtn.style.color   = '';
+    ownWrap.style.display = 'none';
+    hint.textContent = 'Dein Sheet wird automatisch auf dem Admin-Drive erstellt.';
   }
 }
 
@@ -64,13 +84,18 @@ async function doAuthSignup(){
   if(pw.length<6){ showErr('Passwort: mind. 6 Zeichen'); return; }
   if(!adminUrl){ showErr('Admin-Script-URL eintragen'); return; }
 
+  const scriptUrlInput = (document.getElementById('su-script-url')||{value:''}).value||'';
+  const scriptUrl = scriptUrlInput.trim();
+
   const btn = document.getElementById('auth-signup-btn');
   btn.classList.add('loading'); btn.disabled=true; btn.textContent='Konto wird erstellt…';
   try{
     const hash = await sha256(pw);
+    const signupParams = {action:'signup',user,hash};
+    if(scriptUrl) signupParams.scriptUrl = scriptUrl;
     let r, d;
     try {
-      r = await fetch(adminUrl+'?'+new URLSearchParams({action:'signup',user,hash}));
+      r = await fetch(adminUrl+'?'+new URLSearchParams(signupParams));
     } catch(netErr){ throw new Error('Netzwerkfehler – Server nicht erreichbar'); }
     if(!r.ok) throw new Error('Server-Fehler (HTTP '+r.status+')');
     try { d = await r.json(); } catch(e){ throw new Error('Ungültige Server-Antwort'); }
