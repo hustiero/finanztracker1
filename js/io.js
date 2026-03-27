@@ -350,16 +350,28 @@ function generateAppIcon(){
   }catch(e){}
 }
 
+function showSplash(){
+  const s = document.getElementById('splash');
+  if(s){ s.classList.remove('hidden','gone'); }
+}
+function hideSplash(){
+  const s = document.getElementById('splash');
+  if(!s) return;
+  s.classList.add('hidden');
+  setTimeout(()=>s.classList.add('gone'), 380);
+}
+
 function launchApp(){
   generateAppIcon();
   sdataLoad();
   if(!CFG.notifications) CFG.notifications = [];
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  showSplash();
   renderNav();
   goTab('home');
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
-  else{ setSyncStatus('demo'); renderAll(); }
+  else{ setSyncStatus('demo'); renderAll(); hideSplash(); }
   updateNotifBadge();
 }
 
@@ -529,7 +541,7 @@ async function loadAll(){
   // Show cached data immediately while fetching (stale-while-revalidate)
   let hadCache = dataCacheLoad();
   if(!hadCache) hadCache = await dataCacheLoadIDB();
-  if(hadCache) renderAll();
+  if(hadCache){ renderAll(); hideSplash(); }
 
   try{
     const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] =
@@ -558,6 +570,7 @@ async function loadAll(){
     dataCacheSave();
     setSyncStatus('online');
     renderAll();
+    hideSplash();
 
     // Non-blocking post-load tasks
     loadGroupEntries().then(()=>{
@@ -577,6 +590,7 @@ async function loadAll(){
   } catch(e){
     setSyncStatus('error');
     toast('Ladefehler: '+e.message,'err');
+    hideSplash();
   }
   setLoader(false);
 }

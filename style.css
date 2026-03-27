@@ -1189,6 +1189,40 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 .user-mgmt-more:active{background:var(--bg2)}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ─── Splash / loading screen ──────────────────────────────── */
+#splash{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--bg);
+  transition:opacity .35s ease;
+}
+#splash.hidden{opacity:0;pointer-events:none}
+#splash.gone{display:none}
+.splash-center{display:flex;flex-direction:column;align-items:center;gap:28px;flex:1;justify-content:center}
+.splash-logo{
+  font-family:'DM Mono',monospace;font-size:72px;font-weight:700;
+  color:var(--accent);letter-spacing:-.05em;line-height:1;
+  filter:drop-shadow(0 0 24px color-mix(in srgb,var(--accent) 40%,transparent));
+}
+.splash-spinner{
+  width:32px;height:32px;
+  border:2.5px solid color-mix(in srgb,var(--accent) 25%,transparent);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+.splash-footer{
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 28px);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.splash-name{
+  font-family:'DM Mono',monospace;font-size:13px;font-weight:700;
+  letter-spacing:.18em;color:var(--text);
+}
+.splash-by{
+  font-size:10px;font-weight:500;letter-spacing:.12em;
+  color:var(--text3);text-transform:uppercase;
+}
 /* ─── Groups & Events ─────────────────────────────────────── */
 .groups-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .grp-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:border-color .2s,transform .15s}
