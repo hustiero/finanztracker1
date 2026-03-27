@@ -247,7 +247,7 @@ function renderAll(){
   renderRecurring();
   renderDashboard();
   renderSparen();
-  if(currentTab==='groups') renderGroups();
+  renderGroups();
   renderLohn();
   updatePageSub();
   // Post-render side-effects (non-blocking)
@@ -1262,6 +1262,8 @@ const WIDGET_CATALOG = [
   { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
   { key:'sparzieleOverview', label:'Sparziele',              sub:'Übersicht deiner Sparziele mit Fortschrittsbalken' },
   { key:'einnahmenPanel',   label:'Einnahmen & Budget',     sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
+  { key:'gruppenOverview',  label:'Gruppen Übersicht',      sub:'Aktive Gruppen, Events & kombinierter Saldo auf einen Blick' },
+  { key:'gruppenSalden',    label:'Offene Salden',          sub:'Dein Saldo in jeder aktiven Split-Gruppe' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
 let homeEditMode = false;
@@ -1328,6 +1330,8 @@ const WIDGET_SIZES = {
   aktienPosition:   '1x1',
   sparzieleOverview:'2x1',
   einnahmenPanel:   '2x2',
+  gruppenOverview:  '2x1',
+  gruppenSalden:    '1x2',
 };
 
 /** Return tile CSS class for a widget key. Falls back to 2x1 (full-width mobile). */
@@ -1343,6 +1347,14 @@ const WIDGET_TAB_MAP = {
   aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
   aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
   sparzieleOverview:'sparen',
+  gruppenOverview:'groups', gruppenSalden:'groups',
+};
+
+// Human-readable section labels for each target tab
+const WIDGET_SECTION_LABELS = {
+  lohn:'Lohn & Budget', verlauf:'Verlauf', kategorien:'Kategorien',
+  dashboard:'Jahresübersicht', monat:'Monatsübersicht', sparen:'Sparen',
+  aktien:'Aktien', groups:'Gruppen & Events',
 };
 
 function renderHome(){
@@ -1356,10 +1368,21 @@ function renderHome(){
   let html = '<div class="tile-grid">';
 
   // Active widgets
+  let _prevSection = null;
   widgets.forEach((key,idx)=>{
     const def = visibleCatalog.find(c=>c.key===key);
     if(!def) return;
     const targetTab = WIDGET_TAB_MAP[key];
+
+    // Section divider between groups of widgets linking to different tabs (non-edit mode)
+    if(!homeEditMode && targetTab){
+      if(_prevSection !== null && targetTab !== _prevSection){
+        const label = WIDGET_SECTION_LABELS[targetTab] || '';
+        if(label) html += `<div class="home-section-sep"><span class="home-section-sep-line"></span><span class="home-section-sep-label">${label}</span><span class="home-section-sep-line"></span></div>`;
+      }
+      _prevSection = targetTab;
+    }
+
     const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
     html += `<div class="widget-card ${tileClass(key)}" id="widget-card-${key}"${clickAttr}>`;
     if(homeEditMode){
@@ -1429,6 +1452,8 @@ function renderWidgetContent(key){
     case 'aktienPosition':   return renderWidgetAktienPosition();
     case 'sparzieleOverview': return renderWidgetSparzieleOverview();
     case 'einnahmenPanel':   return renderWidgetEinnahmenPanel();
+    case 'gruppenOverview':  return renderWidgetGruppenOverview();
+    case 'gruppenSalden':    return renderWidgetGruppenSalden();
     default: return '';
   }
 }
@@ -2243,6 +2268,87 @@ function renderWidgetAktienPosition(){
 }
 
 // getPortfolioTodayChange and renderWidgetAktienDashboard live in js/portfolio.js
+
+// ── Gruppen-Widgets ──────────────────────────────────────────
+
+function renderWidgetGruppenOverview(){
+  if(!DATA.groups) return '<div class="widget-title">Gruppen</div><div style="color:var(--text3);font-size:12px;text-align:center;padding:12px 0">Keine Daten</div>';
+  const myId = _myGroupId();
+  const myNm = _myGroupName();
+  const groups = DATA.groups.filter(g=>
+    g.status==='active' && (g.members.includes(myId)||g.members.includes(myNm))
+  );
+  if(!groups.length){
+    return `<div class="widget-title">Gruppen</div>
+      <div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0">Keine aktiven Gruppen</div>`;
+  }
+  const events = groups.filter(g=>g.type==='event');
+  const splits = groups.filter(g=>g.type==='split');
+  let totalOwed = 0;
+  splits.forEach(g=>{
+    const bal = calcSplitBalances(g.id);
+    totalOwed += bal[myId]||bal[myNm]||0;
+  });
+  const balColor = totalOwed>0.01?'var(--green)':totalOwed<-0.01?'var(--red)':'var(--text3)';
+  const balLabel = totalOwed>0.01?`+${fmtAmt(totalOwed)}`:totalOwed<-0.01?`−${fmtAmt(Math.abs(totalOwed))}`:null;
+  const stats = [
+    events.length ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${events.length}</div><div style="font-size:10px;color:var(--text3)">Event${events.length!==1?'s':''}</div></div>` : '',
+    splits.length ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${splits.length}</div><div style="font-size:10px;color:var(--text3)">Split${splits.length!==1?'s':''}</div></div>` : '',
+    balLabel ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:14px;font-weight:700;color:${balColor}">${balLabel}</div><div style="font-size:10px;color:var(--text3)">Saldo</div></div>` : '',
+  ].filter(Boolean).join('');
+  const rows = groups.slice(0,3).map(g=>{
+    const total = getGroupTotal(g.id);
+    const badge = g.type==='split'?'Split':'Event';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border)">
+      <div style="overflow:hidden">
+        <span style="font-size:10px;color:var(--text3);margin-right:4px">${badge}</span>
+        <span style="font-size:12px;color:var(--text2)">${esc(g.name)}</span>
+      </div>
+      <span style="font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;margin-left:8px">${fmtAmt(total)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="widget-title">Gruppen</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">${stats}</div>
+    ${rows}`;
+}
+
+function renderWidgetGruppenSalden(){
+  if(!DATA.groups) return '<div class="widget-title">Offene Salden</div><div style="color:var(--text3);font-size:12px;text-align:center;padding:12px 0">Keine Daten</div>';
+  const myId = _myGroupId();
+  const myNm = _myGroupName();
+  const splits = DATA.groups.filter(g=>
+    g.status==='active' && g.type==='split' && (g.members.includes(myId)||g.members.includes(myNm))
+  );
+  if(!splits.length){
+    return `<div class="widget-title">Offene Salden</div>
+      <div style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">Keine Split-Gruppen</div>`;
+  }
+  const items = splits.map(g=>{
+    const bal = calcSplitBalances(g.id);
+    return {name:g.name, id:g.id, bal:bal[myId]||bal[myNm]||0};
+  });
+  const open = items.filter(x=>Math.abs(x.bal)>0.005);
+  if(!open.length){
+    return `<div class="widget-title">Offene Salden</div>
+      <div style="color:var(--green);font-size:12px;text-align:center;padding:16px 0;font-weight:600">Alles ausgeglichen</div>
+      ${items.map(x=>`<div style="padding:5px 0;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">${esc(x.name)}</div>`).join('')}`;
+  }
+  return `<div class="widget-title">Offene Salden</div>
+    ${items.map(x=>{
+      const isPos = x.bal>0.005;
+      const isNeg = x.bal<-0.005;
+      const color = isPos?'var(--green)':isNeg?'var(--red)':'var(--text3)';
+      const label = isPos?`+${fmtAmt(x.bal)}`:isNeg?`−${fmtAmt(Math.abs(x.bal))}`:'±0';
+      const sub = isPos?'du bekommst':isNeg?'du schuldest':'ausgeglichen';
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <span style="font-size:14px;font-weight:700;color:${color}">${label}</span>
+          <span style="font-size:10px;color:var(--text3)">${sub}</span>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
 
 function renderDashboard(){
   const now = new Date();
