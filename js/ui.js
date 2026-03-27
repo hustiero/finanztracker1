@@ -17,10 +17,12 @@ function goTab(tab){
   // Push history state for Android back-gesture navigation
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
-  document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab-page').forEach(p=>{ p.style.display='none'; p.classList.remove('tab-entering'); });
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl){
     tabEl.style.display='block';
+    void tabEl.offsetWidth; // force reflow for animation restart
+    tabEl.classList.add('tab-entering');
     tabEl.classList.remove('animating');
     void tabEl.offsetWidth; // force reflow
     tabEl.classList.add('animating');
@@ -1132,6 +1134,13 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('show'); });
 });
 
+// Close topmost open modal on Escape
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  const open = document.querySelector('.modal-overlay.show');
+  if(open) open.classList.remove('show');
+});
+
 let _syncSettleTimer, _syncDotHideTimer;
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot'), label=document.getElementById('sync-label');
@@ -1158,7 +1167,8 @@ function toast(msg,type=''){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show '+(type||'');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+  const dur = type==='err' ? 4000 : 2800;
+  toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
 }
 
 function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}

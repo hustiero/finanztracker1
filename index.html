@@ -118,16 +118,17 @@
       <div class="form-group">
         <label class="form-label">Passwort</label>
         <div class="auth-input-pw-wrap">
-          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()">
+          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()" oninput="suCheckPw()">
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <div class="form-group mb-10">
         <label class="form-label">Passwort bestätigen</label>
         <div class="auth-input-pw-wrap">
-          <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()">
+          <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()" oninput="suCheckPw()">
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw2',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
+        <div id="su-pw-hint" style="font-size:11px;margin-top:4px;min-height:16px"></div>
       </div>
       <div class="form-group mb-0">
         <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
@@ -290,12 +291,12 @@
 
         <div class="form-group">
           <label class="form-label">Beschreibung</label>
-          <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off">
+          <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off" onkeydown="if(event.key==='Enter')document.getElementById('f-note').focus()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Notiz <span class="t-text3">(optional)</span></label>
-          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
+          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off" onkeydown="if(event.key==='Enter')saveEntryOrRecurring()">
         </div>
 
         <!-- Group assignment (optional) -->
@@ -1344,6 +1345,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteEntry()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('edit-modal')">Abbrechen</button>
       <button class="btn-save" onclick="updateEntry()">Speichern</button>
     </div>
   </div>

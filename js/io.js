@@ -745,10 +745,23 @@ async function _syncUpdate(range, values){
 // Guard against concurrent saves (double-tap / rapid submit)
 let _saveEntryInProgress = false;
 
+function _inputErr(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('input-error');
+  el.addEventListener('input', ()=>el.classList.remove('input-error'), {once:true});
+}
+
 async function saveEntry(){
   if(_saveEntryInProgress) return;
   _saveEntryInProgress = true;
-  try { await _saveEntryImpl(); } finally { _saveEntryInProgress = false; }
+  const btn = document.getElementById('f-save-btn');
+  const origText = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Wird gespeichert…'; }
+  try { await _saveEntryImpl(); } finally {
+    _saveEntryInProgress = false;
+    if(btn){ btn.disabled = false; btn.textContent = origText; }
+  }
 }
 
 async function _saveEntryImpl(){
@@ -759,9 +772,9 @@ async function _saveEntryImpl(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(isNaN(amt) || amt <= 0){ toast('Betrag muss > 0 sein','err'); return; }
-  if(!date){ toast('Datum erforderlich','err'); return; }
-  if(!what){ toast('Beschreibung erforderlich','err'); return; }
+  if(isNaN(amt) || amt <= 0){ _inputErr('f-amt'); toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ _inputErr('f-date'); toast('Datum erforderlich','err'); return; }
+  if(!what){ _inputErr('f-what'); toast('Beschreibung erforderlich','err'); return; }
 
   // Group & split data from form
   const groupSel = document.getElementById('f-group');
@@ -863,9 +876,9 @@ async function _updateEntryImpl(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(isNaN(amt)||amt<=0){ toast('Betrag muss > 0 sein','err'); return; }
-  if(!date){ toast('Datum erforderlich','err'); return; }
-  if(!what){ toast('Beschreibung erforderlich','err'); return; }
+  if(isNaN(amt)||amt<=0){ _inputErr('edit-amt'); toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ _inputErr('edit-date'); toast('Datum erforderlich','err'); return; }
+  if(!what){ _inputErr('edit-what'); toast('Beschreibung erforderlich','err'); return; }
 
   // New entry from recurring (manual materialization of a future Dauerauftrag)
   const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
