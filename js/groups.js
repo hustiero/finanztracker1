@@ -132,7 +132,10 @@ function _rowToGroup(r){
 // ── 5. Load groups from backend ──────────────────────────────
 
 // Session-level flag — avoid 2 redundant API calls on every loadGroups()
+// Seeded from CFG.groupsSheetsEnsured (persisted in localStorage) so a
+// repeat visit to the same backend skips the ensure calls entirely.
 let _groupsSheetsEnsured = false;
+function _initGroupsSheetsEnsured(){ _groupsSheetsEnsured = !!CFG.groupsSheetsEnsured; }
 
 // ── Personal sheet "Gruppen" tab — cross-device membership index ──────
 // Columns: A=id, B=name, C=type, D=currency, E=status, F=adminId, G=joinedAt
@@ -176,21 +179,25 @@ async function _syncMembershipToPersonalSheet(group, status){
 async function ensureGroupsSheets(){
   if(CFG.demo || _groupsSheetsEnsured) return;
   try{
-    await groupsApiCall({
-      action:'groupsEnsureSheet',
-      sheet:'Groups',
-      headers:JSON.stringify(['id','name','type','members','currency','status','created','adminId','inviteCode','sharedSheetUrl'])
-    });
-    await groupsApiCall({
-      action:'groupsEnsureSheet',
-      sheet:'Notifications',
-      headers:JSON.stringify(['recipient','notifJSON','read'])
-    });
+    await Promise.all([
+      groupsApiCall({
+        action:'groupsEnsureSheet',
+        sheet:'Groups',
+        headers:JSON.stringify(['id','name','type','members','currency','status','created','adminId','inviteCode','sharedSheetUrl'])
+      }),
+      groupsApiCall({
+        action:'groupsEnsureSheet',
+        sheet:'Notifications',
+        headers:JSON.stringify(['recipient','notifJSON','read'])
+      })
+    ]);
   }catch(e){
     console.warn('ensureGroupsSheets:', e.message);
   }
   // Mark done even on error — we'll get real errors on the actual read/write
   _groupsSheetsEnsured = true;
+  CFG.groupsSheetsEnsured = true;
+  cfgSave();
 }
 
 async function loadGroups(){
@@ -376,7 +383,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
     urlChanged = true;
   }
   // Invalidate ensureGroupsSheets cache if we switched to a new backend
-  if(urlChanged) _groupsSheetsEnsured = false;
+  if(urlChanged){ _groupsSheetsEnsured = false; CFG.groupsSheetsEnsured = false; }
 
   let joinedOk = false;
   try{
@@ -426,6 +433,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
       CFG.adminUrl  = origAdminUrl;
       CFG.scriptUrl = origScriptUrl;
       _groupsSheetsEnsured = false;
+      CFG.groupsSheetsEnsured = false;
     }
     cfgSave();
   }
@@ -762,27 +770,29 @@ async function loadGroupEntries(){
   const allEntries = [];
   const legacyGroupIds = [];
 
-  // Try per-group tabs first
-  for(const g of activeGroups){
+  // Try per-group tabs in parallel
+  const groupResults = await Promise.all(activeGroups.map(async g => {
     const tab = _groupEntryTab(g.id);
     try{
       const res = await groupsApiCall({
         action: 'groupsGet',
         range: tab + '!A2:L5000'
       }).catch(()=> null);
-
-      if(res && res.values && res.values.length){
-        for(const r of res.values){
-          if(!r[0]) continue;
-          if(r[10]==='1') continue; // deleted
-          allEntries.push(_rowToGroupEntry(r, myId));
-        }
-      } else {
-        // Tab doesn't exist or is empty → try legacy
-        legacyGroupIds.push(g.id);
-      }
+      return { g, res };
     }catch(e){
-      // Tab doesn't exist → try legacy
+      return { g, res: null };
+    }
+  }));
+
+  for(const { g, res } of groupResults){
+    if(res && res.values && res.values.length){
+      for(const r of res.values){
+        if(!r[0]) continue;
+        if(r[10]==='1') continue; // deleted
+        allEntries.push(_rowToGroupEntry(r, myId));
+      }
+    } else {
+      // Tab doesn't exist or is empty → try legacy
       legacyGroupIds.push(g.id);
     }
   }
