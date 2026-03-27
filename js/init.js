@@ -186,6 +186,7 @@ Object.assign(App.UI, {
   setAktienView, setAktienTabView, deleteAktie,
   // Admin
   copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs, copyAdminCodeGs,
+  saveGroupBadgeColor, resetGroupBadgeColor,
   adminSetScriptUrl, adminApproveUser, adminRejectUser,
   openUserManagement, closeUserManagement, refreshUserList, filterUsers,
   adminResetPw, adminDeleteUser, adminToggleRole,
