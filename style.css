@@ -1553,7 +1553,9 @@ body.glass-on .settings-group-toggle{
 .intro-overlay{
   position:fixed;inset:0;z-index:9999;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:var(--bg);
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(28px) saturate(1.4);
+  -webkit-backdrop-filter:blur(28px) saturate(1.4);
   padding:24px 24px calc(24px + env(safe-area-inset-bottom,0px));
 }
 .intro-skip{
@@ -1820,3 +1822,13 @@ body.is-android .filter-row{touch-action:pan-x}
 /* Nav buttons: slightly larger radius to match pill shape */
 #nav button:focus-visible{ border-radius:12px; }
 
+
+/* Tab help modal list */
+.tab-help-list{list-style:none;padding:0 16px 24px;margin:0}
+.tab-help-item{
+  padding:11px 0;border-bottom:1px solid var(--border);
+  font-size:14px;line-height:1.5;color:var(--text2);
+  display:flex;gap:10px;align-items:flex-start;
+}
+.tab-help-item::before{content:'•';color:var(--accent);font-size:18px;line-height:1.1;flex-shrink:0}
+.tab-help-item:last-child{border-bottom:none}
