@@ -3,7 +3,33 @@
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'home';
 
-function haptic(pattern){ try{ if(CFG.hapticsEnabled !== false) navigator.vibrate?.(pattern); }catch(_){} }
+function haptic(pattern){
+  if(CFG.hapticsEnabled === false) return;
+  try{
+    if(navigator.vibrate){
+      navigator.vibrate(pattern);
+    } else {
+      _hapticIOS();
+    }
+  } catch(_){}
+}
+
+function _hapticIOS(){
+  try{
+    const el = document.createElement('input');
+    el.type = 'checkbox';
+    el.setAttribute('switch', '');
+    el.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;left:-9999px';
+    document.body.appendChild(el);
+    el.click();
+    requestAnimationFrame(() => el.remove());
+  } catch(_){}
+}
+
+function _detectIOSSwitchSupport(){
+  const m = /iP(?:hone|od|ad).+OS (\d+)_/.exec(navigator.userAgent);
+  return m ? parseInt(m[1]) >= 18 : false;
+}
 
 function goTab(tab){
   // Daueraufträge merged into Lohn → redirect + open Abos subtab
@@ -451,6 +477,11 @@ function renderNotifSettings(){
     </div>`).join('');
   const hapticEl = document.getElementById('haptic-toggle');
   if(hapticEl) hapticEl.classList.toggle('on', CFG.hapticsEnabled !== false);
+  const hapticHint = document.getElementById('haptic-hint');
+  if(hapticHint){
+    const noSupport = !navigator.vibrate && !_detectIOSSwitchSupport();
+    hapticHint.style.display = noSupport ? '' : 'none';
+  }
 }
 
 function toggleHapticSetting(){
