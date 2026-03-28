@@ -950,41 +950,52 @@ async function _updateEntryImpl(){
 async function deleteEntry(){
   const id = document.getElementById('edit-id').value;
   const type = document.getElementById('edit-type').value;
-  if(!confirm('Eintrag wirklich löschen?')) return;
+  closeModal('edit-modal');
+  deleteEntryById(id, type);
+}
 
+async function deleteEntryById(id, type){
   const list = type==='ausgabe'?DATA.expenses:DATA.incomes;
   const idx = list.findIndex(e=>e.id===id);
   const backup = idx!==-1 ? list[idx] : null;
-  if(idx!==-1) list.splice(idx,1);
+  if(idx===-1) return;
+  list.splice(idx,1);
 
-  closeModal('edit-modal');
   dataCacheSave();
   markDirty('verlauf','dashboard','home','lohn');
 
-  if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
-      const row = await apiFindRow(sheet, id);
-      if(!row){
-        // Eintrag nicht in Sheet gefunden – lokal zurücksetzen
-        if(backup && idx!==-1) list.splice(idx,0,backup);
+  toastAction('Eintrag gelöscht', 'Rückgängig', () => {
+    list.splice(idx,0,backup);
+    dataCacheSave();
+    markDirty('verlauf','dashboard','home','lohn');
+  });
+
+  setTimeout(async () => {
+    // Prüfen ob Eintrag noch fehlt (kein Undo erfolgt)
+    if(list.findIndex(e=>e.id===id) !== -1) return;
+    if(!CFG.demo){
+      setSyncStatus('syncing');
+      try{
+        const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
+        const row = await apiFindRow(sheet, id);
+        if(!row){
+          if(backup) list.splice(idx,0,backup);
+          dataCacheSave();
+          markDirty('verlauf','dashboard','home','lohn');
+          setSyncStatus('error');
+          toast('Fehler: Eintrag nicht in Sheet gefunden','err');
+          return;
+        }
+        await apiUpdate(`${sheet}!G${row}`,[ ['1'] ]);
+        setSyncStatus('online');
+      } catch(e){
+        if(backup) list.splice(idx,0,backup);
         dataCacheSave();
         markDirty('verlauf','dashboard','home','lohn');
-        setSyncStatus('error');
-        toast('Fehler: Eintrag nicht in Sheet gefunden','err');
-        return;
+        setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
       }
-      await apiUpdate(`${sheet}!G${row}`,[ ['1'] ]); // mark deleted
-      setSyncStatus('online'); toast('✓ Gelöscht','ok');
-    } catch(e){
-      // Netzwerkfehler – lokal zurücksetzen
-      if(backup && idx!==-1) list.splice(idx,0,backup);
-      dataCacheSave();
-      markDirty('verlauf','dashboard','home','lohn');
-      setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
     }
-  } else { toast('✓ Gelöscht (Demo)','ok'); }
+  }, 5100);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1086,21 +1097,32 @@ async function updateRecurring(){
 
 async function deleteRecurring(){
   const id = document.getElementById('rec-edit-id').value;
-  if(!confirm('Dauerauftrag wirklich löschen?')) return;
   const idx = DATA.recurring.findIndex(r=>r.id===id);
-  if(idx!==-1) DATA.recurring.splice(idx,1);
+  if(idx===-1) return;
+  const backup = DATA.recurring[idx];
+  DATA.recurring.splice(idx,1);
   invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
   markDirty('dauerauftraege','dashboard','home');
 
-  if(!CFG.demo){
-    try{
-      const row = await apiFindRow('Daueraufträge', id);
-      if(row) await apiUpdate(`Daueraufträge!H${row}`,[['0']]);
-      setSyncStatus('online'); toast('✓ Gelöscht','ok');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
-  } else toast('✓ Gelöscht (Demo)','ok');
+  toastAction('Dauerauftrag gelöscht', 'Rückgängig', () => {
+    DATA.recurring.splice(idx,0,backup);
+    invalidateRecurCache(); _zyklusCache = null;
+    dataCacheSave();
+    markDirty('dauerauftraege','dashboard','home');
+  });
+
+  setTimeout(async () => {
+    if(DATA.recurring.findIndex(r=>r.id===id) !== -1) return;
+    if(!CFG.demo){
+      try{
+        const row = await apiFindRow('Daueraufträge', id);
+        if(row) await apiUpdate(`Daueraufträge!H${row}`,[['0']]);
+        setSyncStatus('online');
+      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
+    }
+  }, 5100);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1242,21 +1264,31 @@ async function deleteCategory(){
   const cat = DATA.categories.find(c=>c.id===id);
   const inUse = DATA.expenses.some(e=>e.cat===cat?.name) || DATA.incomes.some(e=>e.cat===cat?.name);
   if(inUse){ toast('Kategorie wird noch verwendet','err'); return; }
-  if(!confirm('Kategorie "'+cat?.name+'" wirklich löschen?')) return;
 
   const idx = DATA.categories.findIndex(c=>c.id===id);
-  if(idx!==-1) DATA.categories.splice(idx,1);
+  if(idx===-1) return;
+  const backup = DATA.categories[idx];
+  DATA.categories.splice(idx,1);
   invalidateCatCache();
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns();
 
-  if(!CFG.demo){
-    try{
-      const row = await apiFindRow('Kategorien', id);
-      if(row) await apiUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
-      setSyncStatus('online'); toast('✓ Gelöscht','ok');
-    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
-  } else toast('✓ Gelöscht (Demo)','ok');
+  toastAction('Kategorie gelöscht', 'Rückgängig', () => {
+    DATA.categories.splice(idx,0,backup);
+    invalidateCatCache();
+    renderCategories(); fillAllDropdowns();
+  });
+
+  setTimeout(async () => {
+    if(DATA.categories.findIndex(c=>c.id===id) !== -1) return;
+    if(!CFG.demo){
+      try{
+        const row = await apiFindRow('Kategorien', id);
+        if(row) await apiUpdate(`Kategorien!A${row}`,[ ['DELETED'] ]);
+        setSyncStatus('online');
+      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
+    }
+  }, 5100);
 }
 
 // ═══════════════════════════════════════════════════════════════

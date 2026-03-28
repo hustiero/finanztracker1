@@ -229,6 +229,94 @@ function renderMonthView(){
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('gesturechange',e=>e.preventDefault());
 
+// ── Pull-to-Refresh ───────────────────────────────────────────────────────────
+(function(){
+  let sy=0, pulling=false, pullStarted=false, refreshing=false;
+  const ind=()=>document.getElementById('pull-indicator');
+  const cont=()=>document.getElementById('content');
+
+  document.addEventListener('touchstart',e=>{
+    if(refreshing) return;
+    const c=cont();
+    if(c && c.scrollTop===0){
+      sy=e.touches[0].clientY; pullStarted=true;
+    }
+  },{passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(!pullStarted||refreshing) return;
+    const dy=e.touches[0].clientY-sy;
+    if(dy>10){ pulling=true; ind()?.classList.add('visible'); }
+  },{passive:true});
+
+  document.addEventListener('touchend',async e=>{
+    if(!pullStarted) return;
+    pullStarted=false;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(pulling && dy>60 && !refreshing){
+      refreshing=true;
+      if(typeof haptic==='function') haptic(8);
+      try{ await loadData(); renderAll(); }catch(_){}
+      refreshing=false;
+    }
+    pulling=false;
+    ind()?.classList.remove('visible');
+  },{passive:true});
+})();
+
+// ── Swipe-to-Delete ───────────────────────────────────────────────────────────
+function initSwipeToDelete(container){
+  if(!container) return;
+  // Only attach once per container element; re-renders change innerHTML, not the node
+  if(container._swipeInit) return;
+  container._swipeInit = true;
+  let startX=0, startY=0, activeEl=null, dirLocked=false;
+
+  container.addEventListener('touchstart',e=>{
+    const wrap = e.target.closest('.swipe-wrap');
+    if(!wrap) return;
+    activeEl = wrap.querySelector('.swipe-content');
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dirLocked = false;
+    if(activeEl) activeEl.style.transition='none';
+  },{passive:true});
+
+  container.addEventListener('touchmove',e=>{
+    if(!activeEl) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if(!dirLocked){
+      if(Math.abs(dy) > Math.abs(dx)){ activeEl=null; return; }
+      dirLocked = true;
+    }
+    if(dx < 0){
+      activeEl.style.transform = `translateX(${Math.max(-72, dx)}px)`;
+      e.stopPropagation();
+    } else if(dx > 0){
+      activeEl.style.transform = '';
+    }
+  },{passive:true});
+
+  container.addEventListener('touchend',e=>{
+    if(!activeEl) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    activeEl.style.transition = 'transform .2s ease';
+    activeEl.style.transform = dx < -50 ? 'translateX(-72px)' : '';
+    activeEl = null;
+  },{passive:true});
+
+  // Tap elsewhere resets all open swipe items
+  container.addEventListener('touchstart',e=>{
+    if(!e.target.closest('.swipe-wrap')){
+      container.querySelectorAll('.swipe-content').forEach(el=>{
+        el.style.transition='transform .2s ease';
+        el.style.transform='';
+      });
+    }
+  },{passive:true});
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Verlauf Navigation State (3 Ebenen + Gruppen)
 let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen' | 'gruppen'
@@ -442,8 +530,7 @@ function renderVerlaufEntryGroups(entries){
                    <span class="shadow-group-chip">${esc(groupName(e.groupId))}</span>
                  </div>`
               : '';
-            return `
-            <div class="card-row${isGroup?' group-foreign-entry':''}${isSplitOwn?' split-own-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
+            const rowEl = `<div class="card-row${isGroup?' group-foreign-entry':''}${isSplitOwn?' split-own-entry':''}" ${onclick} style="${isRec?'opacity:'+(isFuture?'0.5':'0.7'):''}">
               <div class="card-row-icon" style="background:${catColor(e.cat)}22">
                 <span>${isRec?'↻':catEmoji(e.cat)}</span>
               </div>
@@ -456,6 +543,11 @@ function renderVerlaufEntryGroups(entries){
               <div class="card-row-amount${isGroup?' foreign':''}">${e._type==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
               ${isRec||isGroup?'':`<svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`}
             </div>`;
+            if(!isRec && !isGroup && !isShadow){
+              const eType = e._type==='ausgabe'?'ausgabe':'einnahme';
+              return `<div class="swipe-wrap"><div class="swipe-delete-zone" onclick="deleteEntryById('${e.id}','${eType}')"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="swipe-content">${rowEl}</div></div>`;
+            }
+            return rowEl;
           }).join('')}
         </div>
       </div>`;
@@ -538,6 +630,7 @@ function renderVerlaufL1(){
       </button></div>`;
   }
   container.innerHTML = html;
+  initSwipeToDelete(container);
 }
 
 const _VERLAUF_PAGE_SIZE = 200;
@@ -689,6 +782,7 @@ function renderVerlaufL3(){
     html += renderVerlaufEntryGroups(displayedEntries);
   }
   container.innerHTML = html;
+  initSwipeToDelete(container);
 }
 
 // ── renderVerlauf: Haupt-Dispatcher ──────────────────────────────────────────

@@ -3,6 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'home';
 
+function haptic(pattern){ try{ navigator.vibrate?.(pattern); }catch(_){} }
+
 function goTab(tab){
   // Daueraufträge merged into Lohn → redirect + open Abos subtab
   if(tab==='dauerauftraege'){ goTab('lohn'); setTimeout(()=>setLohnSubtab('abos'), 80); return; }
@@ -17,6 +19,7 @@ function goTab(tab){
   // Push history state for Android back-gesture navigation
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
+  haptic(4);
   document.querySelectorAll('.tab-page').forEach(p=>{ p.style.display='none'; p.classList.remove('tab-entering'); });
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl){
@@ -1183,11 +1186,22 @@ function setLoader(v){ document.getElementById('loader').classList.toggle('show'
 
 let toastTimer;
 function toast(msg,type=''){
+  haptic(type==='err'?[10,50,10]:8);
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show '+(type||'');
   clearTimeout(toastTimer);
   const dur = type==='err' ? 4000 : 2800;
   toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+function toastAction(msg, actionLabel, onAction){
+  haptic(8);
+  const el = document.getElementById('toast');
+  el.innerHTML = esc(msg) + ' <button class="toast-action-btn" onclick="__toastAction()">' + esc(actionLabel) + '</button>';
+  el.className = 'toast show action';
+  clearTimeout(toastTimer);
+  window.__toastAction = () => { clearTimeout(toastTimer); el.classList.remove('show'); onAction(); };
+  toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
 }
 
 function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
