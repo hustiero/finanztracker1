@@ -251,6 +251,9 @@
         <div class="sync-label" id="sync-label">Demo</div>
         <div class="sync-dot demo" id="sync-dot"></div>
       </div>
+      <button class="top-bar-circle-btn" onclick="showTabHelp()" aria-label="Hilfe" id="help-btn">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
       <button class="top-bar-circle-btn" onclick="openMenuOverlay()" aria-label="Mehr">
         <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -1801,6 +1804,18 @@
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
 <script src="js/init.js"></script>
+
+<!-- ── Tab Help Modal ──────────────────── -->
+<div class="modal-overlay" id="tab-help-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="tab-help-title">Hilfe</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('tab-help-modal')">✕</button>
+    </div>
+    <ul id="tab-help-list" class="tab-help-list"></ul>
+  </div>
+</div>
 
 <!-- ── Onboarding Intro ──────────────────── -->
 <div id="intro-overlay" class="intro-overlay" style="display:none">

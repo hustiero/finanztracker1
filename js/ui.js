@@ -1276,3 +1276,91 @@ function introClose(){
   document.getElementById('intro-overlay').style.display = 'none';
   CFG.introSeen = true; cfgSave();
 }
+
+// ── Tab Help ─────────────────────────────────────────────────
+const _TAB_HELP = {
+  home: { title:'Home', items:[
+    'Übersicht über den aktuellen Lohnzyklus: Budget, Ausgaben, Sparrate.',
+    'Widgets per «Bearbeiten» ein-/ausblenden und neu anordnen.',
+    'Der Budgetbalken zeigt, wie viel vom variablen Budget noch übrig ist.',
+    'Tippe auf Beträge oder Kategorien für die Detailansicht.',
+  ]},
+  eingabe: { title:'Eingabe', items:[
+    '«−» für Ausgaben, «+» für Einnahmen — Typ jederzeit wechselbar.',
+    'Betrag, Datum, Kategorie und Beschreibung erfassen.',
+    '«Dauerauftrag» aktivieren für wiederkehrende Buchungen (Miete, Abos...).',
+    'Gruppen-Feld erscheint automatisch wenn Gruppen vorhanden sind.',
+    'Enter in Beschreibung springt zu Notiz, Enter in Notiz speichert.',
+  ]},
+  verlauf: { title:'Verlauf', items:[
+    'Alle Buchungen chronologisch — filterbar nach Monat, Quartal, Jahr oder frei.',
+    'Tabs: Alle / Ausgaben / Einnahmen / Gruppen.',
+    'Tippe auf eine Buchung zum Bearbeiten oder Löschen.',
+    'Kategoriename antippen öffnet die gefilterte Kategorieansicht.',
+    'Lupe oben rechts filtert nach Beschreibung oder Notiz.',
+  ]},
+  kategorien: { title:'Kategorien', items:[
+    'Eigene Ausgaben- und Einnahme-Kategorien mit Name und Farbe anlegen.',
+    'Oberkategorien gruppieren verwandte Kategorien (z.B. «Wohnen» → Miete, Strom).',
+    'Farbe per Farbpicker oder HEX-Eingabe anpassen.',
+    'Kategorien werden sofort im Google Sheet gespeichert.',
+  ]},
+  lohn: { title:'Lohn & Einnahmen', items:[
+    '«Lohnzyklus»: Einnahmen und Ausgaben seit dem letzten Lohneingang.',
+    '«Abos & Fixkosten»: Daueraufträge verwalten — Betrag, Intervall, Tag.',
+    'Lohndatum in Einstellungen → Profil festlegen.',
+    'Fixkosten erscheinen immer im Fixkostenblock, unabhängig vom Datum.',
+  ]},
+  dashboard: { title:'Jahresübersicht', items:[
+    'Monatsbalken zeigen Einnahmen vs. Ausgaben für das ganze Jahr.',
+    'Kategorien-Donut für den gewählten Monat oder das Gesamtjahr.',
+    'Jahres-Sparquote basiert auf allen Einnahmen und Ausgaben.',
+    'Pfeil links/rechts oder Jahresauswahl zum Wechseln.',
+  ]},
+  monat: { title:'Monatsübersicht', items:[
+    'Detaillierte Aufschlüsselung eines einzelnen Monats.',
+    'Donut-Chart nach Kategorien, Balken für Einnahmen/Ausgaben.',
+    'Buchungsliste gefiltert nach Monat — tippe zum Bearbeiten.',
+    'Monat per Pfeil oder Monatsauswahl wechseln.',
+  ]},
+  sparen: { title:'Sparen & Planen', items:[
+    'Sparziele mit Name und Zielbetrag anlegen — Fortschritt per Balken.',
+    'Monatliches Sparziel in Einstellungen festlegen.',
+    'Sparquote fliesst ins Home-Dashboard ein.',
+  ]},
+  aktien: { title:'Aktien', items:[
+    'Portfolio mit aktuellem Kurs via GOOGLEFINANCE (braucht Google Sheet).',
+    '«+ Aktie» anlegen: Ticker (z.B. AAPL, VTX:NESN), Anzahl, Kaufpreis.',
+    'Käufe und Verkäufe einzeln erfassen für genaue Kostenbasis.',
+    '↻-Button lädt aktuelle Kurse via Google Sheet.',
+    'In Einstellungen: Depot in die Jahres-Sparrate einberechnen.',
+  ]},
+  groups: { title:'Gruppen & Events', items:[
+    '«Event»: Alle Kosten sammeln — ideal für Reisen und gemeinsame Ausflüge.',
+    '«Split»: Die App berechnet, wer wem wie viel schuldet.',
+    'Einladen per Link oder Code — Mitglieder sehen alle Buchungen.',
+    'Buchungen im persönlichen Verlauf einblenden: Toggle in der Gruppenansicht.',
+    'Gruppenname als Admin änderbar (Stift-Icon oben rechts).',
+  ]},
+  einstellungen: { title:'Einstellungen', items:[
+    '«Verbindung»: Google Apps Script URL eingeben und testen.',
+    '«Profil»: Anzeigename und Lohntag festlegen.',
+    '«Darstellung»: Währung, Dark/Light Mode, Glassmorphism-Effekte.',
+    '«Navigation»: Tabs per Mehr-Menü an die Taskleiste anheften.',
+    '«Export»: Alle Buchungen als Excel-Datei herunterladen.',
+  ]},
+  admin: { title:'Admin-Panel', items:[
+    'Script-URL verwalten und an alle Nutzer verteilen.',
+    'Ausstehende Registrierungen genehmigen oder ablehnen.',
+    'Benutzerliste einsehen und Rollen verwalten.',
+  ]},
+};
+
+function showTabHelp(){
+  const help = _TAB_HELP[currentTab];
+  if(!help) return;
+  document.getElementById('tab-help-title').textContent = help.title;
+  document.getElementById('tab-help-list').innerHTML =
+    help.items.map(t=>`<li class="tab-help-item">${t}</li>`).join('');
+  openModal('tab-help-modal');
+}

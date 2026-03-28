@@ -1820,3 +1820,13 @@ body.is-android .filter-row{touch-action:pan-x}
 /* Nav buttons: slightly larger radius to match pill shape */
 #nav button:focus-visible{ border-radius:12px; }
 
+
+/* Tab help modal list */
+.tab-help-list{list-style:none;padding:0 16px 24px;margin:0}
+.tab-help-item{
+  padding:11px 0;border-bottom:1px solid var(--border);
+  font-size:14px;line-height:1.5;color:var(--text2);
+  display:flex;gap:10px;align-items:flex-start;
+}
+.tab-help-item::before{content:'•';color:var(--accent);font-size:18px;line-height:1.1;flex-shrink:0}
+.tab-help-item:last-child{border-bottom:none}
