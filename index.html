@@ -118,9 +118,10 @@
       <div class="form-group">
         <label class="form-label">Passwort</label>
         <div class="auth-input-pw-wrap">
-          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()" oninput="suCheckPw()">
+          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 8 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()" oninput="suCheckPw();updatePwStrength()">
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
+        <div id="pw-strength-bar" style="height:4px;border-radius:2px;margin-top:4px;background:var(--bg3);overflow:hidden"><div id="pw-strength-fill" style="height:100%;width:0;border-radius:2px;transition:width .2s,background .2s"></div></div>
       </div>
       <div class="form-group mb-10">
         <label class="form-label">Passwort bestätigen</label>
@@ -1832,6 +1833,19 @@
       <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('tab-help-modal')">✕</button>
     </div>
     <ul id="tab-help-list" class="tab-help-list"></ul>
+  </div>
+</div>
+
+<!-- ── Confirm Dialog ─────────────────────── -->
+<div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-body" style="text-align:center;padding:28px 20px 20px">
+      <div id="confirm-msg" style="font-size:15px;line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>
+      <div style="display:flex;gap:10px">
+        <button id="confirm-cancel" class="save-btn" style="flex:1;background:var(--bg3);color:var(--text2)">Abbrechen</button>
+        <button id="confirm-ok" class="save-btn" style="flex:1">OK</button>
+      </div>
+    </div>
   </div>
 </div>
 

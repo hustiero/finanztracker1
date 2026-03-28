@@ -6,6 +6,22 @@ async function sha256(msg){
   return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+function updatePwStrength(){
+  const pw = (document.getElementById('su-pw').value)||'';
+  const fill = document.getElementById('pw-strength-fill');
+  if(!fill) return;
+  let score = 0;
+  if(pw.length>=8) score++;
+  if(pw.length>=12) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const pct = Math.min(100, score*20);
+  const color = pct<=20?'#ef4444':pct<=40?'#f97316':pct<=60?'#eab308':pct<=80?'#22c55e':'#10b981';
+  fill.style.width = pct+'%';
+  fill.style.background = color;
+}
+
 function togglePwVis(inputId, btn){
   const inp = document.getElementById(inputId);
   if(!inp) return;
@@ -98,7 +114,8 @@ async function doAuthSignup(){
 
   if(!user||!pw||!pw2){ showErr('Alle Felder ausfüllen'); return; }
   if(pw!==pw2){ showErr('Passwörter stimmen nicht überein'); return; }
-  if(pw.length<6){ showErr('Passwort: mind. 6 Zeichen'); return; }
+  if(pw.length<8){ showErr('Passwort: mind. 8 Zeichen'); return; }
+  if(!/[A-Z]/.test(pw)||!/[0-9]/.test(pw)){ showErr('Passwort muss mind. 1 Grossbuchstaben und 1 Zahl enthalten'); return; }
   if(!adminUrl){ showErr('Admin-Script-URL eintragen'); return; }
 
   const scriptUrlInput = (document.getElementById('su-script-url')||{value:''}).value||'';
@@ -136,8 +153,9 @@ async function doAuthSignup(){
 
 async function doChangePw(){
   const newPw = (document.getElementById('settings-new-pw').value||'').trim();
-  if(newPw.length<6){ toast('Passwort: min. 6 Zeichen','err'); return; }
-  if(!confirm('Passwort wirklich ändern?')) return;
+  if(newPw.length<8){ toast('Passwort: mind. 8 Zeichen','err'); return; }
+  if(!/[A-Z]/.test(newPw)||!/[0-9]/.test(newPw)){ toast('Mind. 1 Grossbuchstabe und 1 Zahl','err'); return; }
+  if(!await confirmDialog('Passwort wirklich ändern?', 'Ändern')) return;
   try{
     const newHash = await sha256(newPw);
     // Use admin_reset_pw on own account (admin) or a dedicated self-reset endpoint

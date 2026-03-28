@@ -1,6 +1,19 @@
 // ═══════════════════════════════════════════════════════════════
 // MODULE: INIT & LOAD
 // ═══════════════════════════════════════════════════════════════
+function isValidScriptUrl(url){
+  try { const u = new URL(url); return u.hostname === 'script.google.com' || u.hostname.endsWith('.script.google.com'); }
+  catch(e){ return false; }
+}
+
+// ── Unsaved-changes guard ──────────────────────────────────────
+let _formDirty = false;
+function markFormDirty(){ _formDirty = true; }
+function clearFormDirty(){ _formDirty = false; }
+window.addEventListener('beforeunload', e => {
+  if(_formDirty){ e.preventDefault(); e.returnValue = ''; }
+});
+
 window.addEventListener('DOMContentLoaded', ()=>{
   cfgLoad();
   applyAppBackground(); // Apply background + glass immediately after CFG load
@@ -10,25 +23,30 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // Read adminUrl + optional design from sharing/invite link
   const urlParams = new URLSearchParams(window.location.search);
   const adminUrlParam = urlParams.get('adminUrl');
-  if(adminUrlParam && adminUrlParam.includes('script.google.com')){
+  if(adminUrlParam && isValidScriptUrl(adminUrlParam)){
     CFG.adminUrl = adminUrlParam;
     // Apply admin-defined default design for new users (no session yet = first visit)
     const designParam = urlParams.get('design');
     if(designParam && !CFG.sessionToken){
       try{
         const dd = JSON.parse(designParam);
-        if(dd.bgPreset) CFG.bgPreset = dd.bgPreset;
+        const isColor = v => /^#[0-9a-fA-F]{3,8}$/.test(v);
+        if(dd.bgPreset && typeof dd.bgPreset==='string' && /^[a-zA-Z0-9_-]+$/.test(dd.bgPreset)) CFG.bgPreset = dd.bgPreset;
         if(dd.glassEnabled !== undefined) CFG.glassEnabled = !!dd.glassEnabled;
-        if(dd.glassBlur) CFG.glassBlur = +dd.glassBlur;
-        if(dd.glassAlpha) CFG.glassAlpha = +dd.glassAlpha;
+        if(dd.glassBlur) CFG.glassBlur = Math.max(0, Math.min(50, +dd.glassBlur||0));
+        if(dd.glassAlpha) CFG.glassAlpha = Math.max(0, Math.min(100, +dd.glassAlpha||0));
         if(dd.glassClean !== undefined) CFG.glassClean = !!dd.glassClean;
-        if(dd.fontColor) CFG.fontColor = dd.fontColor;
-        if(dd.fontColors) CFG.fontColors = dd.fontColors;
-        if(dd.accentColor) CFG.accentColor = dd.accentColor;
-        if(dd.textGlow !== undefined) CFG.textGlow = +dd.textGlow;
+        if(dd.fontColor && isColor(dd.fontColor)) CFG.fontColor = dd.fontColor;
+        if(dd.fontColors && typeof dd.fontColors==='object'){
+          const fc = {};
+          for(const [k,v] of Object.entries(dd.fontColors)){ if(isColor(v)) fc[k]=v; }
+          CFG.fontColors = fc;
+        }
+        if(dd.accentColor && isColor(dd.accentColor)) CFG.accentColor = dd.accentColor;
+        if(dd.textGlow !== undefined) CFG.textGlow = Math.max(0, Math.min(10, +dd.textGlow||0));
         applyAppBackground();
         applyFontColors();
-      }catch(e){}
+      }catch(e){ console.warn('Invalid design param:', e); }
     }
     cfgSave();
     window.history.replaceState({}, '', window.location.pathname);
@@ -41,7 +59,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   if(joinGroupId && joinGroupCode){
     // If a backend URL is provided and we don't have one, store it
     if(joinUrl && !CFG.scriptUrl && !CFG.adminUrl){
-      if(joinUrl.includes('script.google.com')) CFG.scriptUrl = joinUrl;
+      if(isValidScriptUrl(joinUrl)) CFG.scriptUrl = joinUrl;
     }
     // Store pending join for after data loads
     CFG._pendingGroupJoin = {id:joinGroupId, code:joinGroupCode, url:joinUrl||''};
@@ -67,12 +85,18 @@ window.addEventListener('DOMContentLoaded', ()=>{
   } else if(CFG.demo){
     loadDemo(); launchApp();
   }
+
+  // Wire unsaved-changes guard to main entry form fields
+  ['f-amt','f-what','f-note','f-date','f-cat'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', markFormDirty);
+  });
 });
 
 async function doConnect(){
   const url = document.getElementById('cfg-url').value.trim();
   if(!url){ toast('Script URL eintragen','err'); return; }
-  if(!url.includes('script.google.com')){ toast('Ungültige Script URL','err'); return; }
+  if(!isValidScriptUrl(url)){ toast('Ungültige Script URL','err'); return; }
   CFG.scriptUrl = url; CFG.demo = false;
   // Clear account mode state when switching to Script URL mode
   CFG.sessionToken = ''; CFG.authUser = ''; CFG.authRole = ''; CFG.adminUrl = '';
@@ -92,14 +116,14 @@ async function doConnect(){
 
 function doDemo(){ CFG={scriptUrl:'',demo:true}; cfgSave(); loadDemo(); launchApp(); }
 
-function doLogout(){
+async function doLogout(){
   const isAccountMode = !!(CFG.sessionToken && CFG.adminUrl);
   const msg = CFG.demo
     ? 'Demo-Modus beenden?'
     : isAccountMode
       ? `Als "${CFG.authUser}" ausloggen?`
       : 'Ausloggen? Die Script-URL wird entfernt.';
-  if(!confirm(msg)) return;
+  if(!await confirmDialog(msg, 'Ausloggen')) return;
   // Fire-and-forget server-side session invalidation
   if(isAccountMode && CFG.sessionToken){
     fetch(CFG.adminUrl + '?' + new URLSearchParams({action:'logout', token: CFG.sessionToken})).catch(()=>{});
@@ -154,7 +178,7 @@ async function _fetchAndApplyAppConfig(){
     if(!r.ok) return;
     const d = await r.json();
     const newUrl = d.config?.adminUrl?.value;
-    if(newUrl && newUrl !== CFG.adminUrl && newUrl.includes('script.google.com')){
+    if(newUrl && newUrl !== CFG.adminUrl && isValidScriptUrl(newUrl)){
       CFG.adminUrl = newUrl;
       cfgSave();
     }
@@ -347,7 +371,7 @@ function generateAppIcon(){
       const fl=document.createElement('link'); fl.rel='icon'; fl.sizes='180x180'; fl.type='image/png'; fl.href=c.toDataURL('image/png');
       document.head.appendChild(fl);
     }
-  }catch(e){}
+  }catch(e){ console.warn('generateAppIcon:', e); }
 }
 
 function showSplash(){
@@ -418,7 +442,7 @@ const DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 function dataCacheSave(){
   const payload = { ts: Date.now(), DATA, SDATA };
   // Synchronous: localStorage (fast, may throw on quota)
-  try{ localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(payload)); } catch(e){}
+  try{ localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(payload)); } catch(e){ console.warn('dataCacheSave localStorage:', e); }
   // Async: IndexedDB (larger quota, non-blocking)
   IDB.set(DATA_CACHE_KEY, payload).catch(()=>{});
 }
@@ -436,7 +460,7 @@ function dataCacheLoad(){
         return true;
       }
     }
-  } catch(e){}
+  } catch(e){ console.warn('dataCacheLoad IDB:', e); }
   return false;
 }
 
@@ -834,6 +858,7 @@ async function _saveEntryImpl(){
   }
 
   // Reset form
+  clearFormDirty();
   document.getElementById('f-amt').value='';
   document.getElementById('f-what').value='';
   document.getElementById('f-note').value='';
@@ -1794,7 +1819,7 @@ async function renameOberkategoriePrompt(id){
   renderCategories(); renderOberkategorien(); fillAllDropdowns();
 }
 
-function deleteOberkategorieModal(id){
+async function deleteOberkategorieModal(id){
   const cat = DATA.categories.find(c=>c.id===id); if(!cat) return;
   const subs = DATA.categories.filter(c=>c.parent===cat.name&&c.id!=='DELETED');
   const other = DATA.categories.filter(c=>c.type===cat.type&&!c.parent&&c.id!==id&&c.id!=='DELETED'&&c.name!=='DELETED');
@@ -1805,11 +1830,11 @@ function deleteOberkategorieModal(id){
       const target = prompt(`${msg}\nUnterkategorien zuweisen zu (Name einer anderen Oberkategorie eingeben, oder leer lassen für «eigenständig»):\n${other.map(c=>c.name).join(', ')}`);
       confirmDeleteOberkategorie(id, target?.trim()||'');
     } else {
-      if(confirm(`${msg}\nUnterkategorien werden eigenständig (ohne Oberkategorie). Fortfahren?`))
+      if(await confirmDialog(`${msg}\nUnterkategorien werden eigenständig (ohne Oberkategorie). Fortfahren?`, 'Löschen'))
         confirmDeleteOberkategorie(id, '');
     }
   } else {
-    if(confirm(`${msg}\nKeine Unterkategorien. Löschen?`)) confirmDeleteOberkategorie(id, '');
+    if(await confirmDialog(`${msg}\nKeine Unterkategorien. Löschen?`, 'Löschen')) confirmDeleteOberkategorie(id, '');
   }
 }
 
