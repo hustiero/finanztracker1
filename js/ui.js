@@ -19,7 +19,7 @@ function _hapticIOS(){
     const el = document.createElement('input');
     el.type = 'checkbox';
     el.setAttribute('switch', '');
-    el.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;left:-9999px';
+    el.style.cssText = 'position:fixed;width:1px;height:1px;top:0;left:0;border:0;padding:0;margin:0;overflow:hidden;-webkit-clip-path:inset(50%);clip-path:inset(50%)';
     document.body.appendChild(el);
     el.click();
     requestAnimationFrame(() => el.remove());
@@ -28,7 +28,7 @@ function _hapticIOS(){
 
 function _detectIOSSwitchSupport(){
   const m = /iP(?:hone|od|ad).+OS (\d+)_/.exec(navigator.userAgent);
-  return m ? parseInt(m[1]) >= 18 : false;
+  return m ? parseInt(m[1]) >= 17 : false;
 }
 
 function goTab(tab){
