@@ -698,7 +698,6 @@ async function saveEntryOrRecurring(){
     const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
     if(!what){ _inputErr('f-what','Bezeichnung erforderlich'); toast('Bezeichnung erforderlich','err'); return; }
     const btn = document.getElementById('f-save-btn');
-    const origText = btn ? btn.textContent : '';
     if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='Wird gespeichert…'; }
     try{
     const id = genId('D');
@@ -720,7 +719,8 @@ async function saveEntryOrRecurring(){
     dataCacheSave();
     markDirty('dauerauftraege','dashboard','home','lohn');
     } finally {
-      if(btn){ btn.disabled=false; btn.classList.remove('loading'); btn.textContent=origText; }
+      if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
+      updateRecurToggleUI();
     }
   } else {
     saveEntry();
@@ -776,11 +776,11 @@ async function saveEntry(){
   if(_saveEntryInProgress) return;
   _saveEntryInProgress = true;
   const btn = document.getElementById('f-save-btn');
-  const origText = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = 'Wird gespeichert…'; }
   try { await _saveEntryImpl(); } finally {
     _saveEntryInProgress = false;
-    if(btn){ btn.disabled = false; btn.textContent = origText; }
+    if(btn){ btn.disabled = false; }
+    updateRecurToggleUI();
   }
 }
 
