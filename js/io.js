@@ -1201,6 +1201,14 @@ function openCatModal(id){
     + parentOpts.map(c=>`<option value="${esc(c.name)}" ${c.name===cat.parent?'selected':''}>${esc(c.name)}</option>`).join('');
   pSel.value = cat.parent||'';
 
+  // Budget-Feld (nur bei Ausgabe-Kategorien)
+  const budgetWrap = document.getElementById('cat-budget-wrap');
+  const budgetInput = document.getElementById('cat-edit-budget');
+  if(budgetWrap) budgetWrap.style.display = cat.type==='ausgabe' ? '' : 'none';
+  if(budgetInput) budgetInput.value = (CFG.catBudgets||{})[cat.name] || '';
+  const curEl = document.getElementById('cat-edit-currency');
+  if(curEl) curEl.textContent = curr();
+
   // Color grid
   const grid = document.getElementById('cat-color-grid');
   grid.innerHTML = PRESET_COLORS.map(c=>
@@ -1242,6 +1250,20 @@ async function updateCategory(){
     DATA.recurring.forEach(r=>{ if(r.cat===oldName) r.cat=name; });
   }
   invalidateCatCache();
+
+  // Budget speichern/löschen
+  const budgetInputEl = document.getElementById('cat-edit-budget');
+  if(budgetInputEl !== null){
+    const limit = parseFloat(budgetInputEl.value);
+    if(!CFG.catBudgets) CFG.catBudgets = {};
+    if(nameChanged && CFG.catBudgets[oldName] !== undefined){
+      CFG.catBudgets[name] = CFG.catBudgets[oldName];
+      delete CFG.catBudgets[oldName];
+    }
+    if(limit > 0) CFG.catBudgets[name] = limit;
+    else delete CFG.catBudgets[name];
+    cfgSave();
+  }
 
   closeModal('cat-modal');
   renderCategories(); fillAllDropdowns(); markDirty('verlauf','dashboard','home','lohn');

@@ -406,6 +406,7 @@ const NOTIF_TYPES = [
   { key:'bigExpense',        label:'Grosse Ausgabe',             sub:'Bei Einzelbuchung über CHF 200', def:false },
   { key:'weeklyReport',      label:'Wochenrückblick',            sub:'Zusammenfassung jeden Sonntag', def:false },
   { key:'recurringRenewal',  label:'Dauerauftrag-Erneuerung',    sub:'Bestätigung aktiver Daueraufträge bei jedem neuen Lohnzyklus', def:true },
+  { key:'catBudgetWarn',    label:'Kategorie-Budget Warnung',   sub:'Wenn eine Kategorie 80% oder 100% ihres Monatsbudgets erreicht', def:true },
 ];
 
 function notifOn(key){ const ns=CFG.notifSettings||{}; const t=NOTIF_TYPES.find(x=>x.key===key); return ns[key]===undefined ? (t?t.def:true) : ns[key]; }
@@ -459,7 +460,29 @@ function checkAllNotifications(){
     const thr=(CFG.notifSettings?.bigExpenseAmt)||200;
     DATA.expenses.filter(e=>e.amt>=thr).forEach(e=>{ const nid=`bigexp-${e.id}`; if(!CFG.notifications.find(n=>n.id===nid)) CFG.notifications.push({id:nid,type:'bigExpense',date:e.date,title:`Grosse Ausgabe: ${curr()} ${fmtAmt(e.amt)}`,body:`${e.what} · ${e.cat}`,dismissed:false,confirmed:false}); });
   }
-  // 7. Weekly report (Sunday)
+  // 7. Kategorie-Budget-Warnungen
+  if(notifOn('catBudgetWarn')){
+    const budgets = CFG.catBudgets || {};
+    const now2 = new Date();
+    const von2 = dateStr(new Date(now2.getFullYear(), now2.getMonth(), 1));
+    const bis2 = dateStr(new Date(now2.getFullYear(), now2.getMonth()+1, 0));
+    const moPrefix = von2.slice(0,7);
+    Object.entries(budgets).forEach(([catName, limit]) => {
+      if(!limit) return;
+      const spent = getAusgaben(von2, bis2, [catName]).reduce((s,e)=>s+e.amt, 0);
+      const pct = spent / limit;
+      if(pct >= 1.0){
+        const nid = `catover-${catName}-${moPrefix}`;
+        if(!CFG.notifications.find(n=>n.id===nid))
+          CFG.notifications.push({id:nid,type:'catBudgetWarn',date:todayStr,title:`Budget überschritten: ${catName}`,body:`${curr()} ${fmtAmt(spent)} von ${fmtAmt(limit)} (${Math.round(pct*100)}%)`,dismissed:false,confirmed:false});
+      } else if(pct >= 0.8){
+        const nid = `cat80-${catName}-${moPrefix}`;
+        if(!CFG.notifications.find(n=>n.id===nid))
+          CFG.notifications.push({id:nid,type:'catBudgetWarn',date:todayStr,title:`80% Budget erreicht: ${catName}`,body:`${curr()} ${fmtAmt(spent)} von ${fmtAmt(limit)} verbraucht`,dismissed:false,confirmed:false});
+      }
+    });
+  }
+  // 8. Weekly report (Sunday)
   if(notifOn('weeklyReport')&&now.getDay()===0){
     const mon=new Date(now); mon.setDate(now.getDate()-6); const monStr=dateStr(mon);
     const nid=`weekly-${monStr}`; if(!CFG.notifications.find(n=>n.id===nid)){ const wOut=DATA.expenses.filter(e=>e.date>=monStr&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0); CFG.notifications.push({id:nid,type:'weeklyReport',date:todayStr,title:'Wochenrückblick',body:`${curr()} ${fmtAmt(wOut)} ausgegeben diese Woche`,dismissed:false,confirmed:false}); }
