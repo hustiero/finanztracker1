@@ -1817,10 +1817,71 @@ body.is-android .filter-row{touch-action:pan-x}
     margin:0 auto;
   }
 
-  /* Modals: wider on desktop */
+  /* Modals: wider on desktop, center-appear animation */
   .modal{
     max-width:520px;
+    border-radius:16px;
+    transform:scale(.95);opacity:0;
+    transition:transform .2s cubic-bezier(.4,0,.2,1),opacity .2s;
   }
+  .modal-overlay{align-items:center}
+  .modal-overlay.show .modal{transform:scale(1);opacity:1}
+  .modal-handle{display:none}
+
+  /* ── Desktop hover states ─────────────────── */
+  .card-row:hover{background:var(--bg2);transition:background .12s}
+  .widget-card[onclick]:hover,.widget-card[style*="cursor:pointer"]:hover{
+    box-shadow:0 2px 12px rgba(0,0,0,.08);border-color:var(--text3);transition:box-shadow .15s,border-color .15s;
+  }
+  .aktie-card:hover{background:var(--bg2);transition:background .12s}
+  .grp-card:hover{background:var(--bg2);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .spar-goal-card:hover{background:var(--bg2)}
+  .notif-item:hover{background:var(--bg2)}
+  .menu-overlay-item:hover{background:var(--bg2)}
+  .settings-group-toggle:hover{background:var(--bg2)}
+  .empty-cta:hover{background:rgba(200,245,60,.08);border-color:rgba(200,245,60,.4)}
+  .btn-primary:hover{opacity:.9}
+  .mv-open-btn:hover{background:var(--bg3);border-color:var(--text3)}
+
+  /* ── Desktop hover-reveal delete button ───── */
+  .desktop-del-btn{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+    border-radius:8px;background:rgba(255,77,109,.08);color:var(--red);
+    border:none;cursor:pointer;opacity:0;transition:opacity .15s;z-index:2;
+  }
+  .swipe-wrap{position:relative}
+  .swipe-wrap:hover .desktop-del-btn{opacity:1}
+  .desktop-del-btn:hover{background:rgba(255,77,109,.18)}
+  .swipe-wrap:hover .chevron{opacity:0}
+
+  /* ── Quick-add button in sidebar ──────────── */
+  .sidebar-add-btn{
+    margin:16px 0 12px;width:100%;padding:10px 12px;
+    background:var(--accent);color:#000;font-size:14px;font-weight:600;
+    border:none;border-radius:var(--r2);cursor:pointer;
+    display:flex;align-items:center;gap:8px;
+    transition:opacity .12s;
+  }
+  .sidebar-add-btn:hover{opacity:.88}
+  .sidebar-add-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+
+  /* ── Monatsübersicht: constrained panel on desktop ── */
+  .month-view{
+    background:rgba(0,0,0,.5);
+    transform:none;opacity:0;pointer-events:none;
+    transition:opacity .2s;
+    align-items:center;
+  }
+  .month-view.open{transform:none;opacity:1;pointer-events:all}
+  .month-view>.mv-bar,.month-view>.mv-content{max-width:700px;margin:0 auto;width:100%}
+  .month-view>.mv-bar{margin-top:5vh;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:1}
+  .month-view>.mv-content{border-radius:0 0 16px 16px;margin-bottom:5vh}
+}
+
+/* Hide desktop-del-btn on mobile */
+@media (max-width:1023px){
+  .desktop-del-btn{display:none !important}
 }
 
 /* ≥1440px: 3-column tile grid for very wide screens */

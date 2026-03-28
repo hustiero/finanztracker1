@@ -545,7 +545,7 @@ function renderVerlaufEntryGroups(entries){
             </div>`;
             if(!isRec && !isGroup && !isShadow){
               const eType = e._type==='ausgabe'?'ausgabe':'einnahme';
-              return `<div class="swipe-wrap"><div class="swipe-delete-zone" onclick="deleteEntryById('${escJs(e.id)}','${eType}')"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="swipe-content">${rowEl}</div></div>`;
+              return `<div class="swipe-wrap"><div class="swipe-delete-zone" onclick="deleteEntryById('${escJs(e.id)}','${eType}')"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="swipe-content">${rowEl}</div><button class="desktop-del-btn" onclick="event.stopPropagation();deleteEntryById('${escJs(e.id)}','${eType}')" title="Löschen"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div>`;
             }
             return rowEl;
           }).join('')}

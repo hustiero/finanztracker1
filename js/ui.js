@@ -1247,6 +1247,17 @@ document.addEventListener('keydown', e=>{
   if(open) open.classList.remove('show');
 });
 
+// Desktop keyboard shortcuts (number keys = tab switch, N = new entry)
+document.addEventListener('keydown', e=>{
+  if(e.target.matches('input,select,textarea,[contenteditable]')) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(document.querySelector('.modal-overlay.show')) return;
+  const tabs=['home','eingabe','verlauf','dashboard','lohn','sparen','kategorien','aktien','groups','einstellungen'];
+  const num=parseInt(e.key);
+  if(num>=1&&num<=9&&tabs[num-1]){ goTab(tabs[num-1]); if(typeof Device!=='undefined') Device.renderSidebar(); e.preventDefault(); return; }
+  if(e.key==='n'||e.key==='N'){ goTab('eingabe'); if(typeof Device!=='undefined') Device.renderSidebar(); e.preventDefault(); }
+});
+
 let _syncSettleTimer, _syncDotHideTimer;
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot'), label=document.getElementById('sync-label');
