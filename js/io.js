@@ -696,7 +696,11 @@ async function saveEntryOrRecurring(){
     const note = document.getElementById('f-note').value.trim();
     const type = currentEntryType;
     const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
-    if(!what){ toast('Bezeichnung erforderlich','err'); return; }
+    if(!what){ _inputErr('f-what','Bezeichnung erforderlich'); toast('Bezeichnung erforderlich','err'); return; }
+    const btn = document.getElementById('f-save-btn');
+    const origText = btn ? btn.textContent : '';
+    if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='Wird gespeichert…'; }
+    try{
     const id = genId('D');
     const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
     DATA.recurring.push(rec);
@@ -715,6 +719,9 @@ async function saveEntryOrRecurring(){
     toast('✓ Dauerauftrag gespeichert','ok');
     dataCacheSave();
     markDirty('dauerauftraege','dashboard','home','lohn');
+    } finally {
+      if(btn){ btn.disabled=false; btn.classList.remove('loading'); btn.textContent=origText; }
+    }
   } else {
     saveEntry();
   }
@@ -753,11 +760,16 @@ async function _syncUpdate(range, values){
 // Guard against concurrent saves (double-tap / rapid submit)
 let _saveEntryInProgress = false;
 
-function _inputErr(id){
+function _inputErr(id, msg=''){
   const el = document.getElementById(id);
   if(!el) return;
   el.classList.add('input-error');
-  el.addEventListener('input', ()=>el.classList.remove('input-error'), {once:true});
+  const errEl = document.getElementById(id+'-err');
+  if(errEl && msg){ errEl.textContent = msg; errEl.classList.add('visible'); }
+  el.addEventListener('input', ()=>{
+    el.classList.remove('input-error');
+    if(errEl){ errEl.textContent=''; errEl.classList.remove('visible'); }
+  }, {once:true});
 }
 
 async function saveEntry(){
@@ -780,9 +792,9 @@ async function _saveEntryImpl(){
   const cat = f.cat;
   const note = f.note.trim();
 
-  if(isNaN(amt) || amt <= 0){ _inputErr('f-amt'); toast('Betrag muss > 0 sein','err'); return; }
-  if(!date){ _inputErr('f-date'); toast('Datum erforderlich','err'); return; }
-  if(!what){ _inputErr('f-what'); toast('Beschreibung erforderlich','err'); return; }
+  if(isNaN(amt) || amt <= 0){ _inputErr('f-amt','Betrag muss größer als 0 sein'); toast('Betrag muss > 0 sein','err'); return; }
+  if(!date){ _inputErr('f-date','Datum erforderlich'); toast('Datum erforderlich','err'); return; }
+  if(!what){ _inputErr('f-what','Beschreibung erforderlich'); toast('Beschreibung erforderlich','err'); return; }
 
   // Group & split data from form
   const groupSel = document.getElementById('f-group');

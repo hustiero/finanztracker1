@@ -280,22 +280,26 @@
             <span class="amount-currency">CHF</span>
             <input id="f-amt" class="amount-input" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
           </div>
+          <div class="field-error" id="f-amt-err"></div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" id="f-date-label">Datum</label>
             <input id="f-date" class="form-input" type="date">
+            <div class="field-error" id="f-date-err"></div>
           </div>
           <div class="form-group">
             <label class="form-label">Kategorie</label>
             <select id="f-cat" class="form-select"></select>
+            <div class="field-error" id="f-cat-err"></div>
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Beschreibung</label>
           <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off" onkeydown="if(event.key==='Enter')document.getElementById('f-note').focus()">
+          <div class="field-error" id="f-what-err"></div>
         </div>
 
         <div class="form-group">
