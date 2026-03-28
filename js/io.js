@@ -661,7 +661,7 @@ function updateRecurToggleUI(){
   const dateLabel = document.getElementById('f-date-label');
   if(sw) sw.className = 'toggle-switch'+(recurringMode?' on':'');
   if(row){ row.className = 'recur-toggle-row'+(recurringMode?' active':''); row.setAttribute('aria-checked', recurringMode?'true':'false'); }
-  if(sec) sec.style.display = recurringMode?'block':'none';
+  if(sec) sec.classList.toggle('rec-section-open', recurringMode);
   if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
   if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';
   // Show rec-lohn toggle when in einnahme recurring mode

@@ -561,6 +561,16 @@ function dismissNotif(id){
   updateNotifBadge();
 }
 
+function dismissAllNotifs(){
+  const all = (CFG.notifications||[]).filter(n=>!n.dismissed);
+  if(!all.length) return;
+  all.forEach(n=>{ n.dismissed=true; });
+  cfgSave();
+  renderNotifications();
+  updateNotifBadge();
+  toast('Alle verworfen','');
+}
+
 function openNotifDetail(id){
   const n = (CFG.notifications||[]).find(n=>n.id===id);
   if(!n) return;
@@ -1126,7 +1136,16 @@ function fillParentDropdown(elId, type, selected=''){
   el.innerHTML=`<option value="">— keine —</option>`+tops.map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${esc(c.name)}</option>`).join('');
 }
 
-function openModal(id){ document.getElementById(id).classList.add('show'); Device.pushNav('modal', id); }
+function openModal(id){
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  Device.pushNav('modal', id);
+  // Auto-focus first focusable field after open animation
+  setTimeout(()=>{
+    const first = el.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])');
+    if(first) first.focus();
+  }, 260);
+}
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
 // Close modals on overlay click

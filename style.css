@@ -1542,6 +1542,13 @@ body.glass-on .settings-group-toggle{
 }
 .tab-entering{animation:tabFadeIn .18s ease forwards}
 
+/* Smooth recurring section reveal */
+#f-rec-section{
+  max-height:0;overflow:hidden;opacity:0;
+  transition:max-height .28s ease,opacity .2s ease;
+}
+#f-rec-section.rec-section-open{max-height:800px;opacity:1}
+
 /* Font family picker */
 .font-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .font-picker-btn{
