@@ -372,6 +372,13 @@ function launchApp(){
   generateAppIcon();
   sdataLoad();
   if(!CFG.notifications) CFG.notifications = [];
+  // One-time default nav tabs for new users
+  if(!CFG.navInitialized){
+    if(!CFG.pinnedTabs || !CFG.pinnedTabs.length)
+      CFG.pinnedTabs = ['verlauf','kategorien','groups'];
+    CFG.navInitialized = true;
+    cfgSave();
+  }
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   showSplash();
@@ -380,6 +387,7 @@ function launchApp(){
   if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
   else{ setSyncStatus('demo'); renderAll(); hideSplash(); }
   updateNotifBadge();
+  if(!CFG.introSeen) setTimeout(showIntro, 900);
 }
 
 async function checkSheets(){

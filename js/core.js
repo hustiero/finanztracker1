@@ -292,7 +292,7 @@ setInterval(processQueue, 5000);
 const ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzTQxteXTVipuf6iN4A-ekztfThxD2roR8htdLVUeC1CNGQZF3OLcG8usQDv4TH_7NwPQ/exec';
 
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null,
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], navInitialized:false, introSeen:false, notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null,
   // Budget formula toggles (what goes into the variable-budget calculation)
   budgetInclCarryover: true,   // add/subtract previous cycle's leftover
   budgetInclSparziel:  true,   // subtract monthly savings target

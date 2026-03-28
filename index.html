@@ -1166,6 +1166,7 @@
           <div class="card" style="padding:14px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Navigation</div>
             <p style="font-size:13px;color:var(--text2);line-height:1.5;margin:0">Tabs können über das <strong style="color:var(--text)">Mehr-Menü</strong> an die Taskleiste angeheftet werden. Bis zu 3 Tabs erscheinen neben «Home» in der unteren Navigation.</p>
+            <button class="btn-ghost" style="margin-top:10px;width:100%" onclick="showIntro()">Einführung starten</button>
           </div>
         </div>
       </div>
@@ -1800,5 +1801,13 @@
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
 <script src="js/init.js"></script>
+
+<!-- ── Onboarding Intro ──────────────────── -->
+<div id="intro-overlay" class="intro-overlay" style="display:none">
+  <button class="intro-skip" onclick="introClose()" aria-label="Schliessen">✕</button>
+  <div id="intro-slides" class="intro-slides"></div>
+  <div id="intro-dots" class="intro-dots"></div>
+  <button id="intro-next-btn" class="intro-next" onclick="introNext()">Weiter</button>
+</div>
 </body>
 </html>
