@@ -479,6 +479,16 @@ async function leaveGroup(groupId){
   markDirty('groups');
 }
 
+async function renameGroup(groupId){
+  const g = DATA.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  const newName = prompt('Neuer Gruppenname:', g.name);
+  if(!newName || !newName.trim() || newName.trim()===g.name) return;
+  await updateGroup(groupId, {name: newName.trim()});
+  toast('✓ Umbenannt','ok');
+  openGroupDetail(groupId);
+}
+
 async function regenerateInviteCode(groupId){
   const g = DATA.groups.find(x=>x.id===groupId);
   if(!g) return;

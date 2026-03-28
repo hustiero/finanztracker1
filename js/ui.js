@@ -1243,3 +1243,36 @@ function loadDemo(){
   ];
 }
 
+
+
+// ── Onboarding Intro ─────────────────────────────────────────
+const _INTRO_STEPS = [
+  { icon:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>', title:'Willkommen bei F-Tracker', text:'Dein persönlicher Finanztracker — einfach, schnell, privat. Alles auf einen Blick.' },
+  { icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>', title:'Einnahmen & Ausgaben', text:'Tippe auf das «+» um Buchungen zu erfassen. Kategorie, Betrag, Datum — fertig.' },
+  { icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>', title:'Dashboard & Verlauf', text:'Home zeigt dein Monatsbudget. Verlauf listet alle Buchungen — filterbar nach Monat und Kategorie.' },
+  { icon:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>', title:'Daueraufträge', text:'Miete, Abos, Versicherungen — einmal anlegen und automatisch buchen lassen.' },
+  { icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', title:'Gruppen & Events', text:'Teile Ausgaben mit Freunden — für Reisen, WG oder geteilte Abos.' },
+];
+let _introStep = 0;
+function showIntro(){
+  _introStep = 0; _renderIntroStep();
+  document.getElementById('intro-overlay').style.display = 'flex';
+}
+function _renderIntroStep(){
+  const s = _INTRO_STEPS[_introStep], total = _INTRO_STEPS.length;
+  document.getElementById('intro-slides').innerHTML = `<div class="intro-slide">
+    <div class="intro-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${s.icon}</svg></div>
+    <div class="intro-title">${s.title}</div>
+    <div class="intro-text">${s.text}</div>
+  </div>`;
+  document.getElementById('intro-dots').innerHTML = Array.from({length:total},(_,i)=>`<span class="intro-dot${i===_introStep?' active':''}"></span>`).join('');
+  document.getElementById('intro-next-btn').textContent = _introStep===total-1 ? "Los geht's!" : 'Weiter';
+}
+function introNext(){
+  if(_introStep < _INTRO_STEPS.length-1){ _introStep++; _renderIntroStep(); }
+  else introClose();
+}
+function introClose(){
+  document.getElementById('intro-overlay').style.display = 'none';
+  CFG.introSeen = true; cfgSave();
+}
