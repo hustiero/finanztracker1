@@ -118,16 +118,17 @@
       <div class="form-group">
         <label class="form-label">Passwort</label>
         <div class="auth-input-pw-wrap">
-          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()">
+          <input id="su-pw" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••  (mind. 6 Zeichen)" onkeydown="if(event.key==='Enter')document.getElementById('su-pw2').focus()" oninput="suCheckPw()">
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
       <div class="form-group mb-10">
         <label class="form-label">Passwort bestätigen</label>
         <div class="auth-input-pw-wrap">
-          <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()">
+          <input id="su-pw2" class="form-input setup-input" type="password" autocomplete="new-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuthSignup()" oninput="suCheckPw()">
           <button class="auth-pw-eye" type="button" onclick="togglePwVis('su-pw2',this)" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
+        <div id="su-pw-hint" style="font-size:11px;margin-top:4px;min-height:16px"></div>
       </div>
       <div class="form-group mb-0">
         <label class="form-label">Admin Script URL <span style="color:var(--red);font-size:11px">*</span></label>
@@ -290,12 +291,12 @@
 
         <div class="form-group">
           <label class="form-label">Beschreibung</label>
-          <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off">
+          <input id="f-what" class="form-input" type="text" placeholder="Was wurde bezahlt?" autocorrect="off" onkeydown="if(event.key==='Enter')document.getElementById('f-note').focus()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Notiz <span class="t-text3">(optional)</span></label>
-          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off">
+          <input id="f-note" class="form-input" type="text" placeholder="z.B. Mit Jasmin" autocorrect="off" onkeydown="if(event.key==='Enter')saveEntryOrRecurring()">
         </div>
 
         <!-- Group assignment (optional) -->
@@ -327,7 +328,7 @@
 
         <!-- Lohn toggle (only for Einnahme) -->
         <div id="f-lohn-toggle-wrap" style="display:none;margin-bottom:12px">
-          <div class="lohn-toggle-row" id="f-lohn-row" onclick="toggleLohnField()">
+          <div class="lohn-toggle-row" id="f-lohn-row" role="switch" aria-checked="false" tabindex="0" onclick="toggleLohnField()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleLohnField()}">
             <span class="lohn-toggle-label">Als Lohn zählen</span>
             <div class="toggle-switch" id="f-lohn-switch"></div>
           </div>
@@ -335,14 +336,14 @@
 
         <!-- Wiederkehrende Buchung toggle (only for Ausgabe) -->
         <div id="f-recur-toggle-wrap" style="margin-bottom:12px">
-          <div class="recur-toggle-row" id="f-recur-row" onclick="toggleRecurringFields()">
+          <div class="recur-toggle-row" id="f-recur-row" role="switch" aria-checked="false" tabindex="0" onclick="toggleRecurringFields()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleRecurringFields()}">
             <span class="recur-toggle-label">↻ Wiederkehrende Buchung</span>
             <div class="toggle-switch" id="f-recur-switch"></div>
           </div>
         </div>
 
-        <!-- Recurring extra fields (hidden by default) -->
-        <div id="f-rec-section" style="display:none">
+        <!-- Recurring extra fields (hidden by default, animated via CSS class) -->
+        <div id="f-rec-section">
           <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
           <!-- Lohn toggle for Einnahme-Daueraufträge -->
           <div id="f-rec-lohn-wrap" style="display:none;margin-bottom:12px">
@@ -1288,9 +1289,12 @@
 <div class="notif-overlay" id="notif-overlay">
   <div class="notif-overlay-header">
     <div class="notif-overlay-title">Benachrichtigungen</div>
-    <button class="notif-overlay-close" onclick="closeNotifOverlay()">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="dismissAllNotifs()" style="font-size:11px;color:var(--text3);padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer" id="notif-dismiss-all">Alle verwerfen</button>
+      <button class="notif-overlay-close" onclick="closeNotifOverlay()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   </div>
   <div class="notif-overlay-body" id="notif-body">
     <div style="text-align:center;padding:32px 24px;color:var(--text3);font-size:14px">Keine Benachrichtigungen</div>
@@ -1344,6 +1348,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteEntry()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('edit-modal')">Abbrechen</button>
       <button class="btn-save" onclick="updateEntry()">Speichern</button>
     </div>
   </div>
@@ -1416,6 +1421,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteRecurring()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('rec-edit-modal')">Abbrechen</button>
       <button class="btn-save" onclick="updateRecurring()">Speichern</button>
     </div>
   </div>
@@ -1462,6 +1468,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteCategory()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('cat-modal')">Abbrechen</button>
       <button class="btn-save" onclick="updateCategory()">Speichern</button>
     </div>
   </div>

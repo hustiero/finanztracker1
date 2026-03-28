@@ -276,7 +276,7 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 .btn-primary.loading::after{
   content:'';position:absolute;right:16px;top:50%;
   width:16px;height:16px;margin-top:-8px;
-  border:2px solid rgba(0,0,0,.25);border-top-color:#0D0D0F;
+  border:2px solid rgba(0,0,0,.2);border-top-color:rgba(0,0,0,.8);
   border-radius:50%;animation:btn-spin .7s linear infinite;
 }
 @keyframes btn-spin{to{transform:rotate(360deg)}}
@@ -640,6 +640,14 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 .modal-handle{
   width:36px;height:4px;border-radius:99px;
   background:var(--border2);margin:12px auto 0;
+  cursor:grab;transition:background .2s,width .2s;
+}
+.modal-overlay.show .modal-handle{
+  animation:handle-hint .6s ease .3s both;
+}
+@keyframes handle-hint{
+  0%,100%{width:36px;background:var(--border2)}
+  50%{width:48px;background:var(--text3)}
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -931,11 +939,17 @@ body.glass-on #aktie-detail{
   backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
   -webkit-backdrop-filter:blur(calc(var(--glass-blur) * 1.5));
 }
-/* Reduced motion: remove blur, keep tint */
+/* Reduced motion: remove blur, keep tint; disable all transitions + animations */
 @media (prefers-reduced-motion:reduce){
   body.glass-on :is(.card,.widget-card,#nav,.top-bar){
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
     background:rgba(var(--glass-rgb),0.72) !important;
+  }
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
   }
 }
 /* Smart contrast: boost muted text in glass mode */
@@ -1496,6 +1510,44 @@ body.glass-on .settings-group-toggle{
   .design-pkg-grid{grid-template-columns:repeat(2,1fr);gap:8px}
   .design-pkg-preview{height:110px}
 }
+
+/* ═══════════════════════════════════════════════════
+   UX IMPROVEMENTS
+═══════════════════════════════════════════════════ */
+/* Keyboard-accessible toggle rows */
+:is(.lohn-toggle-row,.recur-toggle-row):focus-visible{
+  outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r2);
+}
+
+/* Empty state CTA */
+.empty-cta{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:14px;padding:10px 18px;
+  border:1px solid rgba(200,245,60,.3);border-radius:var(--r2);
+  background:rgba(200,245,60,.06);color:var(--accent);
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.empty-cta:active{background:rgba(200,245,60,.12);border-color:rgba(200,245,60,.5)}
+/* Field-level validation error highlight */
+.input-error{
+  border-color:var(--red)!important;
+  box-shadow:0 0 0 2px rgba(255,77,109,.18);
+}
+
+/* Tab page enter animation */
+@keyframes tabFadeIn{
+  from{opacity:0;transform:translateY(5px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.tab-entering{animation:tabFadeIn .18s ease forwards}
+
+/* Smooth recurring section reveal */
+#f-rec-section{
+  max-height:0;overflow:hidden;opacity:0;
+  transition:max-height .28s ease,opacity .2s ease;
+}
+#f-rec-section.rec-section-open{max-height:800px;opacity:1}
 
 /* Font family picker */
 .font-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}

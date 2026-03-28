@@ -50,6 +50,23 @@ async function doAuthLogin(){
   }
 }
 
+function suCheckPw(){
+  const pw  = (document.getElementById('su-pw')||{}).value||'';
+  const pw2 = (document.getElementById('su-pw2')||{}).value||'';
+  const hint = document.getElementById('su-pw-hint');
+  if(!hint) return;
+  if(!pw2){ hint.textContent=''; return; }
+  if(pw.length > 0 && pw.length < 6){
+    hint.style.color='var(--red)'; hint.textContent='Mindestens 6 Zeichen erforderlich';
+  } else if(pw2.length > 0 && pw !== pw2){
+    hint.style.color='var(--red)'; hint.textContent='Passwörter stimmen nicht überein';
+  } else if(pw2.length > 0 && pw === pw2){
+    hint.style.color='var(--green)'; hint.textContent='✓ Passwörter stimmen überein';
+  } else {
+    hint.textContent='';
+  }
+}
+
 function suToggleStorage(mode){
   const adminBtn = document.getElementById('su-store-admin');
   const ownBtn   = document.getElementById('su-store-own');

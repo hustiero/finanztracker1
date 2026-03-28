@@ -17,10 +17,12 @@ function goTab(tab){
   // Push history state for Android back-gesture navigation
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
-  document.querySelectorAll('.tab-page').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab-page').forEach(p=>{ p.style.display='none'; p.classList.remove('tab-entering'); });
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl){
     tabEl.style.display='block';
+    void tabEl.offsetWidth; // force reflow for animation restart
+    tabEl.classList.add('tab-entering');
     tabEl.classList.remove('animating');
     void tabEl.offsetWidth; // force reflow
     tabEl.classList.add('animating');
@@ -557,6 +559,16 @@ function dismissNotif(id){
   if(n){ n.dismissed=true; cfgSave(); }
   renderNotifications();
   updateNotifBadge();
+}
+
+function dismissAllNotifs(){
+  const all = (CFG.notifications||[]).filter(n=>!n.dismissed);
+  if(!all.length) return;
+  all.forEach(n=>{ n.dismissed=true; });
+  cfgSave();
+  renderNotifications();
+  updateNotifBadge();
+  toast('Alle verworfen','');
 }
 
 function openNotifDetail(id){
@@ -1124,12 +1136,28 @@ function fillParentDropdown(elId, type, selected=''){
   el.innerHTML=`<option value="">— keine —</option>`+tops.map(c=>`<option value="${esc(c.name)}" ${c.name===selected?'selected':''}>${esc(c.name)}</option>`).join('');
 }
 
-function openModal(id){ document.getElementById(id).classList.add('show'); Device.pushNav('modal', id); }
+function openModal(id){
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  Device.pushNav('modal', id);
+  // Auto-focus first focusable field after open animation
+  setTimeout(()=>{
+    const first = el.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])');
+    if(first) first.focus();
+  }, 260);
+}
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('show'); });
+});
+
+// Close topmost open modal on Escape
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  const open = document.querySelector('.modal-overlay.show');
+  if(open) open.classList.remove('show');
 });
 
 let _syncSettleTimer, _syncDotHideTimer;
@@ -1158,7 +1186,8 @@ function toast(msg,type=''){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show '+(type||'');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+  const dur = type==='err' ? 4000 : 2800;
+  toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
 }
 
 function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
