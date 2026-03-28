@@ -158,7 +158,34 @@ const Device = (() => {
           </button>
         `).join('')}
       </nav>
+      <button class="sidebar-add-btn" onclick="goTab('eingabe');Device.renderSidebar()">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Neue Buchung
+      </button>
       <div class="sidebar-summary" id="sidebar-summary"></div>
+    `;
+    _renderSidebarSummary();
+  }
+
+  function _renderSidebarSummary(){
+    const el = document.getElementById('sidebar-summary');
+    if(!el || typeof DATA==='undefined' || typeof fmtAmt==='undefined') return;
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+    const mExp = (DATA.expenses||[]).filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y && d.getMonth()===m; });
+    const mInc = (DATA.incomes||[]).filter(e=>{ const d=new Date(e.date); return d.getFullYear()===y && d.getMonth()===m; });
+    const totalExp = mExp.reduce((s,e)=>s+e.amt,0);
+    const totalInc = mInc.reduce((s,e)=>s+e.amt,0);
+    const c = typeof curr==='function'?curr():'';
+    el.innerHTML = `
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Diesen Monat</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;color:var(--text2)">Ausgaben</span>
+        <span style="font-size:13px;font-weight:600;color:var(--red)">${c} ${fmtAmt(totalExp)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text2)">Einnahmen</span>
+        <span style="font-size:13px;font-weight:600;color:var(--green)">${c} ${fmtAmt(totalInc)}</span>
+      </div>
     `;
   }
 
