@@ -256,7 +256,7 @@ document.addEventListener('gesturechange',e=>e.preventDefault());
     if(pulling && dy>60 && !refreshing){
       refreshing=true;
       if(typeof haptic==='function') haptic(8);
-      try{ await loadData(); renderAll(); }catch(_){}
+      try{ await loadAll(); }catch(_){}
       refreshing=false;
     }
     pulling=false;
