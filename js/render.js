@@ -485,10 +485,10 @@ function renderVerlaufEntryGroups(entries){
             const isGroup  = e._type==='groupEntry';
             const isFuture = isRec && e.date > today();
             const onclick  = isShadow
-              ? `onclick="openGroupEntryDetail('${e.id}')"`
+              ? `onclick="openGroupEntryDetail('${escJs(e.id)}')"`
               : isGroup
-              ? `onclick="openGroupEntryDetail('${e.id}')"`
-              : isRec ? '' : `onclick="openEditModal('${e.id}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
+              ? `onclick="openGroupEntryDetail('${escJs(e.id)}')"`
+              : isRec ? '' : `onclick="openEditModal('${escJs(e.id)}','${e._type==='ausgabe'?'ausgabe':'einnahme'}')"`;
             const recLabel = isFuture
               ? `<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:3px">geplant</span>`
               : `<span style="font-size:10px;color:var(--text3);font-weight:400">Abo</span>`;
@@ -545,7 +545,7 @@ function renderVerlaufEntryGroups(entries){
             </div>`;
             if(!isRec && !isGroup && !isShadow){
               const eType = e._type==='ausgabe'?'ausgabe':'einnahme';
-              return `<div class="swipe-wrap"><div class="swipe-delete-zone" onclick="deleteEntryById('${e.id}','${eType}')"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="swipe-content">${rowEl}</div></div>`;
+              return `<div class="swipe-wrap"><div class="swipe-delete-zone" onclick="deleteEntryById('${escJs(e.id)}','${eType}')"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="swipe-content">${rowEl}</div></div>`;
             }
             return rowEl;
           }).join('')}
@@ -983,7 +983,7 @@ function renderVerlaufGruppen(){
       balHtml = `<span style="font-size:12px;color:${balCol};font-weight:600">${balTxt}</span>`;
     }
 
-    html += `<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="verlaufOpenGruppe('${g.id}')">
+    html += `<div class="card" style="padding:14px;margin-bottom:10px;cursor:pointer" onclick="verlaufOpenGruppe('${escJs(g.id)}')">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">

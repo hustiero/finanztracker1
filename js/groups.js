@@ -295,7 +295,7 @@ async function deleteGroup(id){
   const g = DATA.groups.find(x=>x.id===id);
   if(!g) return;
   if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe löschen','err'); return; }
-  if(!confirm('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.')) return;
+  if(!await confirmDialog('Gruppe löschen? Zugehörige Buchungen behalten ihre Werte, verlieren aber die Gruppenzuordnung.', 'Löschen')) return;
 
   // Collect affected entry IDs before local mutation
   const affectedExpenses = DATA.expenses.filter(e=>e.groupId===id);
@@ -336,7 +336,7 @@ async function archiveGroup(id){
   const g = DATA.groups.find(x=>x.id===id);
   if(!g) return;
   if(!isGroupAdmin(g)){ toast('Nur der Admin kann die Gruppe archivieren','err'); return; }
-  if(!confirm('Gruppe archivieren? Sie ist danach unter "Archiv" sichtbar.')) return;
+  if(!await confirmDialog('Gruppe archivieren? Sie ist danach unter "Archiv" sichtbar.', 'Archivieren')) return;
   await updateGroup(id, {status:'archived'});
   toast('✓ Gruppe archiviert','ok');
   closeGroupDetail();
@@ -377,7 +377,7 @@ async function joinGroupByInvite(groupId, inviteCode, backendUrl){
   const origAdminUrl = CFG.adminUrl;
   const origScriptUrl = CFG.scriptUrl;
   let urlChanged = false;
-  if(backendUrl && backendUrl.includes('script.google.com')){
+  if(backendUrl && isValidScriptUrl(backendUrl)){
     if(CFG.sessionToken) CFG.adminUrl = backendUrl;
     else CFG.scriptUrl = backendUrl;
     urlChanged = true;
@@ -446,7 +446,7 @@ async function removeGroupMember(groupId, memberName){
   if(!g) return;
   if(!isGroupAdmin(g)){ toast('Nur der Admin kann Mitglieder entfernen','err'); return; }
   if(memberName===g.adminId){ toast('Admin kann nicht entfernt werden','err'); return; }
-  if(!confirm(memberName+' aus der Gruppe entfernen?')) return;
+  if(!await confirmDialog(memberName+' aus der Gruppe entfernen?', 'Entfernen')) return;
   g.members = g.members.filter(m=>m!==memberName);
   await updateGroup(groupId, {members:g.members});
   toast('✓ '+memberName+' entfernt','ok');
@@ -458,7 +458,7 @@ async function leaveGroup(groupId){
   const g = DATA.groups.find(x=>x.id===groupId);
   if(!g) return;
   if(isGroupAdmin(g)){ toast('Admin kann die Gruppe nicht verlassen — erst Admin-Rolle übertragen oder Gruppe löschen','err'); return; }
-  if(!confirm('Gruppe "'+g.name+'" verlassen?')) return;
+  if(!await confirmDialog('Gruppe "'+g.name+'" verlassen?', 'Verlassen')) return;
   const me = _myGroupId();
   const myName = _myGroupName();
   g.members = g.members.filter(m=>m!==me && m!==myName);
@@ -1055,9 +1055,9 @@ function calculateGroupBalances(groupId){
   return debts;
 }
 
-function confirmSettleUp(groupId, from, to, amount){
-  if(!confirm(
-    `${curr()} ${fmtAmt(amount)} an ${to} begleichen?\nDies wird als Ausgleichs-Buchung erfasst.`
+async function confirmSettleUp(groupId, from, to, amount){
+  if(!await confirmDialog(
+    `${curr()} ${fmtAmt(amount)} an ${to} begleichen?\nDies wird als Ausgleichs-Buchung erfasst.`, 'Begleichen'
   )) return;
   settleUp(groupId, from, to, amount);
 }
@@ -1281,7 +1281,7 @@ async function openAdminGroupDetail(groupId){
           splitData: r[8]?_safeParseJSON(r[8]):null
         }));
     }
-  }catch(e){}
+  }catch(e){ console.warn('adminLoadGroupEntries:', e); }
 
   const totalAmt = entries.reduce((s,e)=>s+e.amt,0);
 
@@ -1340,7 +1340,7 @@ async function openAdminGroupDetail(groupId){
 
 /** Admin: archive any group (no permission check — admin panel). */
 async function adminArchiveGroup(id){
-  if(!confirm('Gruppe archivieren?')) return;
+  if(!await confirmDialog('Gruppe archivieren?', 'Archivieren')) return;
   try{
     const row = await groupsApiFindRow('Groups', id);
     if(row) await groupsApiUpdate(`Groups!F${row}`, [['archived']]);
@@ -1358,7 +1358,7 @@ async function adminArchiveGroup(id){
 
 /** Admin: delete any group (no permission check — admin panel). */
 async function adminDeleteGroup(id){
-  if(!confirm('Gruppe endgültig löschen?')) return;
+  if(!await confirmDialog('Gruppe endgültig löschen?', 'Löschen')) return;
   try{
     const row = await groupsApiFindRow('Groups', id);
     if(row) await groupsApiUpdate(`Groups!F${row}`, [['deleted']]);

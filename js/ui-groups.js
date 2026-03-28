@@ -39,7 +39,7 @@ function renderGroups(){
       const balClass = myBal>0.01?'grp-bal-pos':myBal<-0.01?'grp-bal-neg':'grp-bal-zero';
       const balText = myBal>0.01?'Du bekommst '+fmtAmt(myBal):myBal<-0.01?'Du schuldest '+fmtAmt(Math.abs(myBal)):'Ausgeglichen';
       const balStyle = gc.bg||gc.color ? ` style="${gc.bg?'background:'+gc.bg+';':''}${gc.color?'color:'+gc.color+';':''}"` : '';
-      return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${g.id}')">
+      return `<div class="grp-card grp-card-split" onclick="openGroupDetail('${escJs(g.id)}')">
         <div class="grp-card-type">Split</div>
         <div class="grp-card-name">${esc(g.name)}</div>
         <div class="grp-card-members">${g.members.length} Teilnehmer</div>
@@ -47,7 +47,7 @@ function renderGroups(){
         <div class="grp-card-bal ${balClass}"${balStyle}>${balText}</div>
       </div>`;
     } else {
-      return `<div class="grp-card grp-card-event" onclick="openGroupDetail('${g.id}')">
+      return `<div class="grp-card grp-card-event" onclick="openGroupDetail('${escJs(g.id)}')">
         <div class="grp-card-type">Event</div>
         <div class="grp-card-name">${esc(g.name)}</div>
         <div class="grp-card-meta">${dateRange}</div>
@@ -98,16 +98,16 @@ function _renderEventDetail(g, el){
       <div class="grp-detail-sub">Event · ${fmtAmt(total)} total${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${escJs(g.id)}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
-      ${isAdmin?`<button onclick="renameGroup('${g.id}')" class="grp-action-btn" title="Umbenennen">
+      ${isAdmin?`<button onclick="renameGroup('${escJs(g.id)}')" class="grp-action-btn" title="Umbenennen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>`:''}
-      ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
+      ${isAdmin?`<button onclick="deleteGroup('${escJs(g.id)}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>`:''}
-      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+      ${!isAdmin?`<button onclick="leaveGroup('${escJs(g.id)}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
@@ -116,11 +116,11 @@ function _renderEventDetail(g, el){
   // Invite link section
   if(g.status==='active'){
     html += `<div class="grp-invite-section">
-      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${g.id}')">
+      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${escJs(g.id)}')">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Einladungslink kopieren
       </button>
-      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${g.id}')" title="Neuen Code generieren">
+      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${escJs(g.id)}')" title="Neuen Code generieren">
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
       </button>`:''}
     </div>`;
@@ -136,7 +136,7 @@ function _renderEventDetail(g, el){
         <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
       </div>
     </div>
-    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${escJs(g.id)}')"></div>
   </div>`;
 
   html += _grpBadgeColorHtml(g.id);
@@ -189,14 +189,14 @@ function _renderEventDetail(g, el){
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
-        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${escJs(e.id)}','${escJs(g.id)}')" title="Löschen">✕</button>` : ''}
       </div>
     </div>`;
   });
   html += '</div>';
 
   // Export button
-  html += `<div style="padding:16px"><button class="save-btn" onclick="exportGroupReport('${g.id}')" style="width:100%">Reisebericht exportieren</button></div>`;
+  html += `<div style="padding:16px"><button class="save-btn" onclick="exportGroupReport('${escJs(g.id)}')" style="width:100%">Reisebericht exportieren</button></div>`;
 
   el.innerHTML = html;
 }
@@ -217,16 +217,16 @@ function _renderSplitDetail(g, el){
       <div class="grp-detail-sub">Split · ${g.members.length} Teilnehmer${g.adminId?' · Admin: '+esc(g.adminId):''}</div>
     </div>
     <div class="grp-detail-actions">
-      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${g.id}')" class="grp-action-btn" title="Archivieren">
+      ${isAdmin && g.status==='active'?`<button onclick="archiveGroup('${escJs(g.id)}')" class="grp-action-btn" title="Archivieren">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
       </button>`:''}
-      ${isAdmin?`<button onclick="renameGroup('${g.id}')" class="grp-action-btn" title="Umbenennen">
+      ${isAdmin?`<button onclick="renameGroup('${escJs(g.id)}')" class="grp-action-btn" title="Umbenennen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>`:''}
-      ${isAdmin?`<button onclick="deleteGroup('${g.id}')" class="grp-action-btn grp-action-del" title="Löschen">
+      ${isAdmin?`<button onclick="deleteGroup('${escJs(g.id)}')" class="grp-action-btn grp-action-del" title="Löschen">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>`:''}
-      ${!isAdmin?`<button onclick="leaveGroup('${g.id}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
+      ${!isAdmin?`<button onclick="leaveGroup('${escJs(g.id)}')" class="grp-action-btn" title="Gruppe verlassen" style="color:var(--text2)">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>`:''}
     </div>
@@ -235,11 +235,11 @@ function _renderSplitDetail(g, el){
   // Invite link section
   if(g.status==='active'){
     html += `<div class="grp-invite-section">
-      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${g.id}')">
+      <button class="grp-invite-btn" onclick="copyGroupInviteLink('${escJs(g.id)}')">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Einladungslink kopieren
       </button>
-      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${g.id}')" title="Neuen Code generieren">
+      ${isAdmin?`<button class="grp-invite-regen" onclick="regenerateInviteCode('${escJs(g.id)}')" title="Neuen Code generieren">
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>
       </button>`:''}
     </div>`;
@@ -255,7 +255,7 @@ function _renderSplitDetail(g, el){
         <div style="font-size:11px;color:var(--text3)">Dein Anteil erscheint als Schatten-Buchung</div>
       </div>
     </div>
-    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${g.id}')"></div>
+    <div class="toggle-switch ${gvOn?'on':''}" onclick="toggleGroupVerlauf('${escJs(g.id)}')"></div>
   </div>`;
 
   html += _grpBadgeColorHtml(g.id);
@@ -266,7 +266,7 @@ function _renderSplitDetail(g, el){
     const isAdminMember = m===g.adminId;
     html += `<div class="grp-member-row">
       <span class="grp-member-name">${esc(m)}${isAdminMember?' <span class="grp-admin-badge">Admin</span>':''}</span>
-      ${isAdmin && !isAdminMember?`<button class="grp-member-remove" onclick="removeGroupMember('${g.id}','${esc(m)}')" title="Entfernen">✕</button>`:''}
+      ${isAdmin && !isAdminMember?`<button class="grp-member-remove" onclick="removeGroupMember('${escJs(g.id)}','${escJs(m)}')" title="Entfernen">✕</button>`:''}
     </div>`;
   });
   html += '</div>';
@@ -299,7 +299,7 @@ function _renderSplitDetail(g, el){
         </div>
         <div class="debt-right">
           <span class="debt-amt">${curr()} ${fmtAmt(debt.amount)}</span>
-          ${isMe?`<button class="btn-settle" onclick="confirmSettleUp('${g.id}','${esc(debt.from)}','${esc(debt.to)}',${debt.amount})">Begleichen</button>`:''}
+          ${isMe?`<button class="btn-settle" onclick="confirmSettleUp('${escJs(g.id)}','${escJs(debt.from)}','${escJs(debt.to)}',${debt.amount})">Begleichen</button>`:''}
         </div>
       </div>`;
     });
@@ -341,7 +341,7 @@ function _renderSplitDetail(g, el){
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="grp-tx-amt">${fmtAmt(e.amt)}</div>
-        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${e.id}','${g.id}')" title="Löschen">✕</button>` : ''}
+        ${canDelete && !isSettlement && e._source==='group' ? `<button class="grp-entry-del-btn" onclick="event.stopPropagation();deleteGroupEntry('${escJs(e.id)}','${escJs(g.id)}')" title="Löschen">✕</button>` : ''}
       </div>
     </div>`;
   });
@@ -546,7 +546,7 @@ function _renderUrlHistory(entry){
 async function adminSetScriptUrl(){
   const inp = document.getElementById('admin-script-url-input');
   const newUrl = (inp?.value||'').trim();
-  if(!newUrl || !newUrl.includes('script.google.com')){ toast('Ungültige Script-URL','err'); return; }
+  if(!newUrl || !isValidScriptUrl(newUrl)){ toast('Ungültige Script-URL','err'); return; }
   if(newUrl === CFG.adminUrl){ toast('URL ist bereits aktuell','info'); return; }
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_set_admin_url', token:CFG.sessionToken, newUrl}));
@@ -600,7 +600,7 @@ function _renderPendingList(list){
 }
 
 async function adminApproveUser(username){
-  if(!confirm(`"${username}" freischalten?`)) return;
+  if(!await confirmDialog(`"${username}" freischalten?`, 'Freischalten')) return;
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_approve', token:CFG.sessionToken, target:username}));
     const d = await r.json();
@@ -611,7 +611,7 @@ async function adminApproveUser(username){
 }
 
 async function adminRejectUser(username){
-  if(!confirm(`Registrierung von "${username}" ablehnen und Konto löschen?`)) return;
+  if(!await confirmDialog(`Registrierung von "${username}" ablehnen und Konto löschen?`, 'Ablehnen')) return;
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_reject', token:CFG.sessionToken, target:username}));
     const d = await r.json();
@@ -744,7 +744,7 @@ async function adminResetPw(target){
 }
 
 async function adminDeleteUser(target){
-  if(!confirm(`Benutzer "${target}" und alle Session-Einträge löschen?\n\nDas persönliche Sheet wird NICHT gelöscht.`)) return;
+  if(!await confirmDialog(`Benutzer "${target}" und alle Session-Einträge löschen?\n\nDas persönliche Sheet wird NICHT gelöscht.`, 'Löschen')) return;
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_delete',token:CFG.sessionToken,target}));
     const d = await r.json();
@@ -758,7 +758,7 @@ async function adminDeleteUser(target){
 async function adminToggleRole(target, currentRole){
   const newRole = currentRole === 'admin' ? 'user' : 'admin';
   const label = newRole === 'admin' ? 'zum Admin befördern' : 'Admin-Rolle entziehen';
-  if(!confirm(`"${target}" ${label}?`)) return;
+  if(!await confirmDialog(`"${target}" ${label}?`, 'Bestätigen')) return;
   try{
     const r = await fetch(CFG.adminUrl+'?'+new URLSearchParams({action:'admin_set_role',token:CFG.sessionToken,target,newRole}));
     const d = await r.json();
@@ -946,15 +946,15 @@ function _grpBadgeColorHtml(gid){
         <span>Hintergrund</span>
         <input type="color" value="${bg||'#1e3a5f'}"
           style="width:32px;height:28px;border:none;border-radius:6px;cursor:pointer;padding:2px;background:var(--bg3)"
-          onchange="saveGroupBadgeColor('${gid}','bg',this.value)">
+          onchange="saveGroupBadgeColor('${escJs(gid)}','bg',this.value)">
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3)">
         <span>Schrift</span>
         <input type="color" value="${col||'#60a5fa'}"
           style="width:32px;height:28px;border:none;border-radius:6px;cursor:pointer;padding:2px;background:var(--bg3)"
-          onchange="saveGroupBadgeColor('${gid}','color',this.value)">
+          onchange="saveGroupBadgeColor('${escJs(gid)}','color',this.value)">
       </label>
-      ${bg||col?`<button onclick="resetGroupBadgeColor('${gid}')"
+      ${bg||col?`<button onclick="resetGroupBadgeColor('${escJs(gid)}')"
         style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:0">
         Zurücksetzen
       </button>`:''}

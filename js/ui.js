@@ -1214,9 +1214,30 @@ function openModal(id){
 }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
-// Close modals on overlay click
+function confirmDialog(msg, okLabel='OK'){
+  return new Promise(resolve => {
+    document.getElementById('confirm-msg').textContent = msg;
+    const okBtn = document.getElementById('confirm-ok');
+    okBtn.textContent = okLabel;
+    openModal('confirm-modal');
+    const cleanup = (val) => { closeModal('confirm-modal'); resolve(val); };
+    document.getElementById('confirm-cancel').onclick = () => cleanup(false);
+    okBtn.onclick = () => cleanup(true);
+  });
+}
+
+// Close modals on overlay click (except confirm-modal, which is handled by its own buttons)
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
-  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('show'); });
+  overlay.addEventListener('click', e=>{
+    if(e.target===overlay){
+      if(overlay.id==='confirm-modal'){
+        const cancelBtn = document.getElementById('confirm-cancel');
+        if(cancelBtn) cancelBtn.click();
+      } else {
+        overlay.classList.remove('show');
+      }
+    }
+  });
 });
 
 // Close topmost open modal on Escape
@@ -1268,6 +1289,7 @@ function toastAction(msg, actionLabel, onAction){
 }
 
 function esc(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+function escJs(s){ return (s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\n/g,'\\n'); }
 
 function openSettings(){
   document.getElementById('s-url').value=CFG.scriptUrl||'';
@@ -1280,7 +1302,7 @@ function applySettings(){
   CFG.demo=false; cfgSave(); location.reload();
 }
 
-function resetApp(){ if(confirm('App wirklich zurücksetzen? Alle lokalen Daten werden gelöscht.')){ localStorage.removeItem(CFG_KEY); location.reload(); } }
+async function resetApp(){ if(await confirmDialog('App wirklich zurücksetzen? Alle lokalen Daten werden gelöscht.', 'Zurücksetzen')){ localStorage.removeItem(CFG_KEY); location.reload(); } }
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: DEMO DATA
