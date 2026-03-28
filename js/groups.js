@@ -881,33 +881,39 @@ async function deleteGroupEntry(entryId, groupId){
   if(!entry) return;
 
   if(!entry.isMine && !isGroupAdmin(group)){ toast('Du kannst nur eigene Einträge löschen','err'); return; }
-  if(!confirm('Gruppen-Eintrag löschen?')) return;
 
   // Optimistic local delete
+  const entryIdx = (DATA.groupEntries||[]).findIndex(e=>e.id===entryId && e.groupId===groupId);
   DATA.groupEntries = (DATA.groupEntries||[]).filter(e=>e.id!==entryId);
+  dataCacheSave();
   markDirty('groups','verlauf');
 
-  if(!CFG.demo){
-    setSyncStatus('syncing');
-    try{
-      const tab = _groupEntryTab(groupId);
-      const row = await groupsApiFindRow(tab, entryId);
-      if(!row) throw new Error('Eintrag nicht im Sheet gefunden');
-      await groupsApiUpdate(tab + '!K' + row, [['1']]); // deleted=1
-      setSyncStatus('online');
-      toast('Eintrag gelöscht','ok');
-    }catch(e){
-      // Revert on failure
-      DATA.groupEntries.push(entry);
-      dataCacheSave();
-      markDirty('groups','verlauf');
-      setSyncStatus('error');
-      toast('Fehler beim Löschen: '+e.message,'err');
+  toastAction('Eintrag gelöscht', 'Rückgängig', () => {
+    if(entryIdx !== -1) DATA.groupEntries.splice(entryIdx, 0, entry);
+    else DATA.groupEntries.push(entry);
+    dataCacheSave();
+    markDirty('groups','verlauf');
+  });
+
+  setTimeout(async () => {
+    if((DATA.groupEntries||[]).find(e=>e.id===entryId)) return;
+    if(!CFG.demo){
+      setSyncStatus('syncing');
+      try{
+        const tab = _groupEntryTab(groupId);
+        const row = await groupsApiFindRow(tab, entryId);
+        if(!row) throw new Error('Eintrag nicht im Sheet gefunden');
+        await groupsApiUpdate(tab + '!K' + row, [['1']]);
+        setSyncStatus('online');
+      }catch(e){
+        DATA.groupEntries.push(entry);
+        dataCacheSave();
+        markDirty('groups','verlauf');
+        setSyncStatus('error');
+        toast('Fehler beim Löschen: '+e.message,'err');
+      }
     }
-  } else {
-    toast('Eintrag gelöscht (Demo)','ok');
-  }
-  dataCacheSave();
+  }, 5100);
 }
 
 /**

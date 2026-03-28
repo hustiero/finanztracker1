@@ -1098,30 +1098,39 @@ function saveEditAktie() {
 }
 
 async function deleteAktie(stockId) {
-  if (!confirm('Aktie und alle Trades löschen?')) return;
-  if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    setSyncStatus('syncing');
-    try{
-      const [stockRow] = await Promise.all([apiFindRow('Aktien', stockId)]);
-      if (stockRow) await apiUpdate(`Aktien!F${stockRow}:F${stockRow}`, [['1']]);
-      const tradeIds = SDATA.trades.filter(t => t.stockId === stockId);
-      await Promise.all(tradeIds.map(t =>
-        apiFindRow('Trades', t.id)
-          .then(row => { if (row) return apiUpdate(`Trades!J${row}:J${row}`, [['1']]); })
-          .catch(e => console.warn('deleteTrade sheet sync:', e.message))
-      ));
-      setSyncStatus('online');
-    }catch(e){
-      setSyncStatus('error');
-      toast('Sheet-Sync fehlgeschlagen: '+e.message,'err');
-      return;
-    }
-  }
+  const stockBackup = SDATA.stocks.find(s => s.id === stockId);
+  const tradesBackup = SDATA.trades.filter(t => t.stockId === stockId);
   SDATA.stocks = SDATA.stocks.filter(s => s.id !== stockId);
   SDATA.trades = SDATA.trades.filter(t => t.stockId !== stockId);
   sdataSave();
   closeAktieDetail();
-  toast('✓ Aktie gelöscht', 'ok');
+
+  toastAction('Aktie gelöscht', 'Rückgängig', () => {
+    if(stockBackup) SDATA.stocks.push(stockBackup);
+    SDATA.trades.push(...tradesBackup);
+    sdataSave();
+    renderAktien();
+  });
+
+  setTimeout(async () => {
+    if(SDATA.stocks.find(s => s.id === stockId)) return;
+    if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
+      setSyncStatus('syncing');
+      try{
+        const stockRow = await apiFindRow('Aktien', stockId);
+        if (stockRow) await apiUpdate(`Aktien!F${stockRow}:F${stockRow}`, [['1']]);
+        await Promise.all(tradesBackup.map(t =>
+          apiFindRow('Trades', t.id)
+            .then(row => { if (row) return apiUpdate(`Trades!J${row}:J${row}`, [['1']]); })
+            .catch(e => console.warn('deleteTrade sheet sync:', e.message))
+        ));
+        setSyncStatus('online');
+      }catch(e){
+        setSyncStatus('error');
+        toast('Sheet-Sync fehlgeschlagen: '+e.message,'err');
+      }
+    }
+  }, 5100);
 }
 
 // ── CRUD: Trades ──────────────────────────────────────────────────────────────
@@ -1176,23 +1185,33 @@ async function saveTrade() {
 }
 
 async function deleteTrade(tradeId) {
-  if (!confirm('Trade löschen?')) return;
-  if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
-    setSyncStatus('syncing');
-    try{
-      const row = await apiFindRow('Trades', tradeId);
-      if (row) await apiUpdate(`Trades!J${row}:J${row}`, [['1']]);
-      setSyncStatus('online');
-    }catch(e){
-      setSyncStatus('error');
-      toast('Trade konnte nicht gelöscht werden: '+e.message,'err');
-      return;
-    }
-  }
-  SDATA.trades = SDATA.trades.filter(t => t.id !== tradeId);
+  const tradeBackup = SDATA.trades.find(t => t.id === tradeId);
+  const tradeIdx = SDATA.trades.findIndex(t => t.id === tradeId);
+  if(tradeIdx === -1) return;
+  SDATA.trades.splice(tradeIdx, 1);
   sdataSave();
   renderAktieDetail(currentAktieId);
-  toast('✓ Trade gelöscht', 'ok');
+
+  toastAction('Trade gelöscht', 'Rückgängig', () => {
+    SDATA.trades.splice(tradeIdx, 0, tradeBackup);
+    sdataSave();
+    renderAktieDetail(currentAktieId);
+  });
+
+  setTimeout(async () => {
+    if(SDATA.trades.find(t => t.id === tradeId)) return;
+    if (!CFG.demo && (CFG.scriptUrl || CFG.sessionToken)) {
+      setSyncStatus('syncing');
+      try{
+        const row = await apiFindRow('Trades', tradeId);
+        if (row) await apiUpdate(`Trades!J${row}:J${row}`, [['1']]);
+        setSyncStatus('online');
+      }catch(e){
+        setSyncStatus('error');
+        toast('Trade konnte nicht gelöscht werden: '+e.message,'err');
+      }
+    }
+  }, 5100);
 }
 
 // ── Dashboard widget ──────────────────────────────────────────────────────────
