@@ -1563,6 +1563,19 @@ body.glass-on .settings-group-toggle{
   border-color:var(--red)!important;
   box-shadow:0 0 0 2px rgba(255,77,109,.18);
 }
+/* Inline error message below form fields */
+.field-error{
+  font-size:11px;color:var(--red);margin-top:4px;display:none;
+}
+.field-error.visible{display:block}
+/* Loading state for .save-btn */
+.save-btn.loading{opacity:.7;pointer-events:none;position:relative}
+.save-btn.loading::after{
+  content:'';position:absolute;right:16px;top:50%;
+  width:16px;height:16px;margin-top:-8px;
+  border:2px solid rgba(0,0,0,.2);border-top-color:rgba(0,0,0,.8);
+  border-radius:50%;animation:btn-spin .7s linear infinite;
+}
 
 /* Tab page enter animation */
 @keyframes tabFadeIn{
