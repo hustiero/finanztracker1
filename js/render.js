@@ -1358,6 +1358,7 @@ const WIDGET_CATALOG = [
   { key:'einnahmenPanel',   label:'Einnahmen & Budget',     sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
   { key:'gruppenOverview',  label:'Gruppen Übersicht',      sub:'Aktive Gruppen, Events & kombinierter Saldo auf einen Blick' },
   { key:'gruppenSalden',    label:'Offene Salden',          sub:'Dein Saldo in jeder aktiven Split-Gruppe' },
+  { key:'catBudgets',       label:'Kategorie-Budgets',      sub:'Monatliche Ausgabelimits pro Kategorie mit Fortschrittsbalken' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
 let homeEditMode = false;
@@ -1548,6 +1549,7 @@ function renderWidgetContent(key){
     case 'einnahmenPanel':   return renderWidgetEinnahmenPanel();
     case 'gruppenOverview':  return renderWidgetGruppenOverview();
     case 'gruppenSalden':    return renderWidgetGruppenSalden();
+    case 'catBudgets':       return renderWidgetCatBudgets();
     default: return '';
   }
 }
@@ -2661,5 +2663,45 @@ function renderMonat(){
     </div>`
     : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
   `;
+}
+
+function renderWidgetCatBudgets(){
+  const budgets = CFG.catBudgets || {};
+  const cats = Object.keys(budgets).filter(k => budgets[k] > 0);
+  if(!cats.length) return `<div>
+    <div class="widget-title">Kategorie-Budgets</div>
+    <div class="t-muted" style="font-size:13px;padding:12px 0">
+      Noch keine Budgets gesetzt.<br>
+      <span style="color:var(--accent)">Kategorien → Kategorie bearbeiten → Budget/Monat</span>
+    </div>
+  </div>`;
+
+  const now = new Date();
+  const von = dateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+  const bis = dateStr(new Date(now.getFullYear(), now.getMonth()+1, 0));
+
+  const rows = cats.map(catName => {
+    const limit = budgets[catName];
+    const spent = getAusgaben(von, bis, [catName]).reduce((s,e)=>s+e.amt, 0);
+    const pct = Math.min(100, Math.round(spent / limit * 100));
+    const color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--green)';
+    const emoji = catEmoji(catName);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+        <span style="font-size:13px;font-weight:600">${emoji} ${esc(catName)}</span>
+        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">
+          ${curr()} ${fmtAmt(spent)} / ${fmtAmt(limit)}
+        </span>
+      </div>
+      <div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .4s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div>
+    <div class="widget-title">Kategorie-Budgets</div>
+    ${rows}
+  </div>`;
 }
 
