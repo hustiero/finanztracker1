@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'home';
 
-function haptic(pattern){ try{ navigator.vibrate?.(pattern); }catch(_){} }
+function haptic(pattern){ try{ if(CFG.hapticsEnabled !== false) navigator.vibrate?.(pattern); }catch(_){} }
 
 function goTab(tab){
   // Daueraufträge merged into Lohn → redirect + open Abos subtab
@@ -449,6 +449,15 @@ function renderNotifSettings(){
       <div><div class="settings-row-label">${t.label}</div><div class="settings-row-sub">${t.sub}</div></div>
       <div class="toggle-switch${notifOn(t.key)?' on':''}" onclick="toggleNotifSetting('${t.key}')"></div>
     </div>`).join('');
+  const hapticEl = document.getElementById('haptic-toggle');
+  if(hapticEl) hapticEl.classList.toggle('on', CFG.hapticsEnabled !== false);
+}
+
+function toggleHapticSetting(){
+  CFG.hapticsEnabled = CFG.hapticsEnabled === false;
+  cfgSave();
+  const el = document.getElementById('haptic-toggle');
+  if(el) el.classList.toggle('on', CFG.hapticsEnabled !== false);
 }
 
 function toggleNotifSetting(key){
