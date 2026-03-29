@@ -1459,11 +1459,27 @@ const WIDGET_SIZES = {
   sparzieleOverview:'2x1',
   einnahmenPanel:   '2x2',
   gruppenOverview:  '2x1',
-  gruppenSalden:    '1x2',
+  gruppenSalden:    '2x1',
 };
 
-/** Return tile CSS class for a widget key. Falls back to 2x1 (full-width mobile). */
-function tileClass(key){ return 'tile-'+(WIDGET_SIZES[key]||'2x1'); }
+/** Return tile CSS class for a widget key. CFG.widgetSizes overrides defaults. Falls back to 2x1. */
+function tileClass(key){
+  const custom = CFG.widgetSizes && CFG.widgetSizes[key];
+  return 'tile-'+(custom || WIDGET_SIZES[key] || '2x1');
+}
+function getWidgetSize(key){
+  return (CFG.widgetSizes && CFG.widgetSizes[key]) || WIDGET_SIZES[key] || '2x1';
+}
+const VALID_SIZES = ['1x1','2x1','1x2','2x2','2x3','2x4'];
+function cycleWidgetSize(key){
+  const current = getWidgetSize(key);
+  const idx = VALID_SIZES.indexOf(current);
+  const next = VALID_SIZES[(idx+1) % VALID_SIZES.length];
+  if(!CFG.widgetSizes) CFG.widgetSizes = {};
+  CFG.widgetSizes[key] = next;
+  cfgSave();
+  renderHome();
+}
 
 // Widget → target tab mapping for clickable widgets
 const WIDGET_TAB_MAP = {
@@ -1512,11 +1528,15 @@ function renderHome(){
     }
 
     const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
-    html += `<div class="widget-card ${tileClass(key)}" id="widget-card-${key}"${clickAttr}>`;
+    const editClass = homeEditMode ? ' editing' : '';
+    const dataKey = homeEditMode ? ` data-widget-key="${key}"` : '';
+    html += `<div class="widget-card ${tileClass(key)}${editClass}" id="widget-card-${key}"${clickAttr}${dataKey}>`;
     if(homeEditMode){
+      const size = getWidgetSize(key);
       html += `<div class="home-edit-row">
         <span class="home-edit-drag">⠿</span>
         <span style="flex:1;font-size:13px;font-weight:600">${def.label}</span>
+        <button class="home-edit-btn" onclick="event.stopPropagation();cycleWidgetSize('${key}')" title="Grösse ändern" style="font-size:10px;font-family:'DM Mono',monospace;min-width:34px">${size}</button>
         <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''}>↓</button>
         <button class="home-edit-btn t-red" onclick="removeWidget('${key}')">✕</button>
@@ -1529,20 +1549,25 @@ function renderHome(){
 
   html += '</div>'; // close tile-grid
 
-  // Available to add (edit mode only)
+  // Available to add (edit mode only) — grid preview cards
   if(homeEditMode && available.length>0){
-    html += `<div style="margin:0 16px 12px;padding:12px 0">
-      <div class="widget-title" style="padding:0 0 8px">Verfügbare Kacheln</div>`;
+    html += `<div style="margin:0 12px 12px;padding:12px 0">
+      <div class="widget-title" style="padding:0 0 8px">Verfügbare Kacheln</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">`;
     available.forEach(def=>{
-      html += `<div class="home-avail-row">
+      const size = WIDGET_SIZES[def.key]||'2x1';
+      html += `<div onclick="addWidget('${def.key}')" style="cursor:pointer;border:1.5px dashed var(--border2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;justify-content:space-between;min-height:70px;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='rgba(200,245,60,.04)'" onmouseleave="this.style.borderColor='var(--border2)';this.style.background='transparent'">
         <div>
-          <div style="font-size:13px;font-weight:600">${def.label}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${def.sub}</div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${def.label}</div>
+          <div style="font-size:10px;color:var(--text3);line-height:1.3">${def.sub}</div>
         </div>
-        <button class="home-edit-btn" style="color:var(--accent);border-color:var(--accent)" onclick="addWidget('${def.key}')">+ Hinzufügen</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3);font-family:'DM Mono',monospace">${size}</span>
+          <span style="font-size:16px;color:var(--accent);font-weight:300;line-height:1">+</span>
+        </div>
       </div>`;
     });
-    html += `</div>`;
+    html += `</div></div>`;
   }
 
   // Edit toggle button
@@ -1553,6 +1578,82 @@ function renderHome(){
   </div>`;
 
   el.innerHTML = html;
+  if(homeEditMode) initWidgetDrag();
+}
+
+// ── Widget Drag & Drop (Touch + Mouse) ──────────────────────────────────────
+let _dragState = null;
+let _dragListenersAttached = false;
+
+function _dragMove(clientX, clientY){
+  if(!_dragState) return;
+  _dragState.ghost.style.left = clientX + 'px';
+  _dragState.ghost.style.top = (clientY - 16) + 'px';
+  document.querySelectorAll('.widget-card.editing.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  const allCards = [...document.querySelectorAll('.widget-card.editing')];
+  for(const c of allCards){
+    if(c === _dragState.cardEl) continue;
+    const r = c.getBoundingClientRect();
+    if(clientY > r.top && clientY < r.bottom){
+      c.classList.add('drag-over');
+      break;
+    }
+  }
+}
+function _dragEnd(){
+  if(!_dragState) return;
+  _dragState.ghost.remove();
+  _dragState.cardEl.classList.remove('dragging');
+  const overCard = document.querySelector('.widget-card.editing.drag-over');
+  if(overCard){
+    const targetKey = overCard.dataset.widgetKey;
+    const w = getHomeWidgets();
+    const fromIdx = w.indexOf(_dragState.key);
+    const toIdx = w.indexOf(targetKey);
+    if(fromIdx>=0 && toIdx>=0 && fromIdx!==toIdx){
+      w.splice(fromIdx, 1);
+      w.splice(toIdx, 0, _dragState.key);
+      saveHomeWidgets(w);
+      _dragState = null;
+      renderHome();
+      return;
+    }
+  }
+  document.querySelectorAll('.widget-card.editing.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  _dragState = null;
+}
+function _onTouchMove(e){ if(_dragState){ e.preventDefault(); const t=e.touches[0]; _dragMove(t.clientX, t.clientY); }}
+function _onMouseMove(e){ _dragMove(e.clientX, e.clientY); }
+
+function initWidgetDrag(){
+  if(!_dragListenersAttached){
+    document.addEventListener('touchmove', _onTouchMove, {passive:false});
+    document.addEventListener('mousemove', _onMouseMove);
+    document.addEventListener('touchend', _dragEnd);
+    document.addEventListener('mouseup', _dragEnd);
+    _dragListenersAttached = true;
+  }
+  const cards = document.querySelectorAll('.widget-card.editing');
+  cards.forEach(card=>{
+    const handle = card.querySelector('.home-edit-drag');
+    if(!handle) return;
+    const start = (clientX, clientY, e)=>{
+      e.preventDefault();
+      const key = card.dataset.widgetKey;
+      if(!key) return;
+      const ghost = document.createElement('div');
+      ghost.className = 'widget-drag-ghost';
+      ghost.textContent = card.querySelector('.home-edit-row span[style]')?.textContent || key;
+      ghost.style.left = clientX + 'px';
+      ghost.style.top = clientY + 'px';
+      document.body.appendChild(ghost);
+      card.classList.add('dragging');
+      _dragState = {key, ghost, cardEl: card};
+      if(typeof haptic==='function') haptic(10);
+    };
+    handle.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX, t.clientY, e); }, {passive:false});
+    handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
+  });
 }
 
 function renderWidgetContent(key){
@@ -2400,6 +2501,18 @@ function renderWidgetAktienPosition(){
 
 // ── Gruppen-Widgets ──────────────────────────────────────────
 
+function _memberAvatars(members, max=3){
+  const shown = members.slice(0, max);
+  const extra = members.length - max;
+  const avatars = shown.map((m,i)=>{
+    const initial = (m||'?')[0].toUpperCase();
+    const hue = (m.charCodeAt(0)*47 + (m.charCodeAt(1)||0)*31) % 360;
+    return `<div style="width:22px;height:22px;border-radius:50%;background:hsl(${hue},55%,45%);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);margin-left:${i>0?'-6':'0'}px;position:relative;z-index:${max-i}">${initial}</div>`;
+  }).join('');
+  const extraBadge = extra>0 ? `<div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);color:var(--text3);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);margin-left:-6px">+${extra}</div>` : '';
+  return `<div style="display:flex;align-items:center">${avatars}${extraBadge}</div>`;
+}
+
 function renderWidgetGruppenOverview(){
   if(!DATA.groups) return '<div class="widget-title">Gruppen</div><div style="color:var(--text3);font-size:12px;text-align:center;padding:12px 0">Keine Daten</div>';
   const myId = _myGroupId();
@@ -2411,34 +2524,40 @@ function renderWidgetGruppenOverview(){
     return `<div class="widget-title">Gruppen</div>
       <div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0">Keine aktiven Gruppen</div>`;
   }
-  const events = groups.filter(g=>g.type==='event');
-  const splits = groups.filter(g=>g.type==='split');
+  // Gesamtsaldo
   let totalOwed = 0;
-  splits.forEach(g=>{
+  groups.filter(g=>g.type==='split').forEach(g=>{
     const bal = calcSplitBalances(g.id);
     totalOwed += bal[myId]||bal[myNm]||0;
   });
   const balColor = totalOwed>0.01?'var(--green)':totalOwed<-0.01?'var(--red)':'var(--text3)';
-  const balLabel = totalOwed>0.01?`+${fmtAmt(totalOwed)}`:totalOwed<-0.01?`−${fmtAmt(Math.abs(totalOwed))}`:null;
-  const stats = [
-    events.length ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${events.length}</div><div style="font-size:10px;color:var(--text3)">Event${events.length!==1?'s':''}</div></div>` : '',
-    splits.length ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--text)">${splits.length}</div><div style="font-size:10px;color:var(--text3)">Split${splits.length!==1?'s':''}</div></div>` : '',
-    balLabel ? `<div style="flex:1;background:var(--bg2);border-radius:8px;padding:7px 6px;text-align:center"><div style="font-size:14px;font-weight:700;color:${balColor}">${balLabel}</div><div style="font-size:10px;color:var(--text3)">Saldo</div></div>` : '',
-  ].filter(Boolean).join('');
-  const rows = groups.slice(0,3).map(g=>{
+  const balSign = totalOwed>0.01?'+':totalOwed<-0.01?'−':'';
+  const balAmt = Math.abs(totalOwed);
+  const saldoHtml = `<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px">
+    <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:${balColor}">${balSign}${curr()} ${fmtAmt(balAmt)}</span>
+    <span style="font-size:11px;color:var(--text3)">Gesamt-Saldo</span>
+  </div>`;
+
+  // Gruppen-Karten (max 4)
+  const rows = groups.slice(0,4).map(g=>{
     const total = getGroupTotal(g.id);
-    const badge = g.type==='split'?'Split':'Event';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border)">
-      <div style="overflow:hidden">
-        <span style="font-size:10px;color:var(--text3);margin-right:4px">${badge}</span>
-        <span style="font-size:12px;color:var(--text2)">${esc(g.name)}</span>
+    const isSplit = g.type==='split';
+    const typeBg = isSplit ? 'rgba(96,165,250,.15)' : 'rgba(200,245,60,.12)';
+    const typeCol = isSplit ? 'var(--blue)' : 'var(--accent)';
+    const badge = isSplit ? 'Split' : 'Event';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${typeBg};color:${typeCol};text-transform:uppercase;letter-spacing:.3px">${badge}</span>
+          <span style="font-size:13px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(g.name)}</span>
+        </div>
+        ${_memberAvatars(g.members)}
       </div>
-      <span style="font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;margin-left:8px">${fmtAmt(total)}</span>
+      <span style="font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text);flex-shrink:0">${fmtAmt(total)}</span>
     </div>`;
   }).join('');
-  return `<div class="widget-title">Gruppen</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">${stats}</div>
-    ${rows}`;
+
+  return `<div class="widget-title">Gruppen</div>${saldoHtml}${rows}`;
 }
 
 function renderWidgetGruppenSalden(){
@@ -2459,21 +2578,32 @@ function renderWidgetGruppenSalden(){
   const open = items.filter(x=>Math.abs(x.bal)>0.005);
   if(!open.length){
     return `<div class="widget-title">Offene Salden</div>
-      <div style="color:var(--green);font-size:12px;text-align:center;padding:16px 0;font-weight:600">Alles ausgeglichen</div>
-      ${items.map(x=>`<div style="padding:5px 0;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">${esc(x.name)}</div>`).join('')}`;
+      <div style="text-align:center;padding:12px 0">
+        <div style="font-size:13px;font-weight:600;color:var(--green)">Alles ausgeglichen</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${items.length} Gruppe${items.length!==1?'n':''}</div>
+      </div>`;
   }
+  // Max absolute balance for bar scaling
+  const maxBal = Math.max(...items.map(x=>Math.abs(x.bal)), 0.01);
   return `<div class="widget-title">Offene Salden</div>
     ${items.map(x=>{
       const isPos = x.bal>0.005;
       const isNeg = x.bal<-0.005;
       const color = isPos?'var(--green)':isNeg?'var(--red)':'var(--text3)';
       const label = isPos?`+${fmtAmt(x.bal)}`:isNeg?`−${fmtAmt(Math.abs(x.bal))}`:'±0';
-      const sub = isPos?'du bekommst':isNeg?'du schuldest':'ausgeglichen';
-      return `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div>
-        <div style="display:flex;align-items:baseline;gap:6px">
-          <span style="font-size:14px;font-weight:700;color:${color}">${label}</span>
-          <span style="font-size:10px;color:var(--text3)">${sub}</span>
+      const pct = Math.min(Math.abs(x.bal)/maxBal*50, 50);
+      // Bar: center-aligned, extends left (red) or right (green) from midpoint
+      const barLeft = isNeg ? `${50-pct}%` : '50%';
+      const barWidth = isPos||isNeg ? `${pct}%` : '0';
+      const barColor = isPos?'rgba(61,219,150,.3)':isNeg?'rgba(255,77,109,.3)':'transparent';
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">${esc(x.name)}</span>
+          <span style="font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:${color};flex-shrink:0;margin-left:8px">${label}</span>
+        </div>
+        <div style="position:relative;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="position:absolute;top:0;left:50%;width:1px;height:100%;background:var(--border2)"></div>
+          <div style="position:absolute;top:0;left:${barLeft};width:${barWidth};height:100%;background:${color};border-radius:3px;transition:width .3s"></div>
         </div>
       </div>`;
     }).join('')}`;
