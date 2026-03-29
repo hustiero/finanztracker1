@@ -388,8 +388,8 @@ function showSplash(){
 function hideSplash(){
   const s = document.getElementById('splash');
   if(!s || s.classList.contains('gone')) return;
-  s.classList.add('hidden'); // triggers fade-out via CSS transition
-  setTimeout(()=>s.classList.add('gone'), 400);
+  s.classList.add('hidden'); // triggers fade-out via CSS transition (.6s)
+  setTimeout(()=>s.classList.add('gone'), 700);
 }
 
 function launchApp(){
