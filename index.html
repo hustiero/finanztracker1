@@ -315,6 +315,7 @@
           <select id="f-group" class="form-select" onchange="onGroupSelect(this.value)">
             <option value="">— Keine Gruppe —</option>
           </select>
+          <div class="field-hint">Ausgabe einer Gruppe zuordnen</div>
         </div>
 
         <!-- Split fields (shown when a split-group is selected) -->
@@ -350,6 +351,7 @@
             <span class="recur-toggle-label">↻ Wiederkehrende Buchung</span>
             <div class="toggle-switch" id="f-recur-switch"></div>
           </div>
+          <div class="field-hint">Wird automatisch jeden Monat gebucht</div>
         </div>
 
         <!-- Recurring extra fields (hidden by default, animated via CSS class) -->
@@ -566,7 +568,7 @@
         </div>
       </div>
       <!-- Neue Kategorie comes after Oberkategorien so the parent dropdown is already populated -->
-      <div class="section pt-0">
+      <div class="section pt-0" id="new-cat-section">
         <div class="section-title">Neue Kategorie</div>
         <div class="card" style="padding:14px">
           <div class="form-row">

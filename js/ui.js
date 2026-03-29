@@ -89,6 +89,17 @@ function goTab(tab){
   if(tab==='verlauf' && typeof verlaufL1Page !== 'undefined') verlaufL1Page = 1;
   // Delegate to render scheduler — avoids double-rendering when markDirty is also called
   markDirty(tab);
+  // Pulse help icon on first visit to a tab (draws attention to discoverable help)
+  if(_TAB_HELP[tab]){
+    const seen = CFG._helpSeen || (CFG._helpSeen = {});
+    const helpBtn = document.getElementById('help-btn');
+    if(!seen[tab] && helpBtn){
+      seen[tab] = true; cfgSave();
+      helpBtn.classList.remove('help-hint');
+      void helpBtn.offsetWidth;
+      helpBtn.classList.add('help-hint');
+    }
+  }
 }
 
 let menuEditMode = false;
@@ -909,7 +920,7 @@ function renderLohn(){
   const listEl = document.getElementById('lohn-list');
   if(!listEl) return;
   if(!DATA.incomes.length){
-    listEl.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="empty-text">Noch keine Einnahmen erfasst</div></div>`;
+    listEl.innerHTML = `<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="empty-text">Noch keine Einnahmen erfasst</div><button class="empty-cta" onclick="goTab('eingabe');setTimeout(()=>{if(typeof setType==='function')setType('einnahme')},100)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Einnahme erfassen</button></div>`;
     return;
   }
   const byMonth = {};

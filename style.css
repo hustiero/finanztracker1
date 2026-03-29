@@ -1251,9 +1251,13 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 #splash.gone{display:none}
 .splash-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
 .splash-logo{
-  font-family:'DM Mono',monospace;font-size:80px;font-weight:700;
-  color:var(--accent);letter-spacing:-.05em;line-height:1;
-  text-shadow:0 0 32px var(--accent);
+  font-family:'DM Mono',monospace;font-size:54px;font-weight:700;
+  color:var(--bg0);letter-spacing:-.05em;line-height:1;
+  width:110px;height:110px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 40px var(--accent),0 0 80px rgba(var(--accent-rgb,200,245,60),.3);
 }
 .splash-spinner{
   width:34px;height:34px;
@@ -1562,6 +1566,13 @@ body.glass-on .settings-group-toggle{
   transition:background .15s,border-color .15s;
 }
 .empty-cta:active{background:rgba(200,245,60,.12);border-color:rgba(200,245,60,.5)}
+/* Help icon pulse — draws attention on first tab visit */
+@keyframes help-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+.help-hint{animation:help-pulse .5s ease 2;color:var(--accent)}
+
+/* Subtle field hints */
+.field-hint{font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px}
+
 /* Field-level validation error highlight */
 .input-error{
   border-color:var(--red)!important;

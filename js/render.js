@@ -659,7 +659,7 @@ function renderVerlaufL2(){
     cats = cats.filter(c=>c.name.toLowerCase().includes(q));
   }
   if(!cats.length){
-    container.innerHTML = `<div class="empty"><div class="empty-text">Keine Kategorien</div></div>`;
+    container.innerHTML = `<div class="empty"><div class="empty-text">Keine Kategorien</div><button class="empty-cta" onclick="document.getElementById('new-cat-section')?.scrollIntoView({behavior:'smooth'})"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Kategorie erstellen</button></div>`;
     return;
   }
   // Sort by amount or transaction count
@@ -777,7 +777,7 @@ function renderVerlaufL3(){
     <div style="flex:1;height:1px;background:var(--border)"></div>
   </div>`;
   if(!displayedEntries.length){
-    html += `<div class="empty" style="padding:24px 0"><div class="empty-text">${verlaufSearch?'Keine Treffer':'Keine Einträge'}</div></div>`;
+    html += `<div class="empty" style="padding:24px 0"><div class="empty-text">${verlaufSearch?'Keine Treffer':'Keine Einträge'}</div>${!verlaufSearch?'<button class="empty-cta" onclick="goTab(\'eingabe\')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Eintrag erfassen</button>':''}</div>`;
   } else {
     html += renderVerlaufEntryGroups(displayedEntries);
   }
