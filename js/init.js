@@ -168,8 +168,8 @@ Object.assign(App.UI, {
   renderVerlaufFilterSummary, verlaufCalcSummary,
   verlaufOpenGruppe, verlaufGoBackGruppen, renderVerlaufGruppen,
   // Home widgets management
-  toggleHomeEdit, addWidget, removeWidget, moveWidget,
-  saveHomeWidgets, setHomeKontoMonths, tileClass,
+  toggleHomeEdit, addWidget, removeWidget, moveWidget, cycleWidgetSize,
+  saveHomeWidgets, setHomeKontoMonths, tileClass, getWidgetSize,
   // Dashboard
   setDashboardMonths,
   // Lohn + Abos subtab
