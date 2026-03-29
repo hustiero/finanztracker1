@@ -1258,22 +1258,17 @@ document.addEventListener('keydown', e=>{
   if(open) open.classList.remove('show');
 });
 
-let _syncSettleTimer, _syncDotHideTimer;
+let _syncDotHideTimer;
 function setSyncStatus(s){
-  const dot=document.getElementById('sync-dot'), label=document.getElementById('sync-label');
-  clearTimeout(_syncSettleTimer);
+  const dot=document.getElementById('sync-dot');
+  const label=document.getElementById('sync-label');
   clearTimeout(_syncDotHideTimer);
   dot.className='sync-dot '+s;
   dot.style.opacity='1';
+  if(label) label.style.display='none';
   if(s==='online'){
-    label.style.display='';
-    label.textContent='Verbunden';
-    _syncSettleTimer=setTimeout(()=>{ label.style.display='none'; },2000);
-    // Hide green dot after 4 seconds — reappears on next status change
-    _syncDotHideTimer=setTimeout(()=>{ dot.style.opacity='0'; dot.style.transition='opacity .6s'; },4000);
-  } else {
-    label.style.display='';
-    label.textContent={syncing:'Sync…',error:'Fehler',demo:'Demo'}[s]||s;
+    // Green dot visible briefly, then fade out after 2s
+    _syncDotHideTimer=setTimeout(()=>{ dot.style.opacity='0'; dot.style.transition='opacity .6s'; },2000);
   }
 }
 
