@@ -900,13 +900,29 @@ function renderVerlaufGruppen(){
   if(verlaufGruppeId){
     const g = (DATA.groups||[]).find(x=>x.id===verlaufGruppeId);
     if(!g){ verlaufGruppeId=null; renderVerlaufGruppen(); return; }
-    const expenses = getGroupExpenses(g.id).sort((a,b)=>b.date.localeCompare(a.date));
-    const incomes  = getGroupIncomes(g.id).sort((a,b)=>b.date.localeCompare(a.date));
-    const all = [
-      ...expenses.map(e=>({...e,_type:'ausgabe'})),
-      ...incomes.map(e=>({...e,_type:'einnahme'}))
-    ].sort((a,b)=>b.date.localeCompare(a.date));
-    const total = expenses.reduce((s,e)=>s+e.amt,0);
+
+    // Eigene Einträge aus DATA.expenses/incomes
+    const expenses = getGroupExpenses(g.id);
+    const incomes  = getGroupIncomes(g.id);
+
+    // Fremde + eigene GroupEntries (analog zu _renderEventDetail in ui-groups.js)
+    const foreignEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+    const ownGroupEntries = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+    const localIds = new Set(expenses.map(e=>e.id));
+    const extraOwn = ownGroupEntries.filter(e=>!localIds.has(e.id));
+
+    let all = [
+      ...expenses.map(e=>({...e, _type:'ausgabe', _isOwn:true})),
+      ...extraOwn.map(e=>({...e, _type:'ausgabe', _isOwn:true})),
+      ...foreignEntries.map(e=>({...e, _type:'ausgabe', _isOwn:false, _author:e.authorName})),
+      ...incomes.map(e=>({...e, _type:'einnahme', _isOwn:true}))
+    ];
+
+    // Zeitraum-Filter anwenden
+    all = verlaufFilterEntries(all);
+    all.sort((a,b)=>b.date.localeCompare(a.date));
+
+    const total = all.filter(e=>e._type==='ausgabe').reduce((s,e)=>s+e.amt,0);
     let html = `<div style="padding:12px 16px 0">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <button onclick="verlaufGoBackGruppen()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
@@ -927,15 +943,26 @@ function renderVerlaufGruppen(){
           const isInc = e._type==='einnahme';
           const col = isInc ? 'var(--green)' : 'var(--red)';
           const sign = isInc ? '+' : '-';
-          return `<div class="card-row" style="padding:10px 16px">
+          const authorTag = e._author ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">von ${esc(e._author)}</div>` : '';
+          // Split-Info: eigenen Anteil vs. Gesamtbetrag anzeigen
+          const splitTotal = e.splitData && (e.splitData.totalAmount || 0);
+          const hasSplitInfo = splitTotal && Math.abs(splitTotal - e.amt) > 0.01;
+          const splitTag = hasSplitInfo
+            ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">Anteil von ${curr()} ${fmtAmt(splitTotal)}</div>`
+            : '';
+          return `<div class="card-row${e._author?' group-foreign-entry':''}" style="padding:10px 16px">
             <div class="card-row-icon" style="background:${catColor(e.cat||'')}22">
               <span>${catEmoji(e.cat||'')}</span>
             </div>
             <div class="card-row-body">
               <div class="card-row-title">${esc(e.what||e.note||'—')}</div>
               <div class="card-row-sub">${e.cat||''}${e.note&&e.what?' · '+esc(e.note):''}</div>
+              ${authorTag}
             </div>
-            <div class="card-row-amount" style="color:${col}">${sign} ${curr()} ${fmtAmt(e.amt)}</div>
+            <div class="card-row-amount" style="color:${col}">
+              <div>${sign} ${curr()} ${fmtAmt(e.amt)}</div>
+              ${splitTag}
+            </div>
           </div>`;
         }).join('');
         return `<div style="padding:8px 16px 2px"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${fmtDate(d)}</span></div>${rows}`;
@@ -964,11 +991,17 @@ function renderVerlaufGruppen(){
 
   let html = `<div style="padding:12px 16px 0">`;
   groups.forEach(g=>{
-    const total = getGroupTotal(g.id);
-    const expenses = getGroupExpenses(g.id);
-    const dates = expenses.map(e=>e.date).sort();
+    // Alle Einträge kombinieren: eigene + fremde + eigene aus GroupEntries
+    const localExp = getGroupExpenses(g.id);
+    const foreignExp = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && !e.isMine);
+    const ownGE = (DATA.groupEntries||[]).filter(e=>e.groupId===g.id && e.isMine);
+    const localIds = new Set(localExp.map(e=>e.id));
+    const extraOwn = ownGE.filter(e=>!localIds.has(e.id));
+    const allExp = [...localExp, ...extraOwn, ...foreignExp];
+    const total = allExp.reduce((s,e)=>s+e.amt, 0);
+    const dates = allExp.map(e=>e.date).sort();
     const lastDate = dates.length ? fmtDate(dates[dates.length-1]) : null;
-    const count = expenses.length;
+    const count = allExp.length;
     const typeLabel = g.type==='split' ? 'Split' : g.type==='event' ? 'Event' : g.type||'';
     const typeBg = g.type==='split' ? 'rgba(96,165,250,.15)' : 'rgba(200,245,60,.12)';
     const typeCol = g.type==='split' ? 'var(--blue)' : 'var(--accent)';
