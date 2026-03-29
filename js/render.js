@@ -1396,8 +1396,11 @@ const WIDGET_CATALOG = [
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
 let homeEditMode = false;
 let homeKontoMonths = 3;
+let _editDraftWidgets = null;
+let _editDraftSizes = null;
 
 function getHomeWidgets(){
+  if(_editDraftWidgets !== null) return _editDraftWidgets;
   if(!CFG.homeWidgets || CFG.homeWidgets.length===0) return [...DEFAULT_HOME_WIDGETS];
   return CFG.homeWidgets;
 }
@@ -1405,30 +1408,44 @@ function getHomeWidgets(){
 function saveHomeWidgets(arr){ CFG.homeWidgets=arr; cfgSave(); autoSyncProfile(); }
 
 function toggleHomeEdit(){
-  homeEditMode = !homeEditMode;
+  if(!homeEditMode){
+    // Enter edit: snapshot current state into draft
+    _editDraftWidgets = [...getHomeWidgets()];
+    _editDraftSizes = {...(CFG.widgetSizes||{})};
+    homeEditMode = true;
+  } else {
+    // Exit edit: batch-save draft to CFG
+    saveHomeWidgets(_editDraftWidgets);
+    CFG.widgetSizes = _editDraftSizes;
+    cfgSave();
+    autoSyncProfile();
+    _editDraftWidgets = null;
+    _editDraftSizes = null;
+    homeEditMode = false;
+  }
   renderHome();
 }
 
 function addWidget(key){
-  const w = getHomeWidgets();
-  if(!w.includes(key)){ w.push(key); saveHomeWidgets(w); }
+  if(!_editDraftWidgets) return;
+  if(!_editDraftWidgets.includes(key)) _editDraftWidgets.push(key);
   renderHome();
 }
 
 function removeWidget(key){
-  const w = getHomeWidgets().filter(k=>k!==key);
-  saveHomeWidgets(w);
+  if(!_editDraftWidgets) return;
+  _editDraftWidgets = _editDraftWidgets.filter(k=>k!==key);
   renderHome();
 }
 
 function moveWidget(key, dir){
-  const w = getHomeWidgets();
+  if(!_editDraftWidgets) return;
+  const w = _editDraftWidgets;
   const i = w.indexOf(key);
   if(i<0) return;
   const j = i + dir;
   if(j<0 || j>=w.length) return;
   [w[i],w[j]] = [w[j],w[i]];
-  saveHomeWidgets(w);
   renderHome();
 }
 
@@ -1462,22 +1479,23 @@ const WIDGET_SIZES = {
   gruppenSalden:    '2x1',
 };
 
-/** Return tile CSS class for a widget key. CFG.widgetSizes overrides defaults. Falls back to 2x1. */
+/** Return tile CSS class for a widget key. Draft/CFG.widgetSizes overrides defaults. Falls back to 2x1. */
 function tileClass(key){
-  const custom = CFG.widgetSizes && CFG.widgetSizes[key];
+  const sizes = _editDraftSizes || CFG.widgetSizes;
+  const custom = sizes && sizes[key];
   return 'tile-'+(custom || WIDGET_SIZES[key] || '2x1');
 }
 function getWidgetSize(key){
-  return (CFG.widgetSizes && CFG.widgetSizes[key]) || WIDGET_SIZES[key] || '2x1';
+  const sizes = _editDraftSizes || CFG.widgetSizes;
+  return (sizes && sizes[key]) || WIDGET_SIZES[key] || '2x1';
 }
 const VALID_SIZES = ['1x1','2x1','1x2','2x2','2x3','2x4'];
 function cycleWidgetSize(key){
+  if(!_editDraftSizes) _editDraftSizes = {...(CFG.widgetSizes||{})};
   const current = getWidgetSize(key);
   const idx = VALID_SIZES.indexOf(current);
   const next = VALID_SIZES[(idx+1) % VALID_SIZES.length];
-  if(!CFG.widgetSizes) CFG.widgetSizes = {};
-  CFG.widgetSizes[key] = next;
-  cfgSave();
+  _editDraftSizes[key] = next;
   renderHome();
 }
 
@@ -1534,13 +1552,18 @@ function renderHome(){
     if(homeEditMode){
       const size = getWidgetSize(key);
       html += `<div class="home-edit-row">
-        <span class="home-edit-drag">⠿</span>
-        <span style="flex:1;font-size:13px;font-weight:600">${def.label}</span>
-        <button class="home-edit-btn" onclick="event.stopPropagation();cycleWidgetSize('${key}')" title="Grösse ändern" style="font-size:10px;font-family:'DM Mono',monospace;min-width:34px">${size}</button>
-        <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''}>↑</button>
-        <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''}>↓</button>
-        <button class="home-edit-btn t-red" onclick="removeWidget('${key}')">✕</button>
+        <div class="edit-row-top">
+          <span class="home-edit-drag">⠿</span>
+          <span style="flex:1;font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${def.label}</span>
+          <button class="home-edit-btn t-red" onclick="removeWidget('${key}')" style="width:24px;height:24px;min-width:24px">✕</button>
+        </div>
+        <div class="edit-row-bottom">
+          <button class="home-edit-btn" onclick="event.stopPropagation();cycleWidgetSize('${key}')" title="Grösse ändern" style="font-size:9px;font-family:'DM Mono',monospace;min-width:30px;height:24px">${size}</button>
+          <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''} style="width:24px;height:24px;min-width:24px">↑</button>
+          <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''} style="width:24px;height:24px;min-width:24px">↓</button>
+        </div>
       </div>`;
+      html += `<div class="widget-preview">${renderWidgetContent(key)}</div>`;
     } else {
       html += renderWidgetContent(key);
     }
@@ -1605,15 +1628,14 @@ function _dragEnd(){
   _dragState.ghost.remove();
   _dragState.cardEl.classList.remove('dragging');
   const overCard = document.querySelector('.widget-card.editing.drag-over');
-  if(overCard){
+  if(overCard && _editDraftWidgets){
     const targetKey = overCard.dataset.widgetKey;
-    const w = getHomeWidgets();
+    const w = _editDraftWidgets;
     const fromIdx = w.indexOf(_dragState.key);
     const toIdx = w.indexOf(targetKey);
     if(fromIdx>=0 && toIdx>=0 && fromIdx!==toIdx){
       w.splice(fromIdx, 1);
       w.splice(toIdx, 0, _dragState.key);
-      saveHomeWidgets(w);
       _dragState = null;
       renderHome();
       return;
