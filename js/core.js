@@ -379,6 +379,16 @@ function cfgLoad(){
 function curr(){ return CFG.currency||'CHF'; }
 
 // ═══════════════════════════════════════════════════════════════
+// MODULE: DOM REFERENCE CACHE
+// Avoids repeated getElementById() in hot paths (touch handlers,
+// render loops). Lazy-initialized on first access.
+// ═══════════════════════════════════════════════════════════════
+const DOM = {};
+function dom(id){
+  return DOM[id] || (DOM[id] = document.getElementById(id));
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODULE: FORM HELPERS (Step 5)
 // Eliminate repeated getElementById().value chains in modal code.
 // ═══════════════════════════════════════════════════════════════

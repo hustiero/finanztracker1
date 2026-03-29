@@ -1846,6 +1846,15 @@ body.is-android .filter-row{touch-action:pan-x}
   }
 }
 
+/* ≥768px: Tablet layout improvements */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .section{padding-left:24px;padding-right:24px}
+  .stats-grid{grid-template-columns:repeat(3,1fr)}
+  .modal{max-width:480px}
+  .card{max-width:680px;margin-left:auto;margin-right:auto}
+  .tile-grid{grid-template-columns:repeat(2,1fr)}
+}
+
 /* Hide sidebar on mobile */
 @media (max-width: 1023px) {
   .desktop-sidebar{display:none !important}
@@ -1881,3 +1890,22 @@ body.is-android .filter-row{touch-action:pan-x}
 }
 .tab-help-item::before{content:'•';color:var(--accent);font-size:18px;line-height:1.1;flex-shrink:0}
 .tab-help-item:last-child{border-bottom:none}
+
+/* ═══════════════════════════════════════════════════
+   SKELETON LOADERS
+═══════════════════════════════════════════════════ */
+@keyframes skeleton-pulse{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.skeleton{
+  background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);
+  background-size:200% 100%;
+  animation:skeleton-pulse 1.8s ease-in-out infinite;
+  border-radius:var(--r);
+}
+.skeleton-card{height:80px;margin-bottom:12px}
+.skeleton-stat{height:56px;border-radius:var(--r)}
+.skeleton-text{height:14px;width:60%;margin-bottom:8px;border-radius:4px}
+.skeleton-text.w-full{width:100%}
+.skeleton-text.w-40{width:40%}

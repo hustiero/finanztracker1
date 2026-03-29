@@ -162,7 +162,8 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
 
     if(interval==='monatlich'){
       let year=fromDt.getFullYear(), month=fromDt.getMonth();
-      while(new Date(year,month,1)<=new Date(toDt.getFullYear(),toDt.getMonth(),1)){
+      const toYM=toDt.getFullYear()*12+toDt.getMonth();
+      while(year*12+month<=toYM){
         const lastDay=new Date(year,month+1,0).getDate();
         const occDay=Math.min(r.day||1,lastDay);
         const ds=dateStr(new Date(year,month,occDay));
@@ -172,12 +173,12 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
     } else if(interval==='wöchentlich'||interval==='zweiwöchentlich'){
       const step=(interval==='wöchentlich'?7:14)*86400000;
       const anchor=rStart>startStr?rStart:startStr;
-      let cur=new Date(anchor+'T12:00:00');
-      while(true){
+      const cur=new Date(anchor+'T12:00:00');
+      for(let _i=0;_i<1000;_i++){
         const ds=dateStr(cur);
         if(ds>cutoff) break;
         if(ds>=startStr&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
-        cur=new Date(cur.getTime()+step);
+        cur.setTime(cur.getTime()+step);
       }
     } else if(interval==='jährlich'){
       const a=new Date(rStart+'T12:00:00');

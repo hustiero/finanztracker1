@@ -40,11 +40,11 @@ function nextDashYear(){
 function openMonthView(){
   mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth();
   renderMonthView();
-  document.getElementById('month-view').classList.add('open');
+  dom('month-view').classList.add('open');
   Device.pushNav('monthview','month-view');
 }
 function closeMonthView(){
-  document.getElementById('month-view').classList.remove('open');
+  dom('month-view').classList.remove('open');
 }
 function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
 function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
@@ -168,8 +168,8 @@ function renderMonthView(){
     return tabs;
   }
 
-  const content = ()=>document.getElementById('content');
-  const mv = ()=>document.getElementById('month-view');
+  const content = ()=>dom('content');
+  const mv = ()=>dom('month-view');
 
   document.addEventListener('touchstart',e=>{
     sx=e.touches[0].clientX; sy=e.touches[0].clientY; sTime=Date.now(); handled=false;
@@ -202,7 +202,7 @@ function renderMonthView(){
     }
 
     // 3. Menu overlay open: swipe right to close
-    const menuOv = document.getElementById('menu-overlay');
+    const menuOv = dom('menu-overlay');
     if(menuOv?.classList.contains('open') && dx>0){
       closeMenuOverlay(); handled=true; return;
     }
@@ -232,8 +232,8 @@ document.addEventListener('gesturechange',e=>e.preventDefault());
 // ── Pull-to-Refresh ───────────────────────────────────────────────────────────
 (function(){
   let sy=0, pulling=false, pullStarted=false, refreshing=false;
-  const ind=()=>document.getElementById('pull-indicator');
-  const cont=()=>document.getElementById('content');
+  const ind=()=>dom('pull-indicator');
+  const cont=()=>dom('content');
 
   document.addEventListener('touchstart',e=>{
     if(refreshing) return;
@@ -2567,7 +2567,7 @@ function renderDashboard(){
 function openMonthViewAt(mo,yr){
   mvMonth=mo; mvYear=yr;
   renderMonthView();
-  document.getElementById('month-view').classList.add('open');
+  dom('month-view').classList.add('open');
 }
 
 // ═══════════════════════════════════════════════════════════════
