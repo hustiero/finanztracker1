@@ -1620,7 +1620,7 @@ function _dragMove(clientX, clientY){
   for(const c of allCards){
     if(c === _dragState.cardEl) continue;
     const r = c.getBoundingClientRect();
-    if(clientY > r.top && clientY < r.bottom){ overCard = c; break; }
+    if(clientX >= r.left && clientX <= r.right && clientY > r.top && clientY < r.bottom){ overCard = c; break; }
   }
 
   const newKey = overCard ? overCard.dataset.widgetKey : null;
