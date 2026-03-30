@@ -1613,42 +1613,70 @@ function renderHome(){
 // ── Widget Drag & Drop (Touch + Mouse) ──────────────────────────────────────
 let _dragState = null;
 let _dragListenersAttached = false;
+let _dragPreviewTargetKey = null; // key of tile currently being hovered during drag
 
 function _dragMove(clientX, clientY){
   if(!_dragState) return;
   _dragState.ghost.style.left = clientX + 'px';
   _dragState.ghost.style.top = (clientY - 16) + 'px';
-  document.querySelectorAll('.widget-card.editing.drag-over').forEach(el=>el.classList.remove('drag-over'));
+
+  // Find the card currently under the cursor
+  let overCard = null;
   const allCards = [...document.querySelectorAll('.widget-card.editing')];
   for(const c of allCards){
     if(c === _dragState.cardEl) continue;
     const r = c.getBoundingClientRect();
-    if(clientY > r.top && clientY < r.bottom){
-      c.classList.add('drag-over');
-      break;
-    }
+    if(clientY > r.top && clientY < r.bottom){ overCard = c; break; }
   }
+
+  const newKey = overCard ? overCard.dataset.widgetKey : null;
+  if(newKey === _dragPreviewTargetKey) return; // hover target unchanged — skip
+  _dragPreviewTargetKey = newKey;
+
+  // Reset CSS order on all cards
+  allCards.forEach(c => c.style.order = '');
+
+  if(!newKey || !_editDraftWidgets) return;
+
+  // Compute what the order would look like after the drop and apply it via
+  // CSS `order` so the grid visually reflows (including pushing a 2x1 tile
+  // down when a 1x1 would otherwise require a 3rd column on the same row).
+  const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
+  const toIdx   = _editDraftWidgets.indexOf(newKey);
+  if(fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+
+  const proposed = [..._editDraftWidgets];
+  proposed.splice(fromIdx, 1);
+  proposed.splice(toIdx, 0, _dragState.key);
+
+  allCards.forEach(c => {
+    const idx = proposed.indexOf(c.dataset.widgetKey);
+    if(idx >= 0) c.style.order = idx;
+  });
 }
 function _dragEnd(){
   if(!_dragState) return;
   _dragState.ghost.remove();
   _dragState.cardEl.classList.remove('dragging');
-  const overCard = document.querySelector('.widget-card.editing.drag-over');
-  if(overCard && _editDraftWidgets){
-    const targetKey = overCard.dataset.widgetKey;
-    const w = _editDraftWidgets;
-    const fromIdx = w.indexOf(_dragState.key);
-    const toIdx = w.indexOf(targetKey);
-    if(fromIdx>=0 && toIdx>=0 && fromIdx!==toIdx){
-      w.splice(fromIdx, 1);
-      w.splice(toIdx, 0, _dragState.key);
+
+  // Commit the previewed order if a valid drop target exists
+  if(_dragPreviewTargetKey && _editDraftWidgets){
+    const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
+    const toIdx   = _editDraftWidgets.indexOf(_dragPreviewTargetKey);
+    if(fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx){
+      _editDraftWidgets.splice(fromIdx, 1);
+      _editDraftWidgets.splice(toIdx, 0, _dragState.key);
       _dragState = null;
+      _dragPreviewTargetKey = null;
       renderHome();
       return;
     }
   }
-  document.querySelectorAll('.widget-card.editing.drag-over').forEach(el=>el.classList.remove('drag-over'));
+
+  // No valid drop — reset CSS order so layout returns to original
+  document.querySelectorAll('.widget-card.editing').forEach(c => c.style.order = '');
   _dragState = null;
+  _dragPreviewTargetKey = null;
 }
 function _onTouchMove(e){ if(_dragState){ e.preventDefault(); const t=e.touches[0]; _dragMove(t.clientX, t.clientY); }}
 function _onMouseMove(e){ _dragMove(e.clientX, e.clientY); }
