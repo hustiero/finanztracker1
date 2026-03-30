@@ -971,64 +971,13 @@ function groupName(groupId){
   return DATA.groups.find(g=>g.id===groupId)?.name||'';
 }
 
+// Greedy debt simplification using calcSplitBalances() for per-member balances.
+// Returns [{from, to, amount}] — simplified settlement transactions.
 function calculateGroupBalances(groupId){
   const group = DATA.groups.find(g=>g.id===groupId);
   if(!group) return [];
 
-  const myId = _myGroupId();
-  const myName = _myGroupName();
-
-  // Own entries (DATA.expenses with groupId) — inject authorId/authorName
-  const myEntries = DATA.expenses
-    .filter(e=>e.groupId===groupId)
-    .map(e=>({...e, authorId: myId, authorName: myName}));
-
-  // Foreign entries from group tabs (DATA.groupEntries)
-  const foreignEntries = (DATA.groupEntries||[])
-    .filter(e=>e.groupId===groupId && !e.isMine);
-
-  // All group entries (own + foreign, combined)
-  const allEntries = [...myEntries, ...foreignEntries];
-
-  // Separate settlements (isSettlement flag in splitData)
-  const settlements = allEntries.filter(
-    e=>e.splitData && e.splitData.isSettlement
-  );
-  const regularEntries = allEntries.filter(
-    e=>!e.splitData || !e.splitData.isSettlement
-  );
-
-  const paid = {};
-  const owes = {};
-  group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
-
-  // Regular expenses — use authorId preferentially, fallback to authorName
-  for(const entry of regularEntries){
-    const payer = entry.splitData?.payerId || entry.authorId || entry.authorName || myName;
-    const split = entry.splitData;
-    if(!split || !split.participants) continue;
-    paid[payer] = (paid[payer]||0) + (split.totalAmount||entry.amt||0);
-    Object.entries(split.participants).forEach(([member, share])=>{
-      owes[member] = (owes[member]||0) + share;
-    });
-  }
-
-  // Settlements reduce debts
-  for(const s of settlements){
-    const payer = s.splitData?.payerId || s.authorId || s.authorName || '';
-    if(!payer) continue;
-    const participants = s.splitData?.participants||{};
-    Object.entries(participants).forEach(([member, share])=>{
-      paid[payer]  = (paid[payer]||0) - share;
-      owes[member] = (owes[member]||0) - share;
-    });
-  }
-
-  // Greedy debt simplification
-  const balances = {};
-  group.members.forEach(m=>{
-    balances[m] = (paid[m]||0) - (owes[m]||0);
-  });
+  const balances = calcSplitBalances(groupId);
 
   const debts = [];
   const debtors  = Object.entries(balances).filter(([,v])=>v<-0.01).sort(([,a],[,b])=>a-b);

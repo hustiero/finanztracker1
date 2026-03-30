@@ -580,31 +580,59 @@ function getGroupTotal(groupId){
 }
 
 // For split groups: calculate balances for each member
+// Combines own entries (DATA.expenses) AND foreign entries (DATA.groupEntries)
+// Handles settlements correctly.
 // Returns { memberName: balance } (positive = is owed, negative = owes)
 function calcSplitBalances(groupId){
-  const expenses = getGroupExpenses(groupId);
-  const balances = {};
   const group = DATA.groups.find(g=>g.id===groupId);
-  if(!group) return balances;
-  group.members.forEach(m=>{ balances[m]=0; });
+  if(!group) return {};
 
-  for(const e of expenses){
+  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
+  const myName = typeof _myGroupName==='function' ? _myGroupName() : (CFG.userName||'Ich');
+
+  // Own entries from DATA.expenses — inject authorId/authorName
+  const myEntries = DATA.expenses
+    .filter(e=>e.groupId===groupId)
+    .map(e=>({...e, authorId: myId, authorName: myName}));
+
+  // Foreign entries from DATA.groupEntries
+  const foreignEntries = (DATA.groupEntries||[])
+    .filter(e=>e.groupId===groupId && !e.isMine);
+
+  const allEntries = [...myEntries, ...foreignEntries];
+
+  const paid = {};
+  const owes = {};
+  group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
+
+  for(const e of allEntries){
     if(!e.splitData) continue;
     let sd;
     try { sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData; }
-    catch(err){ console.warn('calcSplitBalances: invalid splitData for entry', e.id, err); continue; }
-    const payer = sd.payerId || (typeof _myGroupId==='function' ? _myGroupId() : CFG.authUser||CFG.userName);
-    const total = sd.totalAmount || e.amt;
-    // Payer paid the full amount
-    if(balances[payer]===undefined) balances[payer]=0;
-    balances[payer] += total;
-    // Each participant owes their share
-    const parts = sd.participants||{};
-    for(const [member, share] of Object.entries(parts)){
-      if(balances[member]===undefined) balances[member]=0;
-      balances[member] -= share;
+    catch(err){ continue; }
+    if(!sd.participants) continue;
+
+    const payer = sd.payerId || e.authorId || e.authorName || myName;
+
+    if(sd.isSettlement){
+      // Settlement: payer paid out to settle → increases their paid, increases recipient's owes
+      Object.entries(sd.participants).forEach(([member, share])=>{
+        paid[payer]  = (paid[payer]||0) + share;
+        owes[member] = (owes[member]||0) + share;
+      });
+    } else {
+      // Regular expense: payer laid out total, participants owe their shares
+      paid[payer] = (paid[payer]||0) + (sd.totalAmount||e.amt||0);
+      Object.entries(sd.participants).forEach(([member, share])=>{
+        owes[member] = (owes[member]||0) + share;
+      });
     }
   }
+
+  const balances = {};
+  group.members.forEach(m=>{
+    balances[m] = (paid[m]||0) - (owes[m]||0);
+  });
   return balances;
 }
 
@@ -646,7 +674,7 @@ function getOwnShare(expense){
   const myName = CFG.userName||'';
   if(parts[myId]!==undefined) return parts[myId];
   if(parts[myName]!==undefined) return parts[myName];
-  return expense.amt;
+  return 0;
 }
 
 // Top categories within a group
