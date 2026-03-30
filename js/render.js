@@ -922,7 +922,7 @@ function renderVerlaufGruppen(){
     all = verlaufFilterEntries(all);
     all.sort((a,b)=>b.date.localeCompare(a.date));
 
-    const total = all.filter(e=>e._type==='ausgabe').reduce((s,e)=>s+e.amt,0);
+    const total = all.filter(e=>e._type==='ausgabe').reduce((s,e)=>s+(e._isOwn ? e.amt : getOwnShare(e)),0);
     let html = `<div style="padding:12px 16px 0">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <button onclick="verlaufGoBackGruppen()" style="background:none;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:13px;flex-shrink:0">← Zurück</button>
@@ -944,9 +944,10 @@ function renderVerlaufGruppen(){
           const col = isInc ? 'var(--green)' : 'var(--red)';
           const sign = isInc ? '+' : '-';
           const authorTag = e._author ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">von ${esc(e._author)}</div>` : '';
-          // Split-Info: eigenen Anteil vs. Gesamtbetrag anzeigen
-          const splitTotal = e.splitData && (e.splitData.totalAmount || 0);
-          const hasSplitInfo = splitTotal && Math.abs(splitTotal - e.amt) > 0.01;
+          // For foreign entries: display own share, show full amount as context
+          const displayAmt = e._isOwn ? e.amt : getOwnShare(e);
+          const splitTotal = e.splitData && (e.splitData.totalAmount || e.amt || 0);
+          const hasSplitInfo = splitTotal && Math.abs(splitTotal - displayAmt) > 0.01;
           const splitTag = hasSplitInfo
             ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">Anteil von ${curr()} ${fmtAmt(splitTotal)}</div>`
             : '';
@@ -960,7 +961,7 @@ function renderVerlaufGruppen(){
               ${authorTag}
             </div>
             <div class="card-row-amount" style="color:${col}">
-              <div>${sign} ${curr()} ${fmtAmt(e.amt)}</div>
+              <div>${sign} ${curr()} ${fmtAmt(displayAmt)}</div>
               ${splitTag}
             </div>
           </div>`;
@@ -998,7 +999,12 @@ function renderVerlaufGruppen(){
     const localIds = new Set(localExp.map(e=>e.id));
     const extraOwn = ownGE.filter(e=>!localIds.has(e.id));
     const allExp = [...localExp, ...extraOwn, ...foreignExp];
-    const total = allExp.reduce((s,e)=>s+e.amt, 0);
+    // Use own share for foreign entries, full amount for own entries
+    const total = allExp.reduce((s,e)=>{
+      const isForeign = !e.isMine && e.isMine !== undefined ? true :
+        foreignExp.some(f=>f.id===e.id);
+      return s + (isForeign ? getOwnShare(e) : e.amt);
+    }, 0);
     const dates = allExp.map(e=>e.date).sort();
     const lastDate = dates.length ? fmtDate(dates[dates.length-1]) : null;
     const count = allExp.length;
