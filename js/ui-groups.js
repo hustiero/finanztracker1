@@ -457,6 +457,67 @@ function _renderSplitShares(group){
   }
 }
 
+// ── Group assignment helpers for the edit modal ─────────────────────────────
+function onEditGroupSelect(groupId, existingSplitData){
+  const sec = document.getElementById('edit-split-section');
+  if(!groupId || !sec){ if(sec) sec.style.display='none'; return; }
+  const group = (DATA.groups||[]).find(g=>g.id===groupId);
+  if(!group || group.type!=='split'){ if(sec) sec.style.display='none'; return; }
+  sec.style.display='';
+  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
+  const payerSel = document.getElementById('edit-split-payer');
+  if(payerSel) payerSel.innerHTML = group.members
+    .map(m=>`<option value="${esc(m)}"${m===(existingSplitData?.payerId||myId)?' selected':''}>${esc(m)}</option>`).join('');
+  document.getElementById('edit-split-mode').value='equal';
+  _renderEditSplitShares(group);
+}
+function onEditSplitModeChange(){
+  const gid = document.getElementById('edit-group')?.value;
+  const g = gid ? (DATA.groups||[]).find(g=>g.id===gid) : null;
+  if(g) _renderEditSplitShares(g);
+}
+function _renderEditSplitShares(group){
+  const c = document.getElementById('edit-split-shares');
+  if(!c) return;
+  const mode = document.getElementById('edit-split-mode')?.value||'equal';
+  if(mode==='equal'){
+    c.innerHTML = `<div class="t-muted" style="font-size:12px;padding:6px 0">Gleichmässig auf ${group.members.length} Personen aufgeteilt</div>`;
+  } else {
+    c.innerHTML = group.members.map(m=>`<div class="form-row" style="margin-bottom:6px">
+      <label class="form-label" style="flex:1;font-size:13px;margin:0;line-height:36px">${esc(m)}</label>
+      <input id="edit-split-share-${CSS.escape(m)}" class="form-input" type="number" step="0.01" min="0" style="width:100px;text-align:right" placeholder="0.00">
+    </div>`).join('');
+  }
+}
+// Read split form for the edit modal (mirrors _readSplitForm but uses edit-* IDs)
+function _readEditSplitForm(totalAmt, group){
+  const mode = document.getElementById('edit-split-mode')?.value||'equal';
+  const payerId = document.getElementById('edit-split-payer')?.value||(typeof _myGroupId==='function'?_myGroupId():'');
+  const participants = {};
+  if(mode==='equal'){
+    const count = group.members.length;
+    if(!count){ toast('Gruppe hat keine Mitglieder','err'); return null; }
+    const share = Math.round((totalAmt/count)*100)/100;
+    group.members.forEach(m=>{ participants[m]=share; });
+    const diff = totalAmt - share*count;
+    if(Math.abs(diff)>0.001){
+      const t = participants[payerId]!==undefined ? payerId : group.members[0];
+      participants[t] = Math.round((share+diff)*100)/100;
+    }
+  } else {
+    group.members.forEach(m=>{
+      const inp = document.getElementById('edit-split-share-'+CSS.escape(m));
+      participants[m] = inp ? parseFloat(inp.value)||0 : 0;
+    });
+    const sum = Object.values(participants).reduce((a,b)=>a+b,0);
+    if(Math.abs(sum-totalAmt)>0.02){
+      toast(`Summe der Anteile (${fmtAmt(sum)}) stimmt nicht mit Gesamtbetrag (${fmtAmt(totalAmt)}) überein`,'err');
+      return null;
+    }
+  }
+  return {totalAmount:totalAmt, payerId, participants};
+}
+
 // copyGroupInviteLink() moved to js/groups.js
 
 // Export group report as text
