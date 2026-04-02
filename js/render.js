@@ -1530,20 +1530,10 @@ function renderHome(){
   let html = '<div class="tile-grid">';
 
   // Active widgets
-  let _prevSection = null;
   widgets.forEach((key,idx)=>{
     const def = visibleCatalog.find(c=>c.key===key);
     if(!def) return;
     const targetTab = WIDGET_TAB_MAP[key];
-
-    // Section divider between groups of widgets linking to different tabs (non-edit mode)
-    if(!homeEditMode && targetTab){
-      if(_prevSection !== null && targetTab !== _prevSection){
-        const label = WIDGET_SECTION_LABELS[targetTab] || '';
-        if(label) html += `<div class="home-section-sep"><span class="home-section-sep-line"></span><span class="home-section-sep-label">${label}</span><span class="home-section-sep-line"></span></div>`;
-      }
-      _prevSection = targetTab;
-    }
 
     const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
     const editClass = homeEditMode ? ' editing' : '';
@@ -1551,10 +1541,14 @@ function renderHome(){
     html += `<div class="widget-card ${tileClass(key)}${editClass}" id="widget-card-${key}"${clickAttr}${dataKey}>`;
     if(homeEditMode){
       const size = getWidgetSize(key);
+      const sectionLabel = targetTab && WIDGET_SECTION_LABELS[targetTab]
+        ? `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0">${WIDGET_SECTION_LABELS[targetTab]}</span>`
+        : '';
       html += `<div class="home-edit-row">
         <div class="edit-row-top">
           <span class="home-edit-drag">⠿</span>
           <span style="flex:1;font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${def.label}</span>
+          ${sectionLabel}
           <button class="home-edit-btn t-red" onclick="removeWidget('${key}')" style="width:24px;height:24px;min-width:24px">✕</button>
         </div>
         <div class="edit-row-bottom">
@@ -1602,6 +1596,24 @@ function renderHome(){
 
   el.innerHTML = html;
   if(homeEditMode) initWidgetDrag();
+  if(widgets.includes('greeting')) startGreetingClock();
+}
+
+// ── Greeting clock ───────────────────────────────────────────────────────────
+let _greetingClockInterval = null;
+function startGreetingClock(){
+  if(_greetingClockInterval) clearInterval(_greetingClockInterval);
+  const tick = () => {
+    const el = document.getElementById('greeting-clock');
+    if(!el){ clearInterval(_greetingClockInterval); _greetingClockInterval = null; return; }
+    const n = new Date();
+    const hh = String(n.getHours()).padStart(2,'0');
+    const mm = String(n.getMinutes()).padStart(2,'0');
+    const ss = String(n.getSeconds()).padStart(2,'0');
+    el.innerHTML = `${hh}:${mm}<span style="font-size:.48em;color:var(--text3);vertical-align:middle;margin-left:2px">:${ss}</span>`;
+  };
+  tick();
+  _greetingClockInterval = setInterval(tick, 1000);
 }
 
 // ── Widget Drag & Drop (Touch + Mouse) ──────────────────────────────────────
@@ -1745,27 +1757,10 @@ function renderWidgetGreeting(){
   const name = CFG.userName ? `, ${CFG.userName}` : '';
   const wday = now.toLocaleDateString('de-CH',{weekday:'long'});
   const dat  = now.toLocaleDateString('de-CH',{day:'numeric',month:'long',year:'numeric'});
-  // Quick today stat
-  const t = today();
-  const todayVar = DATA.expenses.filter(e=>e.date===t&&!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
-  const z = getZyklusInfo();
-  const budget = z.dailyRate;
-  let statHtml = '';
-  if(budget!==null){
-    const over = todayVar > budget;
-    statHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text3)">
-      Heute: <span style="font-family:'DM Mono',monospace;font-weight:600;color:${over?'var(--red)':'var(--green)'}">${curr()} ${fmtAmt(todayVar)}</span>
-      <span style="color:var(--text3)"> / Budget ${curr()} ${fmtAmt(budget)}</span>
-    </div>`;
-  } else if(todayVar>0){
-    statHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text3)">
-      Heute ausgegeben: <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text)">${curr()} ${fmtAmt(todayVar)}</span>
-    </div>`;
-  }
   return `<div style="padding:4px 0">
     <div style="font-size:20px;font-weight:700;letter-spacing:-.3px">${greet}${name}</div>
     <div style="font-size:13px;color:var(--text3);margin-top:4px">${wday}, ${dat}</div>
-    ${statHtml}
+    <div id="greeting-clock" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:34px;font-weight:300;letter-spacing:-1px;line-height:1;color:var(--text)"></div>
   </div>`;
 }
 

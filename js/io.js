@@ -384,12 +384,19 @@ function showSplash(){
   s.classList.remove('hidden');
   s.offsetHeight; // trigger reflow
   s.style.transition = '';
+  // Mirror user's custom background image into the splash (localStorage is
+  // always available here, even before design.js has loaded)
+  const img = localStorage.getItem('ft_bg_image');
+  if(img){
+    s.style.background =
+      `linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)),url("${img.replace(/"/g,'')}") center/cover`;
+  }
 }
 function hideSplash(){
   const s = document.getElementById('splash');
   if(!s || s.classList.contains('gone')) return;
   s.classList.add('hidden'); // triggers fade-out via CSS transition (.6s)
-  setTimeout(()=>s.classList.add('gone'), 700);
+  setTimeout(()=>{ s.classList.add('gone'); s.style.background = ''; }, 700);
 }
 
 function launchApp(){
