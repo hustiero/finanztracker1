@@ -390,6 +390,25 @@
               </label>
             </div>
           </div>
+          <!-- SubType toggle -->
+          <div class="form-group" style="margin-top:4px">
+            <label class="form-label">Betrag-Typ</label>
+            <div id="f-rec-subtype" class="subtype-toggle">
+              <button type="button" class="subtype-btn active" data-val="normal" onclick="_applySubTypeToggle('f-rec-subtype','normal');_updateSubTypeUI('f-rec')">Normal</button>
+              <button type="button" class="subtype-btn" data-val="variabel" onclick="_applySubTypeToggle('f-rec-subtype','variabel');_updateSubTypeUI('f-rec')">Variabel</button>
+              <button type="button" class="subtype-btn" data-val="gestuft" onclick="_applySubTypeToggle('f-rec-subtype','gestuft');_updateSubTypeUI('f-rec')">Gestaffelt</button>
+            </div>
+          </div>
+          <!-- Variabel info -->
+          <div id="f-rec-variabel-info" style="display:none;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:6px">
+            Der Betrag wird bei jeder Fälligkeit separat abgefragt – du gibst ihn dann im Daueraufträge-Tab ein. Der Betrag oben dient als Richtwert.
+          </div>
+          <!-- Step editor for gestaffelt -->
+          <div id="f-rec-steps-wrap" style="display:none;margin-top:8px">
+            <label class="form-label">Betragsstufen <span class="t-text3">(ab Datum → Betrag)</span></label>
+            <div id="f-rec-steps"></div>
+            <button type="button" class="btn" style="font-size:12px;padding:5px 10px;margin-top:4px" onclick="_addStepRow('f-rec-steps')">+ Stufe hinzufügen</button>
+          </div>
         </div>
 
         <button class="save-btn" id="f-save-btn" onclick="saveEntryOrRecurring()">Eintrag speichern</button>
@@ -714,11 +733,35 @@
               <label class="form-label">Kommentar</label>
               <input id="r-note" class="form-input" placeholder="optional" autocorrect="off">
             </div>
-            <div style="display:flex;gap:8px">
+            <!-- SubType toggle -->
+            <div class="form-group" style="margin-top:4px">
+              <label class="form-label">Betrag-Typ</label>
+              <div id="r-subtype" class="subtype-toggle">
+                <button type="button" class="subtype-btn active" data-val="normal" onclick="_applySubTypeToggle('r-subtype','normal');_updateSubTypeUI('r')">Normal</button>
+                <button type="button" class="subtype-btn" data-val="variabel" onclick="_applySubTypeToggle('r-subtype','variabel');_updateSubTypeUI('r')">Variabel</button>
+                <button type="button" class="subtype-btn" data-val="gestuft" onclick="_applySubTypeToggle('r-subtype','gestuft');_updateSubTypeUI('r')">Gestaffelt</button>
+              </div>
+            </div>
+            <!-- Variabel info -->
+            <div id="r-variabel-info" style="display:none;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:6px">
+              Der Betrag wird bei jeder Fälligkeit separat abgefragt – du gibst ihn dann im Daueraufträge-Tab ein. Der Betrag oben dient als Richtwert.
+            </div>
+            <!-- Step editor for gestaffelt -->
+            <div id="r-steps-wrap" style="display:none;margin-top:8px">
+              <label class="form-label">Betragsstufen <span class="t-text3">(ab Datum → Betrag)</span></label>
+              <div id="r-steps"></div>
+              <button type="button" class="btn" style="font-size:12px;padding:5px 10px;margin-top:4px" onclick="_addStepRow('r-steps')">+ Stufe hinzufügen</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
               <button class="save-btn" style="flex:1" onclick="saveRecurring('r')">Hinzufügen</button>
               <button onclick="toggleAboForm()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:13px 16px;font-size:14px;cursor:pointer">Abbrechen</button>
             </div>
           </div>
+        </div>
+        <!-- Pending variable payments -->
+        <div id="rec-pending-wrap" style="padding:0 16px 8px;display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--orange,#fb923c);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;padding-left:2px">⚠ Ausstehende variable Buchungen</div>
+          <div class="card" id="rec-pending-list" style="border-color:rgba(251,146,60,.35)"></div>
         </div>
         <!-- Recurring list -->
         <div style="padding:0 16px 16px">
@@ -1454,6 +1497,25 @@
       <div class="form-group">
         <label class="form-label">Kommentar</label>
         <input id="rec-edit-note" class="form-input" autocorrect="off">
+      </div>
+      <!-- SubType toggle -->
+      <div class="form-group" style="margin-top:4px">
+        <label class="form-label">Betrag-Typ</label>
+        <div id="rec-edit-subtype" class="subtype-toggle">
+          <button type="button" class="subtype-btn active" data-val="normal" onclick="_applySubTypeToggle('rec-edit-subtype','normal');_updateSubTypeUI('rec-edit')">Normal</button>
+          <button type="button" class="subtype-btn" data-val="variabel" onclick="_applySubTypeToggle('rec-edit-subtype','variabel');_updateSubTypeUI('rec-edit')">Variabel</button>
+          <button type="button" class="subtype-btn" data-val="gestuft" onclick="_applySubTypeToggle('rec-edit-subtype','gestuft');_updateSubTypeUI('rec-edit')">Gestaffelt</button>
+        </div>
+      </div>
+      <!-- Variabel info -->
+      <div id="rec-edit-variabel-info" style="display:none;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:6px">
+        Der Betrag wird bei jeder Fälligkeit separat abgefragt – du gibst ihn dann im Daueraufträge-Tab ein. Der Betrag oben dient als Richtwert.
+      </div>
+      <!-- Step editor for gestaffelt -->
+      <div id="rec-edit-steps-wrap" style="display:none;margin-top:8px">
+        <label class="form-label">Betragsstufen <span class="t-text3">(ab Datum → Betrag)</span></label>
+        <div id="rec-edit-steps"></div>
+        <button type="button" class="btn" style="font-size:12px;padding:5px 10px;margin-top:4px" onclick="_addStepRow('rec-edit-steps')">+ Stufe hinzufügen</button>
       </div>
       <!-- Next payment info (populated by openRecModal) -->
       <div id="rec-next-info" style="display:none;margin-top:10px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text2)"></div>

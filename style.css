@@ -443,6 +443,16 @@ body.has-bg-image .btn-ghost{color:rgba(255,255,255,.8)}
 .type-btn.active.expense{color:var(--red)}
 .type-btn.active.income{color:var(--green)}
 
+.subtype-toggle{
+  display:flex;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:3px;gap:3px;
+}
+.subtype-btn{
+  flex:1;padding:7px 6px;border-radius:7px;font-size:12px;font-weight:600;
+  background:none;color:var(--text2);transition:all .15s;border:none;cursor:pointer;
+}
+.subtype-btn.active{background:var(--bg3);color:var(--text)}
+
 .form-group{margin-bottom:12px}
 .form-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block}
 .form-input{
@@ -904,7 +914,7 @@ body.glass-on :is(
   .card, .widget-card, .stat-card, .aktie-card, .aktie-summary-card,
   .spar-goal-card, .sparen-explainer, .verlauf-tile,
   #aktien-fx-rates > div,
-  .top-bar-circle-btn, .btn-cancel, .type-toggle,
+  .top-bar-circle-btn, .btn-cancel, .type-toggle, .subtype-toggle,
   .form-input, .form-select, .amount-input,
   .save-btn, .btn-save,
   .verlauf-search-wrap, .home-edit-btn, .chart-period-btn,

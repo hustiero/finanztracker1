@@ -1268,12 +1268,14 @@ function renderCategories(){
 function _recurMonthlyAmt(r){
   if(!r.active) return 0;
   const iv = r.interval||'monatlich';
-  if(iv==='monatlich')    return r.amt;
-  if(iv==='wöchentlich')  return r.amt * 52 / 12;
-  if(iv==='jährlich')     return r.amt / 12;
-  if(iv==='halbjährlich') return r.amt / 6;
-  if(iv==='semestral')    return r.amt / 6;
-  return r.amt;
+  // For gestaffelt, use the current effective step amount
+  const baseAmt = (r.subType==='gestuft' && typeof _getStepAmt==='function') ? _getStepAmt(r, today()) : r.amt;
+  if(iv==='monatlich')    return baseAmt;
+  if(iv==='wöchentlich')  return baseAmt * 52 / 12;
+  if(iv==='jährlich')     return baseAmt / 12;
+  if(iv==='halbjährlich') return baseAmt / 6;
+  if(iv==='semestral')    return baseAmt / 6;
+  return baseAmt;
 }
 
 // Compute the next occurrence date of a recurring entry (on or after today)
@@ -1323,12 +1325,44 @@ function renderRecurring(){
   if(!container) return;
   // Fix deletion bug: only show active entries (active===false means deleted/deactivated on Sheet)
   const recs = DATA.recurring.filter(r=>r.active!==false);
+
+  // Render pending variable payments section
+  const pendingWrap = document.getElementById('rec-pending-wrap');
+  const pendingContainer = document.getElementById('rec-pending-list');
+  if(pendingContainer && typeof getPendingVariableRecurrings==='function'){
+    const pending = getPendingVariableRecurrings();
+    if(pending.length){
+      if(pendingWrap) pendingWrap.style.display='';
+      pendingContainer.style.display='';
+      pendingContainer.innerHTML = pending.map((p,i)=>{
+        const inputId = `pending-amt-${p.r.id}-${p.date.replace(/-/g,'')}`;
+        return `<div class="card-row" style="align-items:flex-start;flex-wrap:wrap;gap:6px;padding:12px 14px">
+          <div class="card-row-icon" style="background:${catColor(p.r.cat)}22;flex-shrink:0">
+            <span>${catEmoji(p.r.cat)}</span>
+          </div>
+          <div class="card-row-body" style="flex:1;min-width:0">
+            <div class="card-row-title">${esc(p.r.what)}</div>
+            <div class="card-row-sub" style="color:var(--orange)">Fällig: ${fmtDate(p.date)}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:2px;width:100%;padding-left:44px">
+            <input id="${inputId}" type="number" class="input-field" style="width:110px;font-size:13px" placeholder="${curr()} Betrag" min="0" step="0.01" value="${p.r.amt||''}">
+            <button class="btn btn-primary" style="font-size:12px;padding:6px 12px" onclick="confirmVariablePayment('${p.r.id}','${p.date}','${inputId}')">Buchen</button>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      if(pendingWrap) pendingWrap.style.display='none';
+      pendingContainer.style.display='none';
+      pendingContainer.innerHTML='';
+    }
+  }
+
   if(!recs.length){
     container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Abos / Daueraufträge</div><button class="empty-cta" onclick="document.getElementById('abo-form-wrap')?.style.display==='none'?document.getElementById('abo-toggle-btn')?.click():null;document.getElementById('abo-toggle-btn')?.scrollIntoView({behavior:'smooth'})"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ersten Dauerauftrag anlegen</button></div>`;
     return;
   }
   const todayStr = today();
-  // Amortized monthly total (non-monthly items pro-rated)
+  // Amortized monthly total (non-monthly items pro-rated; variabel entries use hint amount)
   const totalMonthly = recs.reduce((s,r)=>s+_recurMonthlyAmt(r),0);
   const hasMixed = recs.some(r=>(r.interval||'monatlich')!=='monatlich');
 
@@ -1340,8 +1374,8 @@ function renderRecurring(){
     else if(expiringSoon) endBadge=`<span style="background:var(--yellow)22;color:var(--yellow);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">bis ${fmtDate(r.endDate)}</span>`;
     else if(r.endDate) endBadge=`<span style="color:var(--text3);font-size:11px"> · bis ${fmtDate(r.endDate)}</span>`;
 
-    // Next payment date
-    const nextDate = !expired ? _nextRecurDate(r) : null;
+    // Next payment date (skip for variabel — it's shown in pending section)
+    const nextDate = !expired && r.subType!=='variabel' ? _nextRecurDate(r) : null;
     const nextLabel = nextDate ? `<span style="color:var(--text3);font-size:11px"> · nächste: ${fmtDate(nextDate)}</span>` : '';
 
     // Interval badge for non-monthly
@@ -1350,16 +1384,31 @@ function renderRecurring(){
       ? `<span style="background:rgba(96,165,250,.15);color:var(--blue);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">${iv}</span>`
       : '';
 
+    // SubType badge
+    const st = r.subType||'normal';
+    const stBadge = st==='variabel'
+      ? `<span style="background:rgba(251,146,60,.18);color:var(--orange,#fb923c);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">variabel</span>`
+      : st==='gestuft'
+      ? `<span style="background:rgba(96,165,250,.15);color:var(--blue);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">gestaffelt</span>`
+      : '';
+
+    // Display amount: for gestuft use current step, for variabel show tilde prefix
+    const displayAmt = st==='gestuft' && typeof _getStepAmt==='function'
+      ? `${curr()} ${fmtAmt(_getStepAmt(r, todayStr))}`
+      : st==='variabel'
+      ? `~ ${curr()} ${fmtAmt(r.amt)}`
+      : `${curr()} ${fmtAmt(r.amt)}`;
+
     return `
     <div class="card-row" onclick="openRecModal('${r.id}')" style="${expired?'opacity:0.5':''}">
       <div class="card-row-icon" style="background:${catColor(r.cat)}22">
         <span>${catEmoji(r.cat)}</span>
       </div>
       <div class="card-row-body">
-        <div class="card-row-title">${esc(r.what)}${ivBadge}${endBadge}</div>
+        <div class="card-row-title">${esc(r.what)}${ivBadge}${stBadge}${endBadge}</div>
         <div class="card-row-sub">${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${nextLabel}${r.affectsAvg?' · <span style="color:var(--accent);font-size:10px">Ø</span>':''}${r.note?' · '+esc(r.note):''}</div>
       </div>
-      <div class="card-row-amount expense">${curr()} ${fmtAmt(r.amt)}</div>
+      <div class="card-row-amount expense">${displayAmt}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
   }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px">

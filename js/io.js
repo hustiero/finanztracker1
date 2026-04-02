@@ -533,10 +533,15 @@ function _parseRecurring(res, hadCache){
   if(res.status==='fulfilled'){
     DATA.recurring = (res.value.values||[])
       .filter(r=>r[0])
-      .map(r=>({id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),
-        interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',
-        active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),
-        affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1'}));
+      .map(r=>{
+        let steps = [];
+        try{ if(r[14]) steps = JSON.parse(r[14]); }catch(e){}
+        return {id:r[0],what:r[1],cat:r[2],amt:normalizeAmt(r[3]),
+          interval:r[4]||'monatlich',day:parseInt(r[5])||1,note:r[6]||'',
+          active:r[7]!=='0',start:normalizeDate(r[8]||''),endDate:normalizeDate(r[9]||''),
+          affectsAvg:String(r[10]||'')==='1',type:r[11]||'ausgabe',isLohn:String(r[12]||'')==='1',
+          subType:r[13]||'normal',steps};
+      });
   } else if(!hadCache){ DATA.recurring=[]; }
   invalidateRecurCache();
 }
@@ -595,7 +600,7 @@ async function loadAll(){
         apiGet('Kategorien!A2:G500'),
         apiGet('Ausgaben!A2:J5000'),
         apiGet('Einnahmen!A2:I5000'),
-        apiGet('Daueraufträge!A2:K200'),
+        apiGet('Daueraufträge!A2:O200'),
         apiGet('Aktien!A2:I5000'),
         apiGet('Trades!A2:J5000'),
         loadProfileFromSheet(),
@@ -727,17 +732,19 @@ async function saveEntryOrRecurring(){
     const note = document.getElementById('f-note').value.trim();
     const type = currentEntryType;
     const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
+    const subType = _readSubTypeToggle('f-rec-subtype') || 'normal';
+    const steps = subType==='gestuft' ? _readStepsEditor('f-rec-steps') : [];
     if(!what){ _inputErr('f-what','Bezeichnung erforderlich'); toast('Bezeichnung erforderlich','err'); return; }
     const btn = document.getElementById('f-save-btn');
     if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='Wird gespeichert…'; }
     try{
     const id = genId('D');
-    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
+    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn,subType,steps};
     DATA.recurring.push(rec);
     if(!CFG.demo){
       setSyncStatus('syncing');
       try{
-        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
+        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0',subType,JSON.stringify(steps)]]);
         setSyncStatus('online');
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
     }
@@ -1103,13 +1110,15 @@ async function saveRecurring(prefix='r'){
 
   const type = document.getElementById(prefix+'-type')?.value||'ausgabe';
   const isLohn = type==='einnahme' && (document.getElementById(prefix+'-lohn-switch')?.classList.contains('on')||false);
+  const subType = _readSubTypeToggle(prefix+'-subtype') || 'normal';
+  const steps = subType==='gestuft' ? _readStepsEditor(prefix+'-steps') : [];
 
   const id = genId('D');
-  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn};
+  const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn,subType,steps};
   DATA.recurring.push(rec);
 
   if(!CFG.demo){
-    const ok = await _syncAppend('Daueraufträge',[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']);
+    const ok = await _syncAppend('Daueraufträge',[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0',subType,JSON.stringify(steps)]);
     if(!ok){ DATA.recurring = DATA.recurring.filter(r=>r.id!==id); return; }
   }
 
@@ -1129,6 +1138,9 @@ function openRecModal(id){
   fillForm('rec-edit', { id, what:rec.what, amt:rec.amt, day:rec.day, start:rec.start||'', end:rec.endDate||'', note:rec.note||'', interval:rec.interval });
   document.getElementById('rec-edit-affects-avg').checked = rec.affectsAvg||false;
   fillDropdown('rec-edit-cat','ausgabe',rec.cat);
+  _applySubTypeToggle('rec-edit-subtype', rec.subType||'normal');
+  _applyStepsEditor('rec-edit-steps', rec.steps||[]);
+  _updateSubTypeUI('rec-edit');
   // Show next payment date
   const infoEl = document.getElementById('rec-next-info');
   if(infoEl){
@@ -1160,12 +1172,14 @@ async function updateRecurring(){
   const start = f.start||'';
   const endDate = f.end||'';
   const affectsAvg = document.getElementById('rec-edit-affects-avg').checked||false;
+  const subType = _readSubTypeToggle('rec-edit-subtype') || 'normal';
+  const steps = subType==='gestuft' ? _readStepsEditor('rec-edit-steps') : [];
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
   const type = DATA.recurring[idx].type||'ausgabe';
   const isLohn = DATA.recurring[idx].isLohn||false;
-  DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note};
+  DATA.recurring[idx] = {...DATA.recurring[idx],what,amt,cat,interval,day,start,endDate,affectsAvg,note,subType,steps};
   invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
@@ -1174,7 +1188,7 @@ async function updateRecurring(){
   if(!CFG.demo){
     try{
       const row = await apiFindRow('Daueraufträge', id);
-      if(row) await apiUpdate(`Daueraufträge!A${row}:M${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0']]);
+      if(row) await apiUpdate(`Daueraufträge!A${row}:O${row}`,[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0',subType,JSON.stringify(steps)]]);
       setSyncStatus('online'); toast('✓ Aktualisiert','ok');
     } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   } else toast('✓ Aktualisiert (Demo)','ok');
@@ -1208,6 +1222,158 @@ async function deleteRecurring(){
       } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
     }
   }, 5100);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: VARIABLE/STEPPED RECURRING — Helpers + Pending Booking
+// ═══════════════════════════════════════════════════════════════
+
+// Read the selected subType from a segmented toggle (3 buttons with data-val attribute)
+function _readSubTypeToggle(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return 'normal';
+  const active = el.querySelector('.subtype-btn.active');
+  return active ? active.dataset.val : 'normal';
+}
+
+// Apply a subType value to a toggle container
+function _applySubTypeToggle(containerId, subType){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.querySelectorAll('.subtype-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.val === subType);
+  });
+}
+
+// Read steps from the step-editor container (list of rows with date + amt inputs)
+function _readStepsEditor(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return [];
+  return Array.from(el.querySelectorAll('.step-row')).map(row=>{
+    const from = row.querySelector('.step-from')?.value||'';
+    const amt  = parseFloat(row.querySelector('.step-amt')?.value)||0;
+    return {from, amt};
+  }).filter(s=>s.from && s.amt>0).sort((a,b)=>a.from.localeCompare(b.from));
+}
+
+// Render step rows into a step-editor container from an array of {from, amt} objects
+function _applyStepsEditor(containerId, steps){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = '';
+  (steps||[]).forEach(s=>_addStepRow(containerId, s.from, s.amt));
+}
+
+// Add a single step row to the editor (called by UI "Stufe hinzufügen" button)
+function _addStepRow(containerId, from='', amt=''){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const row = document.createElement('div');
+  row.className = 'step-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+  row.innerHTML = `<input type="date" class="step-from input-field" style="flex:1;font-size:13px" value="${from}">
+    <input type="number" class="step-amt input-field" style="width:100px;font-size:13px" placeholder="Betrag" min="0" step="0.01" value="${amt}">
+    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;line-height:1;padding:0 4px">×</button>`;
+  el.appendChild(row);
+}
+
+// Show/hide gestaffelt and variabel sub-sections based on selected subType (prefix = 'rec-edit' or 'f-rec')
+function _updateSubTypeUI(prefix){
+  const subType = _readSubTypeToggle(prefix+'-subtype');
+  const stepsWrap = document.getElementById(prefix+'-steps-wrap');
+  const variabelInfo = document.getElementById(prefix+'-variabel-info');
+  if(stepsWrap) stepsWrap.style.display = subType==='gestuft' ? '' : 'none';
+  if(variabelInfo) variabelInfo.style.display = subType==='variabel' ? '' : 'none';
+}
+
+// Returns pending (due, not yet booked) occurrences for all active variabel recurring entries.
+// Returns array of {r, date} sorted by date ascending.
+function getPendingVariableRecurrings(){
+  const todayStr = today();
+  const matKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
+  const pending = [];
+  for(const r of DATA.recurring){
+    if(r.active===false) continue;
+    if(r.subType!=='variabel') continue;
+    if(r.endDate && r.endDate < (r.start||todayStr)) continue;
+    const rStart = r.start || todayStr;
+    const interval = r.interval || 'monatlich';
+    const dates = [];
+    const fromDt = new Date(rStart+'T12:00:00');
+    const toDt   = new Date(todayStr+'T12:00:00');
+    if(interval==='monatlich'){
+      let year=fromDt.getFullYear(), month=fromDt.getMonth();
+      const toYM=toDt.getFullYear()*12+toDt.getMonth();
+      while(year*12+month<=toYM){
+        const lastDay=new Date(year,month+1,0).getDate();
+        const occDay=Math.min(r.day||1,lastDay);
+        const ds=dateStr(new Date(year,month,occDay));
+        if(ds>=rStart&&ds<=todayStr&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        month++; if(month>11){month=0;year++;}
+      }
+    } else if(interval==='wöchentlich'||interval==='zweiwöchentlich'){
+      const step=(interval==='wöchentlich'?7:14)*86400000;
+      const cur=new Date(rStart+'T12:00:00');
+      for(let _i=0;_i<1000;_i++){
+        const ds=dateStr(cur);
+        if(ds>todayStr) break;
+        if(ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        cur.setTime(cur.getTime()+step);
+      }
+    } else if(interval==='jährlich'){
+      const a=new Date(rStart+'T12:00:00');
+      for(let i=0;i<20;i++){
+        const ds=dateStr(new Date(fromDt.getFullYear()+i,a.getMonth(),a.getDate()));
+        if(ds>todayStr) break;
+        if(ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+      }
+    } else if(interval==='quartalsweise'){
+      const a=new Date(rStart+'T12:00:00');
+      let yr=a.getFullYear(),mo=a.getMonth();
+      for(let i=0;i<80;i++){
+        const ds=dateStr(new Date(yr,mo,a.getDate()));
+        if(ds>todayStr) break;
+        if(ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        mo+=3;if(mo>11){mo-=12;yr++;}
+      }
+    } else if(interval==='halbjährlich'||interval==='semestral'){
+      const a=new Date(rStart+'T12:00:00');
+      let yr=a.getFullYear(), mo=a.getMonth();
+      for(let i=0;i<40;i++){
+        const ds=dateStr(new Date(yr,mo,a.getDate()));
+        if(ds>todayStr) break;
+        if(ds>=rStart&&(!r.endDate||ds<=r.endDate)) dates.push(ds);
+        mo+=6;if(mo>11){mo-=12;yr++;}
+      }
+    }
+    for(const ds of dates){
+      if(!matKeys.has(r.id+'_'+ds)) pending.push({r, date:ds});
+    }
+  }
+  return pending.sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+// Book a specific occurrence of a variabel recurring entry with the user-provided amount.
+async function confirmVariablePayment(recurId, date, inputId){
+  const amtEl = document.getElementById(inputId);
+  const amt = parseFloat(amtEl?.value)||0;
+  if(!amt){ toast('Betrag eingeben','err'); if(amtEl) amtEl.classList.add('input-error'); return; }
+  const r = DATA.recurring.find(r=>r.id===recurId);
+  if(!r) return;
+  const id = genId('A');
+  const isFixk = !r.affectsAvg;
+  const entry = {id, date, what:r.what, cat:r.cat, amt, note:r.note||'', recurringId:recurId, isFixkosten:isFixk};
+  DATA.expenses.push(entry);
+  dataCacheSave();
+  markDirty('dauerauftraege','dashboard','home','verlauf');
+  if(!CFG.demo){
+    setSyncStatus('syncing');
+    try{
+      await apiAppend('Ausgaben',[[id,date,r.what,r.cat,amt,r.note||'',recurId,isFixk?'1':'0']]);
+      setSyncStatus('online');
+    } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
+  }
+  toast(`✓ ${r.what} gebucht: ${curr()} ${fmtAmt(amt)}`,'ok');
 }
 
 // ═══════════════════════════════════════════════════════════════
