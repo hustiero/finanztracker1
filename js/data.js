@@ -137,6 +137,14 @@ function getCycleRange(){
   return {start,end};
 }
 
+// Returns the effective amount for a gestaffelt recurring entry at the given date.
+// Finds the last step whose `from` date is <= the occurrence date.
+function _getStepAmt(r, dateStr){
+  if(!r.steps || !r.steps.length) return r.amt;
+  const applicable = r.steps.filter(s=>s.from<=dateStr).sort((a,b)=>b.from.localeCompare(a.from));
+  return applicable.length ? applicable[0].amt : r.amt;
+}
+
 // Expand active Daueraufträge into synthetic expense objects within [startStr, endStr].
 // capToToday (default true): when true caps at today so only realised bookings are returned.
 //   Pass false to include scheduled future occurrences (needed for budget projections).
@@ -153,6 +161,7 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
   const results = [];
   for(const r of DATA.recurring){
     if(!r.active) continue;
+    if(r.subType==='variabel') continue; // variabel entries are booked manually via confirmVariablePayment
     if(r.endDate && r.endDate < startStr) continue;
     const rStart = r.start || startStr;
     const interval = r.interval || 'monatlich';
@@ -211,8 +220,9 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
 
     for(const ds of dates){
       if(matKeys && matKeys.has(r.id+'_'+ds)) continue;
+      const amt = r.subType==='gestuft' ? _getStepAmt(r, ds) : r.amt;
       results.push({
-        id: r.id+'_r_'+ds, date: ds, what: r.what, cat: r.cat, amt: r.amt,
+        id: r.id+'_r_'+ds, date: ds, what: r.what, cat: r.cat, amt,
         note: r.note||'', isFixkosten: !r.affectsAvg,
         isRecurring: true, _type: 'recurring', _recurId: r.id,
       });
@@ -304,6 +314,7 @@ async function _autoMaterializeImpl(){
     existingKeys.add(key); // prevent same key being added twice within this batch
     const r = DATA.recurring.find(r=>r.id===occ._recurId);
     if(!r) continue;
+    if(r.subType==='variabel') continue; // variabel entries skip auto-materialization
     const id = genId('A');
     const isFixk = !r.affectsAvg;
     const entry = {id, date:occ.date, what:occ.what, cat:occ.cat, amt:occ.amt,
