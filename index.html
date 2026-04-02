@@ -1360,6 +1360,30 @@
         <label class="form-label">Notiz</label>
         <input id="edit-note" class="form-input" type="text" autocorrect="off">
       </div>
+      <!-- group assignment — only shown for Ausgaben when groups exist -->
+      <div class="form-group" id="edit-group-wrap" style="display:none">
+        <label class="form-label">Gruppe <span class="t-text3">(optional)</span></label>
+        <select id="edit-group" class="form-select" onchange="onEditGroupSelect(this.value)">
+          <option value="">— Keine Gruppe —</option>
+        </select>
+      </div>
+      <div id="edit-split-section" style="display:none">
+        <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Bezahlt von</label>
+            <select id="edit-split-payer" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aufteilung</label>
+            <select id="edit-split-mode" class="form-select" onchange="onEditSplitModeChange()">
+              <option value="equal">Gleichmässig</option>
+              <option value="custom">Individuell</option>
+            </select>
+          </div>
+        </div>
+        <div id="edit-split-shares"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-delete" onclick="deleteEntry()">Löschen</button>

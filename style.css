@@ -1051,7 +1051,11 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 .widget-preview::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30px;background:linear-gradient(transparent,var(--bg1))}
 .home-edit-row.dragging{opacity:.35;background:var(--bg3)}
 .widget-card.dragging{opacity:.35}
+.widget-card.editing{position:relative}
 .widget-card.editing.drag-over{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r)}
+.widget-card.resizing{outline:2px solid var(--accent);outline-offset:-2px}
+.widget-resize-handle{position:absolute;bottom:5px;right:5px;width:22px;height:22px;cursor:se-resize;touch-action:none;user-select:none;z-index:5;display:flex;align-items:center;justify-content:center;color:var(--text3);opacity:.65;font-size:14px;line-height:1}
+.widget-card.longpress-active{transform:scale(.97);transition:transform .15s}
 .widget-drag-ghost{position:fixed;z-index:500;pointer-events:none;opacity:.9;transform:scale(.95);background:var(--bg1);border:2px solid var(--accent);border-radius:var(--r);padding:10px 16px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
 .widget-drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:0;grid-column:1/-1;transition:opacity .15s}
 .home-avail-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border)}

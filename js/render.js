@@ -1558,6 +1558,7 @@ function renderHome(){
         </div>
       </div>`;
       html += `<div class="widget-preview">${renderWidgetContent(key)}</div>`;
+      html += `<div class="widget-resize-handle" data-widget-key="${key}" title="Grösse anpassen">⤡</div>`;
     } else {
       html += renderWidgetContent(key);
     }
@@ -1595,7 +1596,7 @@ function renderHome(){
   </div>`;
 
   el.innerHTML = html;
-  if(homeEditMode) initWidgetDrag();
+  if(homeEditMode) initWidgetDrag(); else initLongPressEdit();
   if(widgets.includes('greeting')) startGreetingClock();
 }
 
@@ -1616,17 +1617,18 @@ function startGreetingClock(){
   _greetingClockInterval = setInterval(tick, 1000);
 }
 
-// ── Widget Drag & Drop (Touch + Mouse) ──────────────────────────────────────
+// ── Widget Drag, Resize & Long-Press ────────────────────────────────────────
 let _dragState = null;
 let _dragListenersAttached = false;
-let _dragPreviewTargetKey = null; // key of tile currently being hovered during drag
+let _dragPreviewTargetKey = null;
+let _resizeState = null;
 
+// ── Drag ────────────────────────────────────────────────────────────────────
 function _dragMove(clientX, clientY){
   if(!_dragState) return;
   _dragState.ghost.style.left = clientX + 'px';
   _dragState.ghost.style.top = (clientY - 16) + 'px';
 
-  // Find the card currently under the cursor
   let overCard = null;
   const allCards = [...document.querySelectorAll('.widget-card.editing')];
   for(const c of allCards){
@@ -1636,17 +1638,12 @@ function _dragMove(clientX, clientY){
   }
 
   const newKey = overCard ? overCard.dataset.widgetKey : null;
-  if(newKey === _dragPreviewTargetKey) return; // hover target unchanged — skip
+  if(newKey === _dragPreviewTargetKey) return;
   _dragPreviewTargetKey = newKey;
 
-  // Reset CSS order on all cards
   allCards.forEach(c => c.style.order = '');
-
   if(!newKey || !_editDraftWidgets) return;
 
-  // Compute what the order would look like after the drop and apply it via
-  // CSS `order` so the grid visually reflows (including pushing a 2x1 tile
-  // down when a 1x1 would otherwise require a 3rd column on the same row).
   const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
   const toIdx   = _editDraftWidgets.indexOf(newKey);
   if(fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
@@ -1654,7 +1651,6 @@ function _dragMove(clientX, clientY){
   const proposed = [..._editDraftWidgets];
   proposed.splice(fromIdx, 1);
   proposed.splice(toIdx, 0, _dragState.key);
-
   allCards.forEach(c => {
     const idx = proposed.indexOf(c.dataset.widgetKey);
     if(idx >= 0) c.style.order = idx;
@@ -1665,36 +1661,99 @@ function _dragEnd(){
   _dragState.ghost.remove();
   _dragState.cardEl.classList.remove('dragging');
 
-  // Commit the previewed order if a valid drop target exists
   if(_dragPreviewTargetKey && _editDraftWidgets){
     const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
     const toIdx   = _editDraftWidgets.indexOf(_dragPreviewTargetKey);
     if(fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx){
       _editDraftWidgets.splice(fromIdx, 1);
       _editDraftWidgets.splice(toIdx, 0, _dragState.key);
-      _dragState = null;
-      _dragPreviewTargetKey = null;
-      renderHome();
-      return;
+      _dragState = null; _dragPreviewTargetKey = null;
+      renderHome(); return;
     }
   }
-
-  // No valid drop — reset CSS order so layout returns to original
   document.querySelectorAll('.widget-card.editing').forEach(c => c.style.order = '');
-  _dragState = null;
-  _dragPreviewTargetKey = null;
+  _dragState = null; _dragPreviewTargetKey = null;
 }
-function _onTouchMove(e){ if(_dragState){ e.preventDefault(); const t=e.touches[0]; _dragMove(t.clientX, t.clientY); }}
-function _onMouseMove(e){ _dragMove(e.clientX, e.clientY); }
 
+// ── Resize (corner handle) ───────────────────────────────────────────────────
+function _resizeMove(clientX, clientY){
+  if(!_resizeState) return;
+  const {sc, sr, startX, startY, colWidth, rowUnit, cardEl} = _resizeState;
+  const dx = clientX - startX, dy = clientY - startY;
+  const newCols = Math.max(1, Math.min(2, Math.round(sc + dx / colWidth)));
+  const maxRows = newCols === 1 ? 2 : 4;
+  const newRows = Math.max(1, Math.min(maxRows, Math.round(sr + dy / rowUnit)));
+  const sz = `${newCols}x${newRows}`;
+  if(!VALID_SIZES.includes(sz) || sz === _resizeState.cur) return;
+  _resizeState.cur = sz;
+  VALID_SIZES.forEach(s => cardEl.classList.remove('tile-' + s));
+  cardEl.classList.add('tile-' + sz);
+}
+function _resizeEnd(){
+  if(!_resizeState) return;
+  const {key, cardEl, sc, sr, cur} = _resizeState;
+  cardEl.classList.remove('resizing');
+  _resizeState = null;
+  if(cur && cur !== `${sc}x${sr}`){
+    if(!_editDraftSizes) _editDraftSizes = {...(CFG.widgetSizes||{})};
+    _editDraftSizes[key] = cur;
+    renderHome();
+  }
+}
+
+// ── Shared pointer handlers ──────────────────────────────────────────────────
+function _onTouchMove(e){
+  if(_dragState){ e.preventDefault(); const t=e.touches[0]; _dragMove(t.clientX, t.clientY); }
+  else if(_resizeState){ e.preventDefault(); const t=e.touches[0]; _resizeMove(t.clientX, t.clientY); }
+}
+function _onMouseMove(e){
+  if(_dragState) _dragMove(e.clientX, e.clientY);
+  else if(_resizeState) _resizeMove(e.clientX, e.clientY);
+}
+function _onPointerEnd(){
+  if(_dragState) _dragEnd();
+  if(_resizeState) _resizeEnd();
+}
+
+// ── Long-press on non-edit tiles to enter edit mode ──────────────────────────
+function initLongPressEdit(){
+  if(homeEditMode) return;
+  document.querySelectorAll('#tab-home .widget-card').forEach(card => {
+    let timer = null, moved = false, sx = 0, sy = 0;
+    card.addEventListener('touchstart', e => {
+      moved = false; sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      card.classList.add('longpress-active');
+      timer = setTimeout(() => {
+        if(!moved){ if(typeof haptic==='function') haptic(30); toggleHomeEdit(); }
+        card.classList.remove('longpress-active');
+      }, 500);
+    }, {passive:true});
+    card.addEventListener('touchmove', e => {
+      if(!timer) return;
+      const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+      if(Math.abs(dx) > 8 || Math.abs(dy) > 8){
+        moved = true; clearTimeout(timer); timer = null;
+        card.classList.remove('longpress-active');
+      }
+    }, {passive:true});
+    card.addEventListener('touchend', () => {
+      if(timer){ clearTimeout(timer); timer = null; }
+      card.classList.remove('longpress-active');
+    });
+  });
+}
+
+// ── Init drag + resize (called in edit mode) ─────────────────────────────────
 function initWidgetDrag(){
   if(!_dragListenersAttached){
     document.addEventListener('touchmove', _onTouchMove, {passive:false});
     document.addEventListener('mousemove', _onMouseMove);
-    document.addEventListener('touchend', _dragEnd);
-    document.addEventListener('mouseup', _dragEnd);
+    document.addEventListener('touchend', _onPointerEnd);
+    document.addEventListener('mouseup', _onPointerEnd);
     _dragListenersAttached = true;
   }
+
+  // Drag via handle
   const cards = document.querySelectorAll('.widget-card.editing');
   cards.forEach(card=>{
     const handle = card.querySelector('.home-edit-drag');
@@ -1715,6 +1774,25 @@ function initWidgetDrag(){
     };
     handle.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX, t.clientY, e); }, {passive:false});
     handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
+  });
+
+  // Resize via corner handle
+  document.querySelectorAll('.widget-resize-handle').forEach(h => {
+    const start = (clientX, clientY, e) => {
+      e.stopPropagation(); e.preventDefault();
+      const key = h.dataset.widgetKey;
+      const card = document.getElementById('widget-card-' + key);
+      if(!card) return;
+      const [sc, sr] = getWidgetSize(key).split('x').map(Number);
+      const grid = card.closest('.tile-grid');
+      const colWidth = grid ? (grid.offsetWidth - 24 - 10) / 2 : 150; // 24=padding, 10=gap
+      const rowUnit = sr > 0 ? card.offsetHeight / sr : 90;
+      _resizeState = {key, sc, sr, startX:clientX, startY:clientY, colWidth, rowUnit, cur:null, cardEl:card};
+      card.classList.add('resizing');
+      if(typeof haptic==='function') haptic(10);
+    };
+    h.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX,t.clientY,e); }, {passive:false});
+    h.addEventListener('mousedown', e=>start(e.clientX,e.clientY,e));
   });
 }
 

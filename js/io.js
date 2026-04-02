@@ -895,6 +895,22 @@ function openEditModal(id, type){
   fillForm('edit', { id, type, amt:entry.amt, date:entry.date, what:entry.what, note:entry.note||'' });
   fillForm('edit-modal', { $title: type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten', '@recurringId':'' });
   fillDropdown('edit-cat', type, entry.cat);
+
+  // Group assignment — only for Ausgaben when groups exist
+  const gWrap = document.getElementById('edit-group-wrap');
+  const grpSel = document.getElementById('edit-group');
+  const sec = document.getElementById('edit-split-section');
+  if(gWrap && grpSel) {
+    const hasGroups = type==='ausgabe' && DATA.groups && DATA.groups.length > 0;
+    gWrap.style.display = hasGroups ? '' : 'none';
+    if(sec) sec.style.display = 'none';
+    if(hasGroups){
+      grpSel.innerHTML = '<option value="">— Keine Gruppe —</option>' +
+        (DATA.groups||[]).map(g=>`<option value="${esc(g.id)}"${g.id===entry.groupId?' selected':''}>${esc(g.name)}</option>`).join('');
+      if(entry.groupId) onEditGroupSelect(entry.groupId, entry.splitData);
+    }
+  }
+
   openModal('edit-modal');
 }
 
@@ -958,11 +974,24 @@ async function _updateEntryImpl(){
   const idx = list.findIndex(e=>e.id===id);
   if(idx===-1) return;
 
+  // Read group assignment (Ausgaben only)
+  const groupId = type==='ausgabe' ? (document.getElementById('edit-group')?.value||'') : '';
+  const group = groupId ? (DATA.groups||[]).find(g=>g.id===groupId) : null;
+  let splitData = null;
+  if(group && group.type==='split'){
+    splitData = _readEditSplitForm(amt, group);
+    if(!splitData) return; // validation failed — keep modal open
+  }
+  const myAmt = splitData ? (typeof getOwnShare==='function' ? Math.round(getOwnShare({amt,splitData})*100)/100 : amt) : amt;
+
   // Keep backup for rollback on sync failure
   const backup = {...list[idx]};
 
   // Optimistic update — apply immediately for snappy UX
-  list[idx] = {...list[idx],amt,date,what,cat,note};
+  const updated = {...list[idx], amt:myAmt, date, what, cat, note};
+  if(groupId) updated.groupId = groupId; else delete updated.groupId;
+  if(splitData) updated.splitData = splitData; else delete updated.splitData;
+  list[idx] = updated;
   closeModal('edit-modal');
   dataCacheSave();
   markDirty('verlauf','dashboard','home','lohn');
@@ -973,18 +1002,30 @@ async function _updateEntryImpl(){
       const sheet = type==='ausgabe'?'Ausgaben':'Einnahmen';
       const row = await apiFindRow(sheet, id);
       if(row){
-        const isLohn = type==='einnahme' ? (list[idx]?.isLohn ? '1' : '0') : '';
-        const isFixk = type==='ausgabe' ? (list[idx]?.isFixkosten ? '1' : '0') : '';
-        const updateVals = type==='ausgabe' ? [[id,date,what,cat,amt,note,'',isFixk]] : [[id,date,what,cat,amt,note,'',isLohn]];
-        await apiUpdate(`${sheet}!A${row}:H${row}`, updateVals);
+        let updateVals, range;
+        if(type==='ausgabe'){
+          const isFixk = list[idx]?.isFixkosten ? '1' : '0';
+          updateVals = [[id,date,what,cat,myAmt,note,'',isFixk,groupId||'',splitData?JSON.stringify(splitData):'']];
+          range = `${sheet}!A${row}:J${row}`;
+        } else {
+          const isLohn = list[idx]?.isLohn ? '1' : '0';
+          updateVals = [[id,date,what,cat,amt,note,'',isLohn,groupId||'']];
+          range = `${sheet}!A${row}:I${row}`;
+        }
+        await apiUpdate(range, updateVals);
+        // Push to group if newly assigned or re-assigned
+        if(group){
+          try{
+            await saveGroupEntry(group, {id,date,what,cat,amt:myAmt,splitData});
+            pushGroupNotification(group, {what,amt,date});
+          } catch(ge){ console.warn('group sync:', ge); }
+        }
         setSyncStatus('online'); toast('✓ Aktualisiert','ok');
       } else {
-        // Row not found — rollback local change
         list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
         setSyncStatus('error'); toast('Fehler: Eintrag nicht in Sheet gefunden','err');
       }
     } catch(e){
-      // Network/API error — rollback local change
       list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
       setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
     }
