@@ -173,7 +173,7 @@ Object.assign(App.UI, {
   // Dashboard
   setDashboardMonths,
   // Lohn + Abos subtab
-  setLohnMonths, toggleFixkosten, setLohnSubtab, toggleAboForm,
+  setLohnMonths, toggleFixkosten, toggleAboForm,
   // Notifications
   checkDueRecurrings, checkAllNotifications, renderNotifSettings,
   toggleNotifSetting, updateNotifBadge, toggleNotifOverlay,
@@ -220,7 +220,7 @@ RENDER_FN_MAP = {
   dashboard:     renderDashboard,
   lohn:          renderLohn,
   kategorien:    renderCategories,
-  dauerauftraege:renderLohn, // legacy key — now subtab of lohn
+  dauerauftraege:renderRecurring,
   sparen:        renderSparen,
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,

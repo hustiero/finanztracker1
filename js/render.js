@@ -1358,63 +1358,76 @@ function renderRecurring(){
   }
 
   if(!recs.length){
-    container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Abos / Daueraufträge</div><button class="empty-cta" onclick="document.getElementById('abo-form-wrap')?.style.display==='none'?document.getElementById('abo-toggle-btn')?.click():null;document.getElementById('abo-toggle-btn')?.scrollIntoView({behavior:'smooth'})"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ersten Dauerauftrag anlegen</button></div>`;
+    container.innerHTML=`<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg></div><div class="empty-text">Noch keine Daueraufträge</div><button class="empty-cta" onclick="toggleAboForm()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ersten Dauerauftrag anlegen</button></div>`;
     return;
   }
+
   const todayStr = today();
-  // Amortized monthly total (non-monthly items pro-rated; variabel entries use hint amount)
-  const totalMonthly = recs.reduce((s,r)=>s+_recurMonthlyAmt(r),0);
+  const ausgaben  = recs.filter(r=>r.type!=='einnahme');
+  const einnahmen = recs.filter(r=>r.type==='einnahme');
+  const totalAusgaben  = ausgaben.reduce((s,r)=>s+_recurMonthlyAmt(r),0);
+  const totalEinnahmen = einnahmen.reduce((s,r)=>s+_recurMonthlyAmt(r),0);
   const hasMixed = recs.some(r=>(r.interval||'monatlich')!=='monatlich');
 
-  container.innerHTML = recs.map(r=>{
+  // Render one entry row
+  const renderRow = r => {
     const expired = r.endDate && r.endDate < todayStr;
     const expiringSoon = r.endDate && !expired && r.endDate <= dateStr(new Date(Date.now()+30*86400000));
     let endBadge = '';
-    if(expired)       endBadge=`<span style="background:var(--red)22;color:var(--red);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">abgelaufen</span>`;
+    if(expired)           endBadge=`<span style="background:var(--red)22;color:var(--red);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">abgelaufen</span>`;
     else if(expiringSoon) endBadge=`<span style="background:var(--yellow)22;color:var(--yellow);font-size:10px;padding:1px 5px;border-radius:4px;margin-left:4px">bis ${fmtDate(r.endDate)}</span>`;
-    else if(r.endDate) endBadge=`<span style="color:var(--text3);font-size:11px"> · bis ${fmtDate(r.endDate)}</span>`;
-
-    // Next payment date (skip for variabel — it's shown in pending section)
+    else if(r.endDate)    endBadge=`<span style="color:var(--text3);font-size:11px"> · bis ${fmtDate(r.endDate)}</span>`;
     const nextDate = !expired && r.subType!=='variabel' ? _nextRecurDate(r) : null;
     const nextLabel = nextDate ? `<span style="color:var(--text3);font-size:11px"> · nächste: ${fmtDate(nextDate)}</span>` : '';
-
-    // Interval badge for non-monthly
     const iv = r.interval||'monatlich';
     const ivBadge = iv!=='monatlich'
       ? `<span style="background:rgba(96,165,250,.15);color:var(--blue);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">${iv}</span>`
       : '';
-
-    // SubType badge
     const st = r.subType||'normal';
     const stBadge = st==='variabel'
       ? `<span style="background:rgba(251,146,60,.18);color:var(--orange,#fb923c);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">variabel</span>`
       : st==='gestuft'
       ? `<span style="background:rgba(96,165,250,.15);color:var(--blue);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">gestaffelt</span>`
       : '';
-
-    // Display amount: for gestuft use current step, for variabel show tilde prefix
     const displayAmt = st==='gestuft' && typeof _getStepAmt==='function'
       ? `${curr()} ${fmtAmt(_getStepAmt(r, todayStr))}`
-      : st==='variabel'
-      ? `~ ${curr()} ${fmtAmt(r.amt)}`
+      : st==='variabel' ? `~ ${curr()} ${fmtAmt(r.amt)}`
       : `${curr()} ${fmtAmt(r.amt)}`;
-
-    return `
-    <div class="card-row" onclick="openRecModal('${r.id}')" style="${expired?'opacity:0.5':''}">
-      <div class="card-row-icon" style="background:${catColor(r.cat)}22">
-        <span>${catEmoji(r.cat)}</span>
-      </div>
+    const amtClass = r.type==='einnahme' ? 'income' : 'expense';
+    return `<div class="card-row" onclick="openRecModal('${r.id}')" style="${expired?'opacity:0.5':''}">
+      <div class="card-row-icon" style="background:${catColor(r.cat)}22"><span>${catEmoji(r.cat)}</span></div>
       <div class="card-row-body">
         <div class="card-row-title">${esc(r.what)}${ivBadge}${stBadge}${endBadge}</div>
         <div class="card-row-sub">${r.day}.${r.start?' · ab '+fmtDate(r.start):''}${nextLabel}${r.affectsAvg?' · <span style="color:var(--accent);font-size:10px">Ø</span>':''}${r.note?' · '+esc(r.note):''}</div>
       </div>
-      <div class="card-row-amount expense">${displayAmt}</div>
+      <div class="card-row-amount ${amtClass}">${r.type==='einnahme'?'+':''}${displayAmt}</div>
       <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
-  }).join('')+`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px">
-    <span class="t-text3">∑ Fixkosten / Monat${hasMixed?' <span style="font-size:10px">(anteilig)</span>':''}</span>
-    <span class="t-mono-bold">${curr()} ${fmtAmt(totalMonthly)}</span>
+  };
+
+  // Stats summary header
+  const statsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px 12px">
+    <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:2px">∑ Ausgaben / Monat${hasMixed?' (anteilig)':''}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--red)">− ${curr()} ${fmtAmt(totalAusgaben)}</div>
+    </div>
+    <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:2px">∑ Einnahmen / Monat${hasMixed?' (anteilig)':''}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--green)">+ ${curr()} ${fmtAmt(totalEinnahmen)}</div>
+    </div>
   </div>`;
+
+  // Ausgaben section
+  const ausgabenHtml = ausgaben.length ? `
+    <div style="padding:0 16px 4px;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Ausgaben & Fixkosten</div>
+    <div class="card" style="margin:0 16px 12px">${ausgaben.map(renderRow).join('')}</div>` : '';
+
+  // Einnahmen section
+  const einnahmenHtml = einnahmen.length ? `
+    <div style="padding:0 16px 4px;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Wiederkehrende Einnahmen</div>
+    <div class="card" style="margin:0 16px 12px">${einnahmen.map(renderRow).join('')}</div>` : '';
+
+  container.innerHTML = statsHtml + ausgabenHtml + einnahmenHtml;
 }
 
 // ═══════════════════════════════════════════════════
@@ -2954,6 +2967,13 @@ function renderMonat(){
   const container = document.getElementById('monat-content');
   if(!container) return;
 
+  // Render sub-widgets defensively so errors surface visibly instead of blanking the whole tab
+  let widgetSummary, widgetKategorien;
+  try { widgetSummary = renderWidgetMonatSummary(mo, yr); }
+  catch(e){ widgetSummary = `<div style="color:var(--red);font-size:13px;padding:4px 0">Fehler: ${e.message}</div>`; console.error('renderWidgetMonatSummary', e); }
+  try { widgetKategorien = renderWidgetMonatKategorien(mo, yr, 8); }
+  catch(e){ widgetKategorien = ''; console.error('renderWidgetMonatKategorien', e); }
+
   container.innerHTML = `
     <!-- Month navigation -->
     <div class="section pb-0">
@@ -2966,7 +2986,7 @@ function renderMonat(){
 
     <!-- Monats-Zusammenfassung (shared widget — includes 3-stat + Ø Tagesausgabe) -->
     <div class="section pt-0">
-      <div class="card" style="padding:14px">${renderWidgetMonatSummary(mo, yr)}</div>
+      <div class="card" style="padding:14px">${widgetSummary}</div>
     </div>
 
     ${isCurrent ? `
@@ -2987,7 +3007,7 @@ function renderMonat(){
 
     <!-- Kategorien (shared widget) -->
     <div class="section pt-0">
-      <div class="card" style="padding:12px 14px">${renderWidgetMonatKategorien(mo, yr, 8)}</div>
+      <div class="card" style="padding:12px 14px">${widgetKategorien}</div>
     </div>
 
     ${sortedDates.length ? `
