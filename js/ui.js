@@ -32,8 +32,6 @@ function _detectIOSSwitchSupport(){
 }
 
 function goTab(tab){
-  // Daueraufträge merged into Lohn → redirect + open Abos subtab
-  if(tab==='dauerauftraege'){ goTab('lohn'); setTimeout(()=>setLohnSubtab('abos'), 80); return; }
   if(tab==='admin' && CFG.authRole!=='admin') return;
   // Home button while in edit mode → exit edit mode instead of re-navigating
   if(tab === 'home' && currentTab === 'home' && homeEditMode){
@@ -78,7 +76,7 @@ function goTab(tab){
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen',
+    dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
     groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin'
   }[tab]||tab;
@@ -155,6 +153,7 @@ const PINNABLE_TABS = [
   { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
   { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+  { key:'dauerauftraege', label:'Dauerauftr&auml;ge',   icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
   { key:'sparen',         label:'Sparen &amp; Planen',   icon:'<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.4-11.3-1.5-11.3 5.2 0 4 3 6.8 7.3 10.8l1 1 1-1C18 19 21 16.2 21 12.2c0-2-1-3.2-2-3.2z"/>' },
   { key:'groups',         label:'Gruppen &amp; Events',  icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
@@ -658,10 +657,8 @@ function openNotifDetail(id){
       setTimeout(()=>openGroupDetail(n.groupId), 100);
     }
   } else if(n.type==='dauerauftrag_renewal'){
-    // Tapping the renewal item navigates to Lohn → Abos subtab
     closeNotifOverlay();
-    goTab('lohn');
-    setTimeout(()=>setLohnSubtab('abos'), 80);
+    goTab('dauerauftraege');
   } else if(n.type==='dauerauftrag_info'){
     dismissNotif(id);
     toast(`${n.title} — ${n.body}`,'ok');
@@ -708,20 +705,6 @@ function updateThemeLabel(){
 }
 
 let lohnChartMonths = 6;
-let lohnSubtab = 'zyklus'; // 'zyklus' | 'abos'
-
-function setLohnSubtab(t){
-  lohnSubtab = t;
-  const zDiv = document.getElementById('lohn-sub-zyklus');
-  const aDiv = document.getElementById('lohn-sub-abos');
-  const zBtn = document.getElementById('lohn-btn-zyklus');
-  const aBtn = document.getElementById('lohn-btn-abos');
-  if(zDiv) zDiv.style.display = t === 'zyklus' ? '' : 'none';
-  if(aDiv) aDiv.style.display = t === 'abos'   ? '' : 'none';
-  if(zBtn) zBtn.className = 'type-btn' + (t === 'zyklus' ? ' active' : '');
-  if(aBtn) aBtn.className = 'type-btn' + (t === 'abos'   ? ' active expense' : '');
-  if(t === 'abos') renderRecurring();
-}
 
 function toggleAboForm(){
   const wrap = document.getElementById('abo-form-wrap');
@@ -735,18 +718,6 @@ function toggleAboForm(){
 }
 
 function renderLohn(){
-  // Sync subtab visibility + button states
-  const zDiv = document.getElementById('lohn-sub-zyklus');
-  const aDiv = document.getElementById('lohn-sub-abos');
-  const zBtn = document.getElementById('lohn-btn-zyklus');
-  const aBtn = document.getElementById('lohn-btn-abos');
-  if(zDiv) zDiv.style.display = lohnSubtab === 'zyklus' ? '' : 'none';
-  if(aDiv) aDiv.style.display = lohnSubtab === 'abos'   ? '' : 'none';
-  if(zBtn) zBtn.className = 'type-btn' + (lohnSubtab === 'zyklus' ? ' active' : '');
-  if(aBtn) aBtn.className = 'type-btn' + (lohnSubtab === 'abos'   ? ' active expense' : '');
-
-  if(lohnSubtab === 'abos'){ renderRecurring(); return; }
-
   const ltEl = document.getElementById('sp-lohntag');
   if(ltEl) ltEl.value = CFG.lohnTag||25;
 

@@ -619,8 +619,110 @@
       </div>
     </div>
 
-    <!-- TAB: Daueraufträge (leere Hülle — Inhalt lebt jetzt im Lohn-Tab als Subtab) -->
-    <div id="tab-dauerauftraege" class="tab-page" style="display:none"></div>
+    <!-- TAB: Daueraufträge -->
+    <div id="tab-dauerauftraege" class="tab-page" style="display:none">
+      <!-- Header: title + add button -->
+      <div style="padding:12px 16px 8px;display:flex;align-items:center;gap:8px">
+        <span style="flex:1;font-size:15px;font-weight:600">Daueraufträge &amp; Abos</span>
+        <button onclick="toggleAboForm()" id="abo-add-btn" style="display:flex;align-items:center;gap:5px;background:var(--accent);color:var(--bg0);border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Neu
+        </button>
+        <button onclick="exportExcel()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+      </div>
+      <!-- Collapsible new-abo form -->
+      <div id="abo-form-wrap" style="display:none;padding:0 16px 8px">
+        <div class="card" style="padding:14px">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Was</label>
+              <input id="r-what" class="form-input" placeholder="z.B. Spotify" autocorrect="off">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Betrag CHF</label>
+              <input id="r-amt" class="form-input" type="number" inputmode="decimal" placeholder="0.00">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Kategorie</label>
+              <select id="r-cat" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Intervall</label>
+              <select id="r-interval" class="form-select">
+                <option>monatlich</option>
+                <option>wöchentlich</option>
+                <option>jährlich</option>
+                <option>halbjährlich</option>
+                <option>semestral</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Buchungstag</label>
+              <input id="r-day" class="form-input" type="number" min="1" max="31" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Startdatum</label>
+              <input id="r-start" class="form-input" type="date">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Kündigungsdatum <span class="t-text3">(opt.)</span></label>
+              <input id="r-end" class="form-input" type="date">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
+                <input id="r-affects-avg" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent)">
+                Zählt für Ø Tagesausgabe
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kommentar</label>
+            <input id="r-note" class="form-input" placeholder="optional" autocorrect="off">
+          </div>
+          <!-- SubType toggle -->
+          <div class="form-group" style="margin-top:4px">
+            <label class="form-label">Betrag-Typ</label>
+            <div id="r-subtype" class="subtype-toggle">
+              <button type="button" class="subtype-btn active" data-val="normal" onclick="_applySubTypeToggle('r-subtype','normal');_updateSubTypeUI('r')">Normal</button>
+              <button type="button" class="subtype-btn" data-val="variabel" onclick="_applySubTypeToggle('r-subtype','variabel');_updateSubTypeUI('r')">Variabel</button>
+              <button type="button" class="subtype-btn" data-val="gestuft" onclick="_applySubTypeToggle('r-subtype','gestuft');_updateSubTypeUI('r')">Gestaffelt</button>
+            </div>
+          </div>
+          <!-- Variabel info -->
+          <div id="r-variabel-info" style="display:none;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:6px">
+            Der Betrag wird bei jeder Fälligkeit separat abgefragt – du gibst ihn dann im Daueraufträge-Tab ein. Der Betrag oben dient als Richtwert.
+          </div>
+          <!-- Step editor for gestaffelt -->
+          <div id="r-steps-wrap" style="display:none;margin-top:8px">
+            <label class="form-label">Betragsstufen <span class="t-text3">(ab Datum → Betrag)</span></label>
+            <div id="r-steps"></div>
+            <button type="button" class="btn" style="font-size:12px;padding:5px 10px;margin-top:4px" onclick="_addStepRow('r-steps')">+ Stufe hinzufügen</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="save-btn" style="flex:1" onclick="saveRecurring('r')">Hinzufügen</button>
+            <button onclick="toggleAboForm()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:13px 16px;font-size:14px;cursor:pointer">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+      <!-- Pending variable payments -->
+      <div id="rec-pending-wrap" style="padding:0 16px 8px;display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--orange,#fb923c);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;padding-left:2px">⚠ Ausstehende variable Buchungen</div>
+        <div class="card" id="rec-pending-list" style="border-color:rgba(251,146,60,.35)"></div>
+      </div>
+      <!-- Recurring list (Ausgaben + Einnahmen sections, rendered by renderRecurring) -->
+      <div style="padding:0 16px 16px">
+        <div id="rec-list"></div>
+      </div>
+    </div>
 
     <!-- TAB: Dashboard -->
     <!-- TAB: Home (Widget-Dashboard) -->
@@ -630,144 +732,26 @@
       <div id="dashboard-content"></div>
     </div>
 
-    <!-- TAB: Lohn & Einnahmen — mit Subtab Abos/Daueraufträge -->
+    <!-- TAB: Lohn & Einnahmen -->
     <div id="tab-lohn" class="tab-page" style="display:none">
-      <!-- Segment control -->
-      <div style="padding:12px 16px 4px">
-        <div class="type-toggle">
-          <button class="type-btn active" id="lohn-btn-zyklus" onclick="setLohnSubtab('zyklus')">Lohnzyklus</button>
-          <button class="type-btn" id="lohn-btn-abos" onclick="setLohnSubtab('abos')">
-            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:3px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/></svg>Abos &amp; Fixkosten
-          </button>
-        </div>
+      <div class="section">
+        <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" class="w-full">+ Einnahme erfassen</button>
       </div>
-
-      <!-- Subtab: Lohnzyklus -->
-      <div id="lohn-sub-zyklus">
-        <div class="section">
-          <button class="save-btn" onclick="setType('einnahme');goTab('eingabe')" class="w-full">+ Einnahme erfassen</button>
-        </div>
-        <div id="lohn-zyklus-section"></div>
-        <div class="section pt-0">
-          <div class="section-title">Einstellungen</div>
-          <div class="card" style="padding:14px">
-            <div class="form-group">
-              <label class="form-label">Lohntag (Tag des Monats)</label>
-              <input id="sp-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
-              <div style="font-size:12px;color:var(--text3);margin-top:4px">Ab welchem Tag startet dein Lohnzyklus?</div>
-            </div>
-            <button class="save-btn" onclick="saveLohnTag()">Speichern</button>
+      <div id="lohn-zyklus-section"></div>
+      <div class="section pt-0">
+        <div class="section-title">Einstellungen</div>
+        <div class="card" style="padding:14px">
+          <div class="form-group">
+            <label class="form-label">Lohntag (Tag des Monats)</label>
+            <input id="sp-lohntag" type="number" min="1" max="31" class="form-input" placeholder="25" style="max-width:120px">
+            <div style="font-size:12px;color:var(--text3);margin-top:4px">Ab welchem Tag startet dein Lohnzyklus?</div>
           </div>
-        </div>
-        <div id="lohn-chart-section" style="padding:0 16px 0"></div>
-        <div id="lohn-list"></div>
-        <div id="lohn-fixkosten-section" class="section pt-0"></div>
-      </div>
-
-      <!-- Subtab: Abos & Fixkosten (ehemals: Daueraufträge) -->
-      <div id="lohn-sub-abos" style="display:none">
-        <!-- Header: title + + button + Excel -->
-        <div style="padding:12px 16px 8px;display:flex;align-items:center;gap:8px">
-          <span style="flex:1;font-size:15px;font-weight:600">Abos &amp; Daueraufträge</span>
-          <button onclick="toggleAboForm()" id="abo-add-btn" style="display:flex;align-items:center;gap:5px;background:var(--accent);color:var(--bg0);border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">
-            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Neues Abo
-          </button>
-          <button onclick="exportExcel()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px">
-            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Excel
-          </button>
-        </div>
-        <!-- Collapsible new-abo form -->
-        <div id="abo-form-wrap" style="display:none;padding:0 16px 8px">
-          <div class="card" style="padding:14px">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Was</label>
-                <input id="r-what" class="form-input" placeholder="z.B. Spotify" autocorrect="off">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Betrag CHF</label>
-                <input id="r-amt" class="form-input" type="number" inputmode="decimal" placeholder="0.00">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Kategorie</label>
-                <select id="r-cat" class="form-select"></select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Intervall</label>
-                <select id="r-interval" class="form-select">
-                  <option>monatlich</option>
-                  <option>wöchentlich</option>
-                  <option>jährlich</option>
-                  <option>halbjährlich</option>
-                  <option>semestral</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Buchungstag</label>
-                <input id="r-day" class="form-input" type="number" min="1" max="31" placeholder="1">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Startdatum</label>
-                <input id="r-start" class="form-input" type="date">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Kündigungsdatum <span class="t-text3">(opt.)</span></label>
-                <input id="r-end" class="form-input" type="date">
-              </div>
-              <div class="form-group" style="justify-content:flex-end;padding-top:20px">
-                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
-                  <input id="r-affects-avg" type="checkbox" style="width:16px;height:16px;accent-color:var(--accent)">
-                  Zählt für Ø Tagesausgabe
-                </label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Kommentar</label>
-              <input id="r-note" class="form-input" placeholder="optional" autocorrect="off">
-            </div>
-            <!-- SubType toggle -->
-            <div class="form-group" style="margin-top:4px">
-              <label class="form-label">Betrag-Typ</label>
-              <div id="r-subtype" class="subtype-toggle">
-                <button type="button" class="subtype-btn active" data-val="normal" onclick="_applySubTypeToggle('r-subtype','normal');_updateSubTypeUI('r')">Normal</button>
-                <button type="button" class="subtype-btn" data-val="variabel" onclick="_applySubTypeToggle('r-subtype','variabel');_updateSubTypeUI('r')">Variabel</button>
-                <button type="button" class="subtype-btn" data-val="gestuft" onclick="_applySubTypeToggle('r-subtype','gestuft');_updateSubTypeUI('r')">Gestaffelt</button>
-              </div>
-            </div>
-            <!-- Variabel info -->
-            <div id="r-variabel-info" style="display:none;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:6px">
-              Der Betrag wird bei jeder Fälligkeit separat abgefragt – du gibst ihn dann im Daueraufträge-Tab ein. Der Betrag oben dient als Richtwert.
-            </div>
-            <!-- Step editor for gestaffelt -->
-            <div id="r-steps-wrap" style="display:none;margin-top:8px">
-              <label class="form-label">Betragsstufen <span class="t-text3">(ab Datum → Betrag)</span></label>
-              <div id="r-steps"></div>
-              <button type="button" class="btn" style="font-size:12px;padding:5px 10px;margin-top:4px" onclick="_addStepRow('r-steps')">+ Stufe hinzufügen</button>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <button class="save-btn" style="flex:1" onclick="saveRecurring('r')">Hinzufügen</button>
-              <button onclick="toggleAboForm()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);padding:13px 16px;font-size:14px;cursor:pointer">Abbrechen</button>
-            </div>
-          </div>
-        </div>
-        <!-- Pending variable payments -->
-        <div id="rec-pending-wrap" style="padding:0 16px 8px;display:none">
-          <div style="font-size:11px;font-weight:600;color:var(--orange,#fb923c);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;padding-left:2px">⚠ Ausstehende variable Buchungen</div>
-          <div class="card" id="rec-pending-list" style="border-color:rgba(251,146,60,.35)"></div>
-        </div>
-        <!-- Recurring list -->
-        <div style="padding:0 16px 16px">
-          <div class="card" id="rec-list"></div>
+          <button class="save-btn" onclick="saveLohnTag()">Speichern</button>
         </div>
       </div>
+      <div id="lohn-chart-section" style="padding:0 16px 0"></div>
+      <div id="lohn-list"></div>
+      <div id="lohn-fixkosten-section" class="section pt-0"></div>
     </div>
 
     <!-- TAB: Aktien -->
