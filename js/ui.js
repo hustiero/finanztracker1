@@ -714,6 +714,7 @@ function toggleAboForm(){
   wrap.style.display = open ? 'none' : '';
   if(btn) btn.style.background = open ? 'var(--accent)' : 'var(--bg3)';
   if(btn) btn.style.color      = open ? 'var(--bg0)'    : 'var(--text2)';
+  if(open && typeof setRecFormType === 'function') setRecFormType('ausgabe');
   if(!open) setTimeout(()=>document.getElementById('r-what')?.focus(), 50);
 }
 
@@ -1171,7 +1172,7 @@ function fillDropdown(elId, type, selected=''){
 
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
-  fillDropdown('r-cat','ausgabe');
+  fillDropdown('r-cat', document.getElementById('r-type')?.value||'ausgabe');
   fillGroupDropdown();
   // Show/hide Aktien tab button based on setting
   const aktBtn = document.getElementById('type-akt');

@@ -636,6 +636,11 @@
       <!-- Collapsible new-abo form -->
       <div id="abo-form-wrap" style="display:none;padding:0 16px 8px">
         <div class="card" style="padding:14px">
+          <input type="hidden" id="r-type" value="ausgabe">
+          <div class="type-toggle" style="margin-bottom:12px">
+            <button type="button" class="type-btn active expense" id="r-btn-aus" onclick="setRecFormType('ausgabe')">− Ausgabe</button>
+            <button type="button" class="type-btn income" id="r-btn-ein" onclick="setRecFormType('einnahme')">+ Einnahme</button>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Was</label>
@@ -656,6 +661,7 @@
               <select id="r-interval" class="form-select">
                 <option>monatlich</option>
                 <option>wöchentlich</option>
+                <option>zweiwöchentlich</option>
                 <option>jährlich</option>
                 <option>halbjährlich</option>
                 <option>semestral</option>
@@ -1450,6 +1456,7 @@
           <select id="rec-edit-interval" class="form-select">
             <option>monatlich</option>
             <option>wöchentlich</option>
+            <option>zweiwöchentlich</option>
             <option>jährlich</option>
             <option>halbjährlich</option>
             <option>semestral</option>
@@ -1505,8 +1512,15 @@
       <div id="rec-next-info" style="display:none;margin-top:10px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text2)"></div>
     </div>
     <div class="modal-actions">
-      <button class="btn-delete" onclick="deleteRecurring()">Löschen</button>
-      <button class="btn-cancel" onclick="closeModal('rec-edit-modal')">Abbrechen</button>
+      <div id="rec-delete-options" style="display:none;width:100%;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;text-align:center">Was soll gelöscht werden?</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-delete" style="flex:1;font-size:12px" onclick="deleteRecurring(false)">Nur Auftrag</button>
+          <button class="btn-delete" style="flex:1;font-size:12px" onclick="deleteRecurring(true)">Auftrag + alle Buchungen</button>
+        </div>
+      </div>
+      <button class="btn-delete" id="rec-delete-toggle" onclick="document.getElementById('rec-delete-options').style.display='';this.style.display='none'">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('rec-modal')">Abbrechen</button>
       <button class="btn-save" onclick="updateRecurring()">Speichern</button>
     </div>
   </div>
