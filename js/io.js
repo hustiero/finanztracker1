@@ -1132,12 +1132,23 @@ async function saveRecurring(prefix='r'){
   markDirty('dauerauftraege','dashboard','home','lohn');
 }
 
+function setRecFormType(t){
+  document.getElementById('r-type').value = t;
+  document.getElementById('r-btn-aus').className = 'type-btn'+(t==='ausgabe'?' active expense':'');
+  document.getElementById('r-btn-ein').className = 'type-btn'+(t==='einnahme'?' active income':'');
+  fillDropdown('r-cat', t);
+}
+
 function openRecModal(id){
   const rec = DATA.recurring.find(r=>r.id===id);
   if(!rec) return;
+  const delOpts = document.getElementById('rec-delete-options');
+  const delToggle = document.getElementById('rec-delete-toggle');
+  if(delOpts) delOpts.style.display = 'none';
+  if(delToggle) delToggle.style.display = '';
   fillForm('rec-edit', { id, what:rec.what, amt:rec.amt, day:rec.day, start:rec.start||'', end:rec.endDate||'', note:rec.note||'', interval:rec.interval });
   document.getElementById('rec-edit-affects-avg').checked = rec.affectsAvg||false;
-  fillDropdown('rec-edit-cat','ausgabe',rec.cat);
+  fillDropdown('rec-edit-cat', rec.type||'ausgabe', rec.cat);
   _applySubTypeToggle('rec-edit-subtype', rec.subType||'normal');
   _applyStepsEditor('rec-edit-steps', rec.steps||[]);
   _updateSubTypeUI('rec-edit');
@@ -1194,32 +1205,66 @@ async function updateRecurring(){
   } else toast('✓ Aktualisiert (Demo)','ok');
 }
 
-async function deleteRecurring(){
+async function deleteRecurring(deleteEntries){
   const id = document.getElementById('rec-edit-id').value;
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
   const backup = DATA.recurring[idx];
+
+  let removedEntries = [];
+  if(deleteEntries){
+    removedEntries = DATA.expenses.filter(e=>e.recurringId===id);
+    DATA.expenses = DATA.expenses.filter(e=>e.recurringId!==id);
+  }
+
   DATA.recurring.splice(idx,1);
   invalidateRecurCache(); _zyklusCache = null;
   closeModal('rec-modal');
   dataCacheSave();
-  markDirty('dauerauftraege','dashboard','home');
+  markDirty('dauerauftraege','dashboard','home','lohn','verlauf');
 
-  toastAction('Dauerauftrag gelöscht', 'Rückgängig', () => {
+  const undoLabel = deleteEntries ? `Auftrag + ${removedEntries.length} Buchung(en) gelöscht` : 'Dauerauftrag gelöscht';
+  toastAction(undoLabel, 'Rückgängig', () => {
     DATA.recurring.splice(idx,0,backup);
+    if(deleteEntries) DATA.expenses.push(...removedEntries);
     invalidateRecurCache(); _zyklusCache = null;
     dataCacheSave();
-    markDirty('dauerauftraege','dashboard','home');
+    markDirty('dauerauftraege','dashboard','home','lohn','verlauf');
   });
 
   setTimeout(async () => {
     if(DATA.recurring.findIndex(r=>r.id===id) !== -1) return;
     if(!CFG.demo){
+      setSyncStatus('syncing');
       try{
         const row = await apiFindRow('Daueraufträge', id);
-        if(row) await apiUpdate(`Daueraufträge!H${row}`,[['0']]);
+        if(!row){
+          DATA.recurring.splice(idx, 0, backup);
+          if(deleteEntries) DATA.expenses.push(...removedEntries);
+          invalidateRecurCache(); _zyklusCache = null;
+          dataCacheSave();
+          markDirty('dauerauftraege','dashboard','home','lohn','verlauf');
+          setSyncStatus('error'); toast('Fehler: Eintrag nicht in Sheet gefunden','err');
+          return;
+        }
+        await apiUpdate(`Daueraufträge!H${row}`,[['0']]);
+        if(deleteEntries && removedEntries.length){
+          for(const e of removedEntries){
+            try{
+              const eRow = await apiFindRow('Ausgaben', e.id);
+              if(eRow) await apiUpdate(`Ausgaben!G${eRow}`,[['1']]);
+            } catch(_){}
+          }
+        }
         setSyncStatus('online');
-      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
+      } catch(e){
+        DATA.recurring.splice(idx, 0, backup);
+        if(deleteEntries) DATA.expenses.push(...removedEntries);
+        invalidateRecurCache(); _zyklusCache = null;
+        dataCacheSave();
+        markDirty('dauerauftraege','dashboard','home','lohn','verlauf');
+        setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err');
+      }
     }
   }, 5100);
 }
