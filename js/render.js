@@ -101,7 +101,7 @@ function renderMonthView(){
               <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
               <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
             </div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+            <div class="bar-track"><div class="bar-fill" style="--bar-w:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
           </div>`).join('')}
       </div>
     </div>`:''}
@@ -1284,7 +1284,7 @@ function renderCategories(){
       const barColor = pct>=100?'var(--red)':pct>=80?'var(--yellow)':'var(--accent)';
       const budgetBar = (budget>0 && type==='ausgabe') ? `
         <div style="margin-top:5px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s"></div>
+          <div style="height:100%;--bar-w:${pct}%;width:var(--bar-w);background:${barColor};border-radius:2px;animation:barGrow .55s cubic-bezier(.4,0,.2,1) both"></div>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:'DM Mono',monospace">${curr()} ${fmtAmt(spent)} / ${fmtAmt(budget)}</div>` : '';
       return `
@@ -1643,7 +1643,7 @@ function renderHome(){
     if(!def) return;
     const targetTab = WIDGET_TAB_MAP[key];
 
-    const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer"` : '';
+    const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer;--wi:${idx}"` : ` style="--wi:${idx}"`;
     const editClass = homeEditMode ? ' editing' : '';
     const dataKey = homeEditMode ? ` data-widget-key="${key}"` : '';
     html += `<div class="widget-card ${tileClass(key)}${editClass}" id="widget-card-${key}"${clickAttr}${dataKey}>`;
@@ -2421,7 +2421,7 @@ function renderWidgetMonatKategorien(mo, yr, limit=5){
           <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
           <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
         </div>
-        <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxVal*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="--bar-w:${(amt/maxVal*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
       </div>`).join('')}
   </div>`;
 }
