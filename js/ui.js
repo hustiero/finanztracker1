@@ -44,6 +44,8 @@ function goTab(tab){
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
   haptic(4);
+  const _content = document.getElementById('content');
+  if(_content) _content.scrollTop = 0;
   document.querySelectorAll('.tab-page').forEach(p=>{ p.style.display='none'; p.classList.remove('tab-entering'); });
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl){
@@ -72,6 +74,7 @@ function goTab(tab){
     fab.innerHTML = tab==='eingabe'
       ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    fab.setAttribute('aria-label', tab==='eingabe' ? 'Eingabe schließen' : 'Neuer Eintrag');
     fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
   }
   document.getElementById('page-title').textContent = {

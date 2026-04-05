@@ -834,6 +834,7 @@ async function _saveEntryImpl(){
   if(isNaN(amt) || amt <= 0){ _inputErr('f-amt','Betrag muss größer als 0 sein'); toast('Betrag muss > 0 sein','err'); return; }
   if(!date){ _inputErr('f-date','Datum erforderlich'); toast('Datum erforderlich','err'); return; }
   if(!what){ _inputErr('f-what','Beschreibung erforderlich'); toast('Beschreibung erforderlich','err'); return; }
+  if(!cat){ toast('Kategorie wählen oder zuerst eine Kategorie anlegen','err'); return; }
 
   // Group & split data from form
   const groupSel = document.getElementById('f-group');
@@ -955,6 +956,7 @@ async function _updateEntryImpl(){
   if(isNaN(amt)||amt<=0){ _inputErr('edit-amt'); toast('Betrag muss > 0 sein','err'); return; }
   if(!date){ _inputErr('edit-date'); toast('Datum erforderlich','err'); return; }
   if(!what){ _inputErr('edit-what'); toast('Beschreibung erforderlich','err'); return; }
+  if(!cat){ toast('Kategorie wählen','err'); return; }
 
   // New entry from recurring (manual materialization of a future Dauerauftrag)
   const recurringId = document.getElementById('edit-modal').dataset.recurringId||'';
@@ -1108,6 +1110,7 @@ async function saveRecurring(prefix='r'){
   const note = (g('note')||'').trim();
 
   if(!what){ toast('Bezeichnung erforderlich','err'); return; }
+  if(!amt || amt <= 0){ toast('Betrag muss > 0 sein','err'); return; }
 
   const type = document.getElementById(prefix+'-type')?.value||'ausgabe';
   const isLohn = type==='einnahme' && (document.getElementById(prefix+'-lohn-switch')?.classList.contains('on')||false);
@@ -1186,6 +1189,9 @@ async function updateRecurring(){
   const affectsAvg = document.getElementById('rec-edit-affects-avg').checked||false;
   const subType = _readSubTypeToggle('rec-edit-subtype') || 'normal';
   const steps = subType==='gestuft' ? _readStepsEditor('rec-edit-steps') : [];
+
+  if(!what){ toast('Bezeichnung erforderlich','err'); return; }
+  if(!amt || amt <= 0){ toast('Betrag muss > 0 sein','err'); return; }
 
   const idx = DATA.recurring.findIndex(r=>r.id===id);
   if(idx===-1) return;
