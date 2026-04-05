@@ -1235,7 +1235,9 @@ function setSyncStatus(s){
   const dot=document.getElementById('sync-dot');
   const label=document.getElementById('sync-label');
   clearTimeout(_syncDotHideTimer);
+  const titles = {online:'Synchronisiert',syncing:'Synchronisiert…',error:'Sync-Fehler',demo:'Demo-Modus'};
   dot.className='sync-dot '+s;
+  dot.title = titles[s]||s;
   dot.style.opacity='1';
   if(label) label.style.display='none';
   if(s==='online'){

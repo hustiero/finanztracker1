@@ -270,7 +270,7 @@ function initSwipeToDelete(container){
   // Only attach once per container element; re-renders change innerHTML, not the node
   if(container._swipeInit) return;
   container._swipeInit = true;
-  let startX=0, startY=0, activeEl=null, dirLocked=false;
+  let startX=0, startY=0, activeEl=null, dirLocked=false, thresholdHit=false;
 
   container.addEventListener('touchstart',e=>{
     const wrap = e.target.closest('.swipe-wrap');
@@ -279,6 +279,7 @@ function initSwipeToDelete(container){
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     dirLocked = false;
+    thresholdHit = false;
     if(activeEl) activeEl.style.transition='none';
   },{passive:true});
 
@@ -293,8 +294,14 @@ function initSwipeToDelete(container){
     if(dx < 0){
       activeEl.style.transform = `translateX(${Math.max(-72, dx)}px)`;
       e.stopPropagation();
+      // Haptic when delete threshold first crossed
+      if(!thresholdHit && dx < -50){
+        thresholdHit = true;
+        if(typeof haptic==='function') haptic(8);
+      }
     } else if(dx > 0){
       activeEl.style.transform = '';
+      thresholdHit = false;
     }
   },{passive:true});
 
@@ -631,6 +638,15 @@ function renderVerlaufL1(){
   }
   container.innerHTML = html;
   initSwipeToDelete(container);
+  // One-time swipe hint on very first open
+  if(!localStorage.getItem('ft_swipe_hint_seen')){
+    const firstWrap = container.querySelector('.swipe-wrap');
+    if(firstWrap){
+      firstWrap.classList.add('swipe-hint');
+      firstWrap.addEventListener('animationend',()=>firstWrap.classList.remove('swipe-hint'),{once:true});
+      localStorage.setItem('ft_swipe_hint_seen','1');
+    }
+  }
 }
 
 const _VERLAUF_PAGE_SIZE = 200;
