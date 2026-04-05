@@ -1255,6 +1255,17 @@ function renderCategories(){
     const allEntries = type==='ausgabe'?DATA.expenses:DATA.incomes;
     allEntries.forEach(e=>{ countMap[e.cat]=(countMap[e.cat]||0)+1; });
 
+    // Current-month spend map for budget bars
+    const nowD = new Date();
+    const monStart = dateStr(new Date(nowD.getFullYear(), nowD.getMonth(), 1));
+    const monEnd   = dateStr(new Date(nowD.getFullYear(), nowD.getMonth()+1, 0));
+    const spendMap = {};
+    if(type==='ausgabe'){
+      DATA.expenses.forEach(e=>{
+        if(e.date >= monStart && e.date <= monEnd) spendMap[e.cat]=(spendMap[e.cat]||0)+e.amt;
+      });
+    }
+
     // Group: parents first, then their children
     const parents = cats.filter(c=>!c.parent);
     const children = cats.filter(c=>c.parent);
@@ -1266,17 +1277,30 @@ function renderCategories(){
     // Orphans (parent not found)
     children.filter(c=>!parents.find(p=>p.name===c.parent)).forEach(c=>rows.push(c));
 
-    container.innerHTML = rows.map(c=>`
+    container.innerHTML = rows.map(c=>{
+      const budget = (CFG.catBudgets||{})[c.name];
+      const spent  = spendMap[c.name]||0;
+      const pct    = budget>0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
+      const barColor = pct>=100?'var(--red)':pct>=80?'var(--yellow)':'var(--accent)';
+      const budgetBar = (budget>0 && type==='ausgabe') ? `
+        <div style="margin-top:5px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:'DM Mono',monospace">${curr()} ${fmtAmt(spent)} / ${fmtAmt(budget)}</div>` : '';
+      return `
       <div class="cat-row" onclick="openCatModal('${c.id}')">
         <div class="cat-dot" style="background:${c.color};${c._child?'margin-left:16px':''}"></div>
-        <div class="cat-name" style="${c._child?'color:var(--text2);font-size:13px':''}">
-          ${c._child?`<span style="color:var(--text3);font-size:11px">↳ </span>`:''}${esc(c.name)}
+        <div style="flex:1;min-width:0">
+          <div class="cat-name" style="${c._child?'color:var(--text2);font-size:13px':''}">
+            ${c._child?`<span style="color:var(--text3);font-size:11px">↳ </span>`:''}${esc(c.name)}
+          </div>
+          ${budgetBar}
         </div>
         <div class="cat-count">${countMap[c.name]||0}×</div>
         <div class="cat-type ${c.type}">${c.parent?esc(c.parent):c.type==='ausgabe'?'Ausgabe':'Einnahme'}</div>
         <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   });
 }
 
