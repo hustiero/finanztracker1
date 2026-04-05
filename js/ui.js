@@ -44,6 +44,8 @@ function goTab(tab){
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
   haptic(4);
+  const _content = document.getElementById('content');
+  if(_content) _content.scrollTop = 0;
   document.querySelectorAll('.tab-page').forEach(p=>{ p.style.display='none'; p.classList.remove('tab-entering'); });
   const tabEl = document.getElementById('tab-'+tab);
   if(tabEl){
