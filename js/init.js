@@ -230,3 +230,13 @@ RENDER_FN_MAP = {
   nav:           renderNav,
   dropdowns:     fillAllDropdowns,
 };
+
+// ── Network status detection ───────────────────────────────────
+window.addEventListener('offline', () => {
+  setSyncStatus('error');
+  toast('Keine Internetverbindung', 'err');
+});
+window.addEventListener('online', () => {
+  if(!CFG.demo){ setSyncStatus('syncing'); loadAll(); }
+  else setSyncStatus('demo');
+});

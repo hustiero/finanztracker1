@@ -735,6 +735,7 @@ async function saveEntryOrRecurring(){
     const subType = _readSubTypeToggle('f-rec-subtype') || 'normal';
     const steps = subType==='gestuft' ? _readStepsEditor('f-rec-steps') : [];
     if(!what){ _inputErr('f-what','Bezeichnung erforderlich'); toast('Bezeichnung erforderlich','err'); return; }
+    if(!amt || amt <= 0){ _inputErr('f-amt','Betrag muss größer als 0 sein'); toast('Betrag muss > 0 sein','err'); return; }
     const btn = document.getElementById('f-save-btn');
     if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='Wird gespeichert…'; }
     try{
