@@ -1520,6 +1520,7 @@ async function updateCategory(){
   if(!name){ toast('Name erforderlich','err'); return; }
   const idx = DATA.categories.findIndex(c=>c.id===id);
   if(idx===-1) return;
+  if(name !== DATA.categories[idx].name && DATA.categories.find(c=>c.name===name&&c.type===type&&c.id!==id)){ toast('Kategorie existiert bereits','err'); return; }
 
   // Keep backups for rollback
   const oldCat    = {...DATA.categories[idx]};
@@ -1582,6 +1583,8 @@ async function deleteCategory(){
   const cat = DATA.categories.find(c=>c.id===id);
   const inUse = DATA.expenses.some(e=>e.cat===cat?.name) || DATA.incomes.some(e=>e.cat===cat?.name);
   if(inUse){ toast('Kategorie wird noch verwendet','err'); return; }
+  const ok = await confirmDialog(`Kategorie "${cat?.name}" wirklich löschen?`, 'Löschen');
+  if(!ok) return;
 
   const idx = DATA.categories.findIndex(c=>c.id===id);
   if(idx===-1) return;

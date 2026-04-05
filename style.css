@@ -1259,6 +1259,9 @@ body.has-bg-image .section-title{color:var(--text);font-weight:700}
 .swipe-wrap{position:relative;overflow:hidden}
 .swipe-content{position:relative;z-index:1;background:var(--bg2);transition:transform .2s ease;will-change:transform}
 .swipe-delete-zone{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;z-index:0;cursor:pointer}
+/* swipe hint: brief left-nudge animation on first verlauf open */
+.swipe-hint .swipe-content{animation:swipeHint .6s .4s ease-out both}
+@keyframes swipeHint{0%{transform:translateX(0)}40%{transform:translateX(-22px)}70%{transform:translateX(-10px)}100%{transform:translateX(0)}}
 /* ─── Splash / loading screen ──────────────────────────────── */
 #splash{
   position:fixed;inset:0;z-index:99999;
