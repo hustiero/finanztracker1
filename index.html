@@ -2010,7 +2010,7 @@
           <input id="oev-preis" class="form-input" type="number" step="0.05" min="0" placeholder="3.80" inputmode="decimal">
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="display:none">
         <label class="form-label">Normalpreis <span style="color:var(--text3);font-size:12px">(optional, ohne Abo)</span></label>
         <input id="oev-normalpreis" class="form-input" type="number" step="0.05" min="0" placeholder="z.B. 7.60" inputmode="decimal">
       </div>
@@ -2072,14 +2072,37 @@
           <input id="oev-abo-gueltigbis" class="form-input" type="date">
         </div>
       </div>
+      <!-- Halbtax Plus info box (shown only for halbtax_plus type) -->
+      <div id="oev-abo-hp-info" style="display:none;background:var(--bg3);border-radius:var(--r2);padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:4px">
+        Du zahlst einen Betrag ein und erhältst Guthaben inkl. Bonus.<br>
+        Fahrten werden zuerst vom Einzahlungsbetrag, dann vom Bonus abgebucht.<br>
+        Nicht genutzter Einzahlungsbetrag wird zurückerstattet — der Bonus verfällt am Jahresende.
+      </div>
+      <!-- Halbtax Plus tier selector (shown only for halbtax_plus) -->
+      <div class="form-group" id="oev-abo-tier-group" style="display:none">
+        <label class="form-label">Variante</label>
+        <select id="oev-abo-hp-tier" class="form-input" onchange="oevAboHpTierChanged()">
+          <option value="">Manuell eingeben</option>
+          <optgroup label="Erwachsene (ab 25)">
+            <option value="800_1000">PLUS 1000 — CHF 800 einzahlen → CHF 1'000 Guthaben</option>
+            <option value="1500_2000">PLUS 2000 — CHF 1'500 einzahlen → CHF 2'000 Guthaben</option>
+            <option value="2100_3000">PLUS 3000 — CHF 2'100 einzahlen → CHF 3'000 Guthaben</option>
+          </optgroup>
+          <optgroup label="Jugend (6–24)">
+            <option value="600_1000">PLUS 1000 Jugend — CHF 600 → CHF 1'000 Guthaben</option>
+            <option value="1125_2000">PLUS 2000 Jugend — CHF 1'125 → CHF 2'000 Guthaben</option>
+            <option value="1575_3000">PLUS 3000 Jugend — CHF 1'575 → CHF 3'000 Guthaben</option>
+          </optgroup>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" id="oev-abo-preis-label">Preis (CHF)</label>
           <input id="oev-abo-preis" class="form-input" type="number" step="0.05" min="0" inputmode="decimal">
         </div>
         <div class="form-group" id="oev-abo-guthaben-group" style="display:none">
-          <label class="form-label">Guthaben (CHF)</label>
-          <input id="oev-abo-guthaben" class="form-input" type="number" step="100" min="0" placeholder="1000" inputmode="decimal">
+          <label class="form-label">Aktuelles Guthaben (CHF) <span style="color:var(--text3);font-size:11px">— bei Eintrag</span></label>
+          <input id="oev-abo-guthaben" class="form-input" type="number" step="1" min="0" placeholder="z.B. 500" inputmode="decimal">
         </div>
       </div>
       <div class="form-group">
