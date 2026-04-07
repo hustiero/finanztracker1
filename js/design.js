@@ -837,3 +837,17 @@ function toggleAktienEnabled(){
   if(!CFG.aktienEnabled && currentEntryType==='aktien') setType('ausgabe');
 }
 
+function toggleOevEnabled(){
+  CFG.oevEnabled = !CFG.oevEnabled;
+  cfgSave();
+  autoSyncProfile();
+  if(!CFG.oevEnabled){
+    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='oev');
+    cfgSave();
+    if(currentTab==='oev') goTab('home');
+  }
+  renderEinstellungen();
+  renderNav();
+  if(currentTab==='home') renderHome();
+}
+
