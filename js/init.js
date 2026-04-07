@@ -192,7 +192,7 @@ Object.assign(App.UI, {
   toggleOevAusserordentlich, toggleFahrtAboChip,
   showOevSuggest, hideOevSuggest, pickOevSuggest, toggleOevFav,
   openNewAboModal, openEditAboModal, saveOevAboModal, deleteOevAboConfirm,
-  oevAboTypeChanged, oevAboToAusgabe, toggleOevEnabled,
+  oevAboTypeChanged, oevAboHpTierChanged, oevAboToAusgabe, toggleOevEnabled,
   // Aktien views
   setAktienView, setAktienTabView, deleteAktie,
   // Admin

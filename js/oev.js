@@ -613,6 +613,8 @@ function openNewAboModal(){
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const typeEl = document.getElementById('oev-abo-type');
   if(typeEl) typeEl.value = 'halbtax';
+  const tierEl = document.getElementById('oev-abo-hp-tier');
+  if(tierEl) tierEl.value = '';
   oevAboTypeChanged();
   openModal('oev-abo-modal');
 }
@@ -629,27 +631,39 @@ function openEditAboModal(id){
   if(ausgBtn) ausgBtn.style.display = (a.type!=='ga2'&&a.type!=='ga1') ? '' : 'none';
 
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
-  set('oev-abo-type',     a.type);
-  set('oev-abo-name',     a.name);
-  set('oev-abo-kaufdatum',a.kaufdatum);
+  set('oev-abo-type',      a.type);
+  set('oev-abo-name',      a.name);
+  set('oev-abo-kaufdatum', a.kaufdatum);
   set('oev-abo-gueltigbis',a.gueltigBis);
-  set('oev-abo-preis',    a.preis);
-  set('oev-abo-guthaben', a.guthaben);
-  set('oev-abo-notiz',    a.notiz);
+  set('oev-abo-preis',     a.preis);
+  set('oev-abo-guthaben',  a.guthaben);
+  set('oev-abo-notiz',     a.notiz);
+  // Try to match stored preis+guthaben to a known tier
+  const tierEl = document.getElementById('oev-abo-hp-tier');
+  if(tierEl){
+    const key = `${Math.round(a.preis)}_${Math.round(a.guthaben)}`;
+    const known = ['800_1000','1500_2000','2100_3000','600_1000','1125_2000','1575_3000'];
+    tierEl.value = known.includes(key) ? key : '';
+  }
   oevAboTypeChanged();
   openModal('oev-abo-modal');
 }
 
 function oevAboTypeChanged(){
   const type = document.getElementById('oev-abo-type')?.value;
+  const isHP = type === 'halbtax_plus';
   const gutGroup   = document.getElementById('oev-abo-guthaben-group');
+  const tierGroup  = document.getElementById('oev-abo-tier-group');
+  const hpInfo     = document.getElementById('oev-abo-hp-info');
   const preisLabel = document.getElementById('oev-abo-preis-label');
-  if(gutGroup) gutGroup.style.display = type==='halbtax_plus' ? '' : 'none';
-  if(preisLabel) preisLabel.textContent = type==='halbtax_plus' ? 'Einzahlung (CHF)' : 'Preis (CHF)';
-  // Auto-fill default price
+  if(gutGroup)  gutGroup.style.display  = isHP ? '' : 'none';
+  if(tierGroup) tierGroup.style.display = isHP ? '' : 'none';
+  if(hpInfo)    hpInfo.style.display    = isHP ? '' : 'none';
+  if(preisLabel) preisLabel.textContent = isHP ? 'Einzahlung (CHF)' : 'Preis (CHF)';
+  // Auto-fill default price for non-HP types only
   const preisEl = document.getElementById('oev-abo-preis');
-  if(preisEl && !preisEl.value){
-    const defaults = { halbtax:'190', halbtax_plus:'800', ga2:'3860', ga1:'6300' };
+  if(preisEl && !preisEl.value && !isHP){
+    const defaults = { halbtax:'190', ga2:'3860', ga1:'6300' };
     if(defaults[type]) preisEl.value = defaults[type];
   }
   // Auto-fill default validity (1 year from today)
@@ -660,6 +674,16 @@ function oevAboTypeChanged(){
   }
   const kaufEl = document.getElementById('oev-abo-kaufdatum');
   if(kaufEl && !kaufEl.value) kaufEl.value = todayStr();
+}
+
+function oevAboHpTierChanged(){
+  const tier = document.getElementById('oev-abo-hp-tier')?.value;
+  if(!tier) return;
+  const [preis, guthaben] = tier.split('_');
+  const preisEl    = document.getElementById('oev-abo-preis');
+  const guthabenEl = document.getElementById('oev-abo-guthaben');
+  if(preisEl)    preisEl.value    = preis;
+  if(guthabenEl) guthabenEl.value = guthaben;
 }
 
 function saveOevAboModal(){

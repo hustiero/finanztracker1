@@ -135,6 +135,7 @@ const Device = (() => {
     { id:'kategorien',     icon:'<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>', label:'Kategorien' },
     // Daueraufträge merged into Lohn tab — removed from sidebar
     { id:'aktien',         icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>', label:'Aktien', needsAktien:true },
+    { id:'oev',            icon:'<rect x="1" y="9" width="22" height="12" rx="2"/><path d="M23 9v6"/><path d="M1 9v6"/><line x1="8" y1="9" x2="8" y2="21"/><line x1="16" y1="9" x2="16" y2="21"/>', label:'ÖV Fahrten', needsOev:true },
     { id:'groups',         icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', label:'Gruppen & Events' },
     { id:'einstellungen',  icon:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>', label:'Einstellungen' },
   ];
@@ -143,7 +144,10 @@ const Device = (() => {
     const el = document.getElementById('desktop-sidebar');
     if (!el) return;
     const activeTab = (typeof currentTab !== 'undefined') ? currentTab : 'home';
-    const tabs = _sidebarTabs.filter(t => !t.needsAktien || (typeof CFG !== 'undefined' && CFG.aktienEnabled));
+    const tabs = _sidebarTabs.filter(t =>
+      (!t.needsAktien || (typeof CFG !== 'undefined' && CFG.aktienEnabled)) &&
+      (!t.needsOev    || (typeof CFG !== 'undefined' && CFG.oevEnabled))
+    );
 
     el.innerHTML = `
       <div class="sidebar-logo">

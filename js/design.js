@@ -805,17 +805,6 @@ function renderDesignVarsUI(){
   if(panelPicker) panelPicker.value = CFG.panelBgColor || '#1C1C21';
 }
 
-function toggleOevEnabled(){
-  CFG.oevEnabled = !CFG.oevEnabled;
-  cfgSave(); autoSyncProfile();
-  if(!CFG.oevEnabled){
-    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='oev');
-    cfgSave();
-    if(currentTab==='oev') goTab('home');
-  }
-  renderEinstellungen(); renderNav();
-}
-
 function toggleAktienEnabled(){
   CFG.aktienEnabled = !CFG.aktienEnabled;
   cfgSave();
