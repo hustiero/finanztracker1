@@ -513,6 +513,11 @@ function renderEinstellungen(){
   if(aktBilanzRow) aktBilanzRow.style.display = CFG.aktienEnabled ? '' : 'none';
   const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
   if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
+  const oevEnabledSw = document.getElementById('oev-enabled-sw');
+  if(oevEnabledSw) oevEnabledSw.classList.toggle('on', !!CFG.oevEnabled);
+  const oevSubRows = document.getElementById('oev-settings-subrows');
+  if(oevSubRows) oevSubRows.style.display = CFG.oevEnabled ? '' : 'none';
+  if(CFG.oevEnabled && typeof renderOevSettings==='function') renderOevSettings();
   const currSel = document.getElementById('s-currency');
   if(currSel) currSel.value = curr();
 
@@ -798,6 +803,17 @@ function renderDesignVarsUI(){
   // Panel bg picker
   const panelPicker = document.getElementById('dv-panel-bg-picker');
   if(panelPicker) panelPicker.value = CFG.panelBgColor || '#1C1C21';
+}
+
+function toggleOevEnabled(){
+  CFG.oevEnabled = !CFG.oevEnabled;
+  cfgSave(); autoSyncProfile();
+  if(!CFG.oevEnabled){
+    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='oev');
+    cfgSave();
+    if(currentTab==='oev') goTab('home');
+  }
+  renderEinstellungen(); renderNav();
 }
 
 function toggleAktienEnabled(){

@@ -785,6 +785,35 @@
       </div>
     </div>
 
+    <!-- TAB: ÖV Fahrten-Tracker -->
+    <div id="tab-oev" class="tab-page" style="display:none">
+      <!-- Period filter -->
+      <div class="section" style="padding-bottom:4px">
+        <div class="filter-row">
+          <button class="filter-chip active" id="oev-chip-monat"  onclick="oevSetPeriod('monat')">Dieser Monat</button>
+          <button class="filter-chip"        id="oev-chip-jahr"   onclick="oevSetPeriod('jahr')">Dieses Jahr</button>
+          <button class="filter-chip"        id="oev-chip-alles"  onclick="oevSetPeriod('alles')">Alles</button>
+        </div>
+      </div>
+      <!-- Summary card (rendered by JS) -->
+      <div id="oev-summary-card" class="section" style="padding:4px 0"></div>
+      <!-- Abo progress card (rendered by JS) -->
+      <div id="oev-abo-card" class="section" style="padding:4px 0 0"></div>
+      <!-- Type filter -->
+      <div class="section" style="padding-top:8px;padding-bottom:4px">
+        <div class="filter-row">
+          <button class="filter-chip active" id="oev-chip-alle"          onclick="oevSetFilter('alle')">Alle</button>
+          <button class="filter-chip"        id="oev-chip-regular"       onclick="oevSetFilter('regular')">Regulär</button>
+          <button class="filter-chip"        id="oev-chip-ausserordentlich" onclick="oevSetFilter('ausserordentlich')">★ Ausserordentlich</button>
+        </div>
+      </div>
+      <!-- Journey list (rendered by JS) -->
+      <div id="oev-list"></div>
+      <div style="padding:4px 16px 16px">
+        <button class="save-btn" onclick="openNewFahrtModal()" style="width:100%">+ Fahrt erfassen</button>
+      </div>
+    </div>
+
     <!-- TAB: Groups & Events -->
     <div id="tab-groups" class="tab-page" style="display:none">
       <div id="groups-main">
@@ -1237,6 +1266,34 @@
                 <div class="settings-row-sub">Portfolio-Wert zur Jahres-Sparquote hinzurechnen</div>
               </div>
               <div class="toggle-switch" id="aktien-bilanz-sw" onclick="CFG.aktienInBilanz=!CFG.aktienInBilanz;cfgSave();this.classList.toggle('on',CFG.aktienInBilanz);renderHome()"></div>
+            </div>
+          </div>
+          <!-- ÖV Fahrten -->
+          <div class="card" style="padding:0 14px;margin-bottom:10px">
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">ÖV Fahrten aktivieren</div>
+                <div class="settings-row-sub">Tab für öffentlichen Verkehr und Abo-Tracking</div>
+              </div>
+              <div class="toggle-switch" id="oev-enabled-sw" onclick="toggleOevEnabled()"></div>
+            </div>
+            <div id="oev-settings-subrows" style="display:none">
+              <div class="settings-row" style="border-top:1px solid var(--border)">
+                <div class="settings-row-label">Abo-Typ</div>
+                <select id="oev-abo-type" onchange="saveOevAboSettings()"
+                  style="padding:6px 10px;font-size:13px;border-radius:var(--r2);background:var(--bg3);color:var(--text);border:1px solid var(--border);max-width:170px">
+                  <option value="keine">Kein Abo</option>
+                  <option value="halbtax">Halbtax (CHF 190/Jahr)</option>
+                  <option value="halbtax_plus">Halbtax Plus (Guthaben)</option>
+                  <option value="ga2">GA 2. Klasse</option>
+                  <option value="ga1">GA 1. Klasse</option>
+                </select>
+              </div>
+              <div class="settings-row" id="oev-kosten-row" style="border-top:1px solid var(--border)">
+                <div class="settings-row-label" id="oev-kosten-label">Jährliche Kosten (CHF)</div>
+                <input id="oev-abo-kosten" type="number" min="0" step="10" onchange="saveOevAboSettings()"
+                  style="max-width:100px;text-align:right;padding:6px 10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r2);font-size:13px">
+              </div>
             </div>
           </div>
           <div class="card" style="padding:0 14px;margin-bottom:10px">
@@ -1904,6 +1961,7 @@
 <script src="js/ui-groups.js"></script> <!-- 5c. Groups UI + Admin panel -->
 <script src="js/ui-settings.js"></script> <!-- 5d. Dynamic nav + settings tab -->
 <script src="js/portfolio.js"></script>
+<script src="js/oev.js"></script>
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
 <script src="js/init.js"></script>
@@ -1917,6 +1975,62 @@
       <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('tab-help-modal')">✕</button>
     </div>
     <ul id="tab-help-list" class="tab-help-list"></ul>
+  </div>
+</div>
+
+<!-- ── ÖV Fahrt Modal ──────────────────────── -->
+<datalist id="oev-destinations"></datalist>
+<div class="modal-overlay" id="oev-fahrt-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="oev-modal-title">Neue Fahrt</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('oev-fahrt-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Von</label>
+          <input id="oev-von" class="form-input" type="text" placeholder="Abfahrtsort"
+                 list="oev-destinations" autocorrect="off" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nach</label>
+          <input id="oev-nach" class="form-input" type="text" placeholder="Ankunftsort"
+                 list="oev-destinations" autocorrect="off" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Datum</label>
+          <input id="oev-datum" class="form-input" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bezahlt (CHF)</label>
+          <input id="oev-preis" class="form-input" type="number" step="0.05" min="0" placeholder="3.80" inputmode="decimal">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Normalpreis <span style="color:var(--text3);font-size:12px">(optional, ohne Abo)</span></label>
+        <input id="oev-normalpreis" class="form-input" type="number" step="0.05" min="0" placeholder="z.B. 7.60" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notiz <span style="color:var(--text3);font-size:12px">(optional)</span></label>
+        <input id="oev-notiz" class="form-input" type="text" autocorrect="on">
+      </div>
+      <div onclick="toggleOevAusserordentlich()" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-top:4px;cursor:pointer">
+        <div>
+          <div style="font-size:14px;font-weight:500">Ausserordentliche Fahrt ★</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">Einmalig, teuer (Arosa, Scuol, Genf …)</div>
+        </div>
+        <div class="toggle-switch" id="oev-ausserord-sw"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="oev-delete-btn" style="display:none;color:var(--red)" onclick="deleteOevFahrtConfirm()">Löschen</button>
+      <button class="btn-cancel" onclick="closeModal('oev-fahrt-modal')">Abbrechen</button>
+      <button class="btn-save"   onclick="saveOevFahrtModal()">Speichern</button>
+    </div>
   </div>
 </div>
 

@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 const NAV_LABELS = {
   dashboard:'Jahresüb.', verlauf:'Verlauf', monat:'Monat', aktien:'Aktien', lohn:'Lohn',
-  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.', groups:'Gruppen', sparen:'Sparen'
+  dauerauftraege:'Aufträge', kategorien:'Kat.', einstellungen:'Einst.', groups:'Gruppen', sparen:'Sparen', oev:'ÖV'
 };
 
 function renderNav(){

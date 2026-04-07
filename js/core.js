@@ -302,6 +302,10 @@ let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:''
   recurringSkips: {},
   // Cached: admin groups sheets were already ensured on a previous load
   groupsSheetsEnsured: false,
+  // ÖV Fahrten-Tracker
+  oevEnabled: false,
+  oevAboType: 'halbtax',   // 'keine'|'halbtax'|'halbtax_plus'|'ga2'|'ga1'
+  oevAboJahreskosten: 190, // annual cost; for halbtax_plus: total credit (e.g. 1000)
 };
 
 // Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.
