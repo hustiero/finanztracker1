@@ -304,8 +304,7 @@ let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:''
   groupsSheetsEnsured: false,
   // ÖV Fahrten-Tracker
   oevEnabled: false,
-  oevAboType: 'halbtax',   // 'keine'|'halbtax'|'halbtax_plus'|'ga2'|'ga1'
-  oevAboJahreskosten: 190, // annual cost; for halbtax_plus: total credit (e.g. 1000)
+  oevFavStations: [],  // favourite station names shown at top of dropdown
 };
 
 // Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.
