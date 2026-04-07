@@ -81,7 +81,8 @@ function goTab(tab){
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
-    groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin'
+    groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin',
+    oev:'ÖV Fahrten'
   }[tab]||tab;
   updatePageSub();
   // Special pre-render setup (state that must be set before first render)
@@ -155,6 +156,7 @@ const PINNABLE_TABS = [
   { key:'verlauf',        label:'Verlauf',              icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
   { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
   { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
+  { key:'oev',            label:'ÖV Fahrten',           icon:'<rect x="1" y="9" width="22" height="12" rx="2"/><path d="M8 9V5a3 3 0 0 1 6 0v4"/><circle cx="8" cy="15" r="1.5"/><circle cx="16" cy="15" r="1.5"/>' },
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
   { key:'dauerauftraege', label:'Dauerauftr&auml;ge',   icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
@@ -174,7 +176,7 @@ function renderMenuOverlay(){
   if(!container) return;
   let html = '';
   // Filter aktien tab when feature is disabled
-  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
+  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled).filter(t => t.key !== 'oev' || CFG.oevEnabled);
 
   if(menuEditMode){
     // Edit mode: show pinned with unpin + unpinned with pin icon

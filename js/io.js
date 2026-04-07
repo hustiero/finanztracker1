@@ -402,6 +402,7 @@ function hideSplash(){
 function launchApp(){
   generateAppIcon();
   sdataLoad();
+  if(typeof odataLoad==='function') odataLoad();
   if(!CFG.notifications) CFG.notifications = [];
   // One-time default nav tabs for new users
   if(!CFG.navInitialized){

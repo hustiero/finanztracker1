@@ -94,6 +94,9 @@ Object.assign(App.IO, {
   sdataLoad, sdataSave,
   syncKurseSheet, fetchStockPrice,
   loadPortfolioVerlauf, appendPortfolioSnapshot,
+  // ÖV Fahrten IO
+  odataLoad, odataSave, loadOevFromSheet,
+  saveOevFahrt, updateOevFahrt, deleteOevFahrt,
   // UI sync indicator
   setSyncStatus,
 });
@@ -223,6 +226,7 @@ RENDER_FN_MAP = {
   dauerauftraege:renderRecurring,
   sparen:        renderSparen,
   aktien:        renderAktien,
+  oev:           renderOev,
   einstellungen: renderEinstellungen,
   groups:        renderGroups,
   monat:         renderMonat,

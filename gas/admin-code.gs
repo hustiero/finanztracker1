@@ -415,6 +415,7 @@ function _initUserSheet(ss) {
    ['Trades',['ID','AktieID','Typ','Datum','Anzahl','Preis','Währung','Courtage','Gesamt','Deleted']],
    ['Kurse',['Ticker','Kurs','Währung']],
    ['Portfolio-Verlauf',['Datum','Gesamt']],
+   ['OEV',['ID','Datum','Von','Nach','Preis','Normalpreis','Notiz','Ausserordentlich','Deleted']],
   ].forEach(([name,headers])=>_hdr(ss.insertSheet(name),headers));
   const cats=[['k001','Zmittag','ausgabe','#FF6B35',1],['k002','Snack','ausgabe','#F7931E',2],
     ['k003','Ferien','ausgabe','#00D4AA',3],['k004','Poschte','ausgabe','#4ECDC4',4],
