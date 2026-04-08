@@ -67,15 +67,23 @@ function goTab(tab){
     else if(pinned[2]===tab) activeNavBtn = document.getElementById('nav-slot3-btn');
   }
   if(activeNavBtn){ activeNavBtn.classList.add('active'); activeNavBtn.setAttribute('aria-current','page'); }
-  // FAB: active (X) state when on eingabe
+  // FAB: active (X) state when on eingabe; context-sensitive on oev
   const fab = document.getElementById('fab-add');
   if(fab){
     fab.classList.toggle('fab-active', tab==='eingabe');
-    fab.innerHTML = tab==='eingabe'
-      ? '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-      : '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    fab.setAttribute('aria-label', tab==='eingabe' ? 'Eingabe schließen' : 'Neuer Eintrag');
-    fab.onclick = tab==='eingabe' ? ()=>goTab('home') : ()=>goTab('eingabe');
+    if(tab==='eingabe'){
+      fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      fab.setAttribute('aria-label', 'Eingabe schließen');
+      fab.onclick = ()=>goTab('home');
+    } else if(tab==='oev'){
+      fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      fab.setAttribute('aria-label', 'Neue Fahrt');
+      fab.onclick = ()=>{ if(oevView==='abos') openNewAboModal(); else openNewFahrtModal(); };
+    } else {
+      fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      fab.setAttribute('aria-label', 'Neuer Eintrag');
+      fab.onclick = ()=>goTab('eingabe');
+    }
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
