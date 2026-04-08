@@ -409,8 +409,19 @@ function _renderOevList(){
   }).sort((a,b)=>b.date.localeCompare(a.date));
 
   if(!fahrten.length){
-    el.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:14px">
-      Noch keine Fahrten erfasst</div>`;
+    const hasAbos = ODATA.abos.filter(a=>!a.deleted).length > 0;
+    if(!hasAbos){
+      el.innerHTML = `<div style="padding:24px 16px;text-align:center">
+        <div style="font-size:15px;font-weight:600;color:var(--text1);margin-bottom:8px">ÖV-Tracker einrichten</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+          Leg zuerst dein Abo an (Halbtax, GA, Stadtabo …),<br>dann kannst du Fahrten erfassen und deine Ersparnisse sehen.
+        </div>
+        <button class="save-btn" onclick="oevSetView('abos');openNewAboModal()" style="width:auto;padding:10px 22px">+ Erstes Abo anlegen</button>
+      </div>`;
+    } else {
+      el.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:14px">
+        Noch keine Fahrten für diesen Zeitraum</div>`;
+    }
     return;
   }
 
@@ -438,8 +449,10 @@ function _renderOevAbos(){
   if(!el) return;
   const abos = ODATA.abos.filter(a=>!a.deleted);
   if(!abos.length){
-    el.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--text3);font-size:14px">
-      Noch keine Abos hinterlegt</div>`;
+    el.innerHTML = `<div style="padding:32px 16px 16px;text-align:center">
+      <div style="font-size:15px;font-weight:600;color:var(--text1);margin-bottom:8px">Noch kein Abo hinterlegt</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">Hinterlege dein Halbtax, GA oder Stadtabo —<br>danach kannst du Fahrten erfassen und Ersparnisse verfolgen.</div>
+    </div>`;
     return;
   }
   const html = abos.map(a=>{
@@ -476,7 +489,14 @@ function _renderOevAbos(){
       ${progressHtml}
     </div>`;
   }).join('');
-  el.innerHTML = html;
+  const today = new Date();
+  const activeTotal = abos
+    .filter(a => !a.gueltigBis || new Date(a.gueltigBis) >= today)
+    .reduce((s,a) => s + (a.preis||0), 0);
+  const totalLine = activeTotal > 0
+    ? `<div style="text-align:center;padding:4px 16px 12px;font-size:13px;color:var(--text2)">Aktive Abos — Total: <strong style="color:var(--text1)">${curr()} ${fmtAmt(activeTotal)}</strong></div>`
+    : '';
+  el.innerHTML = html + totalLine;
 }
 
 // ── Modal — Fahrten ───────────────────────────────────────────────
@@ -698,9 +718,21 @@ function saveOevAboModal(){
   const abo = { id: _oevEditAboId||genId('ABO'), type, name, kaufdatum, gueltigBis,
                 preis, guthaben: type==='halbtax_plus'?guthaben:0, notiz,
                 ausgabenId: _oevEditAboId ? (getAboById(_oevEditAboId)?.ausgabenId||'') : '' };
+  const isNew = !_oevEditAboId;
   closeModal('oev-abo-modal');
-  if(_oevEditAboId) updateOevAbo(abo);
-  else saveOevAbo(abo);
+  if(!isNew) updateOevAbo(abo);
+  else {
+    saveOevAbo(abo);
+    if(abo.preis > 0){
+      setTimeout(()=>{
+        toastAction(
+          `"${aboDisplayName(abo)}" als Ausgabe erfassen?`,
+          'Erfassen',
+          ()=>oevAboToAusgabe(abo.id)
+        );
+      }, 350);
+    }
+  }
 }
 
 function deleteOevAboConfirm(){
