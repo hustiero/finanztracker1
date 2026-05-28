@@ -443,6 +443,7 @@ function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).
 const AI_PORTFOLIO_COLS = ['id','ticker','name','assetClass','shares','costBasis','currentPrice','currency','purchaseDate','note','resolvedTicker','quoteSource','lastQuoteAt','dueDiligence'];
 const AI_WATCHLIST_COLS = ['id','ticker','name','triggerPrice','currentPrice','currency','thesis','source','addedAt','resolvedTicker','dueDiligence'];
 const AI_CHAT_COLS = ['ts','role','content'];
+const AI_TRANSACTIONS_COLS = ['id','date','type','symbol','name','isin','qty','price','fees','accruedInterest','netAmount','currency','netAccountCurrency','accountCurrency','source','importedAt'];
 
 const AI_JSON_COLS = { 'dueDiligence': true };
 
@@ -452,6 +453,7 @@ function _aiPull(sheetId) {
     portfolio: _aiReadTab(ss, 'AI-Portfolio', AI_PORTFOLIO_COLS),
     watchlist: _aiReadTab(ss, 'AI-Watchlist', AI_WATCHLIST_COLS),
     chatHistory: _aiReadTab(ss, 'AI-Chat', AI_CHAT_COLS),
+    transactions: _aiReadTab(ss, 'AI-Transactions', AI_TRANSACTIONS_COLS),
   };
 }
 
@@ -460,10 +462,12 @@ function _aiPush(sheetId, p) {
   var portfolio = JSON.parse(p.portfolio || '[]');
   var watchlist = JSON.parse(p.watchlist || '[]');
   var chatHistory = JSON.parse(p.chatHistory || '[]');
+  var transactions = JSON.parse(p.transactions || '[]');
   _aiWriteTab(ss, 'AI-Portfolio', AI_PORTFOLIO_COLS, portfolio);
   _aiWriteTab(ss, 'AI-Watchlist', AI_WATCHLIST_COLS, watchlist);
   _aiWriteTab(ss, 'AI-Chat', AI_CHAT_COLS, chatHistory);
-  return { ok: true, counts: { portfolio: portfolio.length, watchlist: watchlist.length, chat: chatHistory.length } };
+  _aiWriteTab(ss, 'AI-Transactions', AI_TRANSACTIONS_COLS, transactions);
+  return { ok: true, counts: { portfolio: portfolio.length, watchlist: watchlist.length, chat: chatHistory.length, transactions: transactions.length } };
 }
 
 function _aiClearChat(sheetId) {
