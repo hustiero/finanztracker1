@@ -4333,7 +4333,7 @@ function AppInner({ embedded = false, adminUrl: propsAdminUrl = '', token: props
 
   // Auto-Refresh alle 5 Min wenn Tab sichtbar
   useEffect(() => {
-    if (!hydrated) return;
+    if (bootstrapPhase !== 'ready') return;
     refreshAllQuotes(); // initial
     const id = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -4341,7 +4341,7 @@ function AppInner({ embedded = false, adminUrl: propsAdminUrl = '', token: props
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line
-  }, [hydrated, settings.finnhubKey]);
+  }, [bootstrapPhase, settings.finnhubKey]);
 
   // Watchlist handlers
   const addWatchlist = (w) => { setWatchlist((arr) => [w, ...arr]); markDirty(); };
