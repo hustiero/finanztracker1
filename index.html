@@ -16,6 +16,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<!-- AI-Berater (eingebettet im Aktien-Tab) — preflight disabled, important: '#aiberater-root' scoped -->
+<link rel="stylesheet" href="aiberater/assets/aiberater.css">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -760,29 +762,10 @@
       <div id="lohn-fixkosten-section" class="section pt-0"></div>
     </div>
 
-    <!-- TAB: Aktien -->
+    <!-- TAB: Aktien → AI-Berater Mount-Point (siehe js/portfolio.js für Bootstrap-Glue) -->
     <div id="tab-aktien" class="tab-page" style="display:none">
-      <div id="aktien-dashboard-top"></div>
-      <div class="section" style="padding-bottom:8px">
-        <div class="type-toggle" style="margin-bottom:8px">
-          <button class="type-btn active expense" id="aktien-btn-aktiv" onclick="setAktienView('aktiv')">Aktiv</button>
-          <button class="type-btn income" id="aktien-btn-hist" onclick="setAktienView('historisch')">Historisch</button>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button id="aktien-view-karten" class="filter-chip active" onclick="setAktienTabView('karten')">Karten</button>
-          <button id="aktien-view-tabelle" class="filter-chip" onclick="setAktienTabView('tabelle')">Tabelle</button>
-          <button id="aktien-view-charts" class="filter-chip" onclick="setAktienTabView('charts')">Charts</button>
-          <button id="aktien-refresh-btn" onclick="refreshAllPrices()" title="Kurse aktualisieren" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:var(--r2);color:var(--text2);font-size:15px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">↻</button>
-        </div>
-      </div>
-      <div id="aktien-summary-bar"></div>
-      <div id="aktien-list"></div>
-      <div id="aktien-tabelle" style="display:none;padding:0 16px 16px"></div>
-      <div id="aktien-charts" style="display:none;padding:0 16px 16px"></div>
-      <div id="aktien-fx-rates"></div>
-      <div style="padding:4px 16px 12px">
-        <button class="save-btn" onclick="openNewAktieModal()" class="w-full">+ Aktie hinzufügen</button>
-      </div>
+      <div id="aiberater-root"></div>
+      <div id="aiberater-status" style="display:none;text-align:center;padding:24px 16px;color:var(--text2);font-size:14px"></div>
     </div>
 
     <!-- TAB: ÖV Fahrten-Tracker -->
@@ -1952,6 +1935,8 @@
 <script src="js/ui-groups.js"></script> <!-- 5c. Groups UI + Admin panel -->
 <script src="js/ui-settings.js"></script> <!-- 5d. Dynamic nav + settings tab -->
 <script src="js/portfolio.js"></script>
+<!-- AI-Berater Bundle (eingebettet im Aktien-Tab) — siehe aiberater-src/ für Quellen -->
+<script type="module" src="aiberater/assets/aiberater.js" defer></script>
 <script src="js/oev.js"></script>
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>

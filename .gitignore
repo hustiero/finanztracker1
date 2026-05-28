@@ -1,0 +1,4 @@
+# aiberater-src: nur Quellen committen, node_modules + lokales Vite-cache nicht
+aiberater-src/node_modules/
+aiberater-src/dist/
+.DS_Store
