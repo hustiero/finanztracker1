@@ -21,7 +21,8 @@
   function buildProps() {
     var token = (typeof CFG !== 'undefined' && CFG.sessionToken) ? CFG.sessionToken : '';
     var adminUrl = (typeof CFG !== 'undefined' && (CFG.adminUrl || CFG.url)) ? (CFG.adminUrl || CFG.url) : '';
-    var username = (typeof CFG !== 'undefined' && CFG.userName) ? CFG.userName : '';
+    var username = '';
+    if (typeof CFG !== 'undefined') username = CFG.authUser || CFG.userName || '';
     var apiKey = '';
     var finnhubKey = '';
     if (typeof CFG !== 'undefined') {
@@ -45,10 +46,18 @@
     }
   }
 
+  var mountAttempts = 0;
+  var MAX_MOUNT_ATTEMPTS = 60; // ~12s @ 200ms
+
   function mountIfReady() {
     if (typeof window === 'undefined') return;
     if (!window.AIB || typeof window.AIB.mount !== 'function') {
-      showStatus('Lade AI-Berater…');
+      mountAttempts++;
+      if (mountAttempts >= MAX_MOUNT_ATTEMPTS) {
+        showStatus('Konnte AI-Berater-Bundle nicht laden. Prüfe ob aiberater/assets/aiberater.js erreichbar ist (F12 → Network) und Service-Worker nicht eine alte Version cached (F12 → Application → Service Workers → Unregister, dann Reload).');
+        return;
+      }
+      showStatus('Lade AI-Berater… (' + mountAttempts + '/' + MAX_MOUNT_ATTEMPTS + ')');
       setTimeout(mountIfReady, 200);
       return;
     }
@@ -57,6 +66,7 @@
       showStatus('Bitte zuerst im finanztracker anmelden, dann Aktien-Tab erneut öffnen.');
       return;
     }
+    mountAttempts = 0;
     showStatus('');
     if (!mountedOnce) {
       window.AIB.mount(Object.assign({ embedded: true }, props));
