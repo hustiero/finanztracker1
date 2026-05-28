@@ -12,6 +12,23 @@ function doGet(e) {
   catch(err) { return _json({ error: err.toString() }); }
 }
 
+// doPost: gleiche Action-Dispatch wie doGet, aber für grosse Payloads (z.B.
+// ai_push mit portfolio + watchlist + chat + transactions als JSON-Strings).
+// URL-Params (action, token) bleiben in der Query, der Rest kommt als JSON-Body.
+function doPost(e) {
+  const p = Object.assign({}, e.parameter || {});
+  if (e.postData && e.postData.contents) {
+    try {
+      const body = JSON.parse(e.postData.contents);
+      Object.keys(body || {}).forEach(function(k) {
+        if (body[k] != null) p[k] = typeof body[k] === 'string' ? body[k] : JSON.stringify(body[k]);
+      });
+    } catch (err) { /* ignore body-parse errors */ }
+  }
+  try { return _json(_handle(p)); }
+  catch(err) { return _json({ error: err.toString() }); }
+}
+
 function _handle(p) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (p.action === 'signup')         return _signup(ss, p);
