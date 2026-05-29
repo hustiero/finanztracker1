@@ -48,7 +48,7 @@ function renderAibCoach() {
               '<button class="aib-marker-accept" onclick="aibCoachAcceptUpdate(' + idx + ',' + i + ', this)">Übernehmen</button>' +
               '<button class="aib-marker-skip" onclick="this.parentNode.parentNode.style.display=\'none\'">Verwerfen</button>' +
             '</div>'
-          : '<div style="color:#FFA372;font-size:11px;margin-top:4px">⚠ Ticker nicht im Portfolio</div>') +
+          : '<div style="color:#FFA372;font-size:11px;margin-top:4px">Ticker nicht im Portfolio</div>') +
       '</div>';
     });
     html2 += '</div>';
@@ -105,7 +105,7 @@ function aibCoachAcceptUpdate(msgIdx, updIdx, btnEl) {
   aibMarkDirty();
   if (btnEl) {
     var parent = btnEl.parentNode;
-    parent.innerHTML = '<span style="color:#5DEABF;font-size:11px">✓ Übernommen</span>';
+    parent.innerHTML = '<span style="color:#5DEABF;font-size:11px">Übernommen</span>';
   }
   if (typeof toast === 'function') toast('DD-Update übernommen', '');
 }
@@ -120,7 +120,7 @@ async function aibCoachSend(text) {
   var loading = document.createElement('div');
   loading.className = 'aib-chat-msg assistant';
   loading.id = 'aib-chat-loading';
-  loading.textContent = '⏳ Denke nach…';
+  loading.textContent = 'Denke nach…';
   listEl.appendChild(loading);
   listEl.scrollTop = listEl.scrollHeight;
   try {

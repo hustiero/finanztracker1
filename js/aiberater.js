@@ -28,7 +28,6 @@ var aibView = 'portfolio'; // 'portfolio' | 'coach' | 'steuern'
 var AIB_MODEL_COACH = 'claude-sonnet-4-6';
 var AIB_VERDICTS = ['sell', 'reduce', 'hold', 'add', 'watch'];
 var AIB_VERDICT_LABEL = { sell: 'Verkaufen', reduce: 'Reduzieren', hold: 'Halten', add: 'Nachkaufen', watch: 'Beobachten' };
-var AIB_VERDICT_EMOJI = { sell: '🔴', reduce: '🟠', hold: '⚪', add: '🟢', watch: '🔵' };
 var AIB_DD_LIST_FIELDS = ['strengths', 'risks', 'catalysts'];
 
 function aibEmptyDD() {
@@ -205,9 +204,9 @@ async function aibPush() {
 
 async function aibSave() {
   var fab = document.getElementById('aib-save-fab');
-  if (fab) { fab.disabled = true; fab.textContent = '⏳ Speichere…'; }
+  if (fab) { fab.disabled = true; fab.textContent = 'Speichere…'; }
   var ok = await aibPush();
-  if (fab) { fab.disabled = false; fab.textContent = '💾 Speichern'; }
+  if (fab) { fab.disabled = false; fab.textContent = 'Speichern'; }
   aibUpdateSaveFab();
   if (ok && typeof toast === 'function') toast('Gespeichert', '');
   aibRender();
@@ -231,7 +230,7 @@ async function aibBoot() {
     if (status2) {
       if (AIB_STATE.bootErr) {
         status2.style.display = 'block';
-        status2.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:6px">⚠ ' + aibEscape(AIB_STATE.bootErr) + '</div>' +
+        status2.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:6px">' + aibEscape(AIB_STATE.bootErr) + '</div>' +
           '<button class="filter-chip" onclick="AIB_STATE.bootErr=null;AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
       } else {
         status2.style.display = 'none';
@@ -255,7 +254,7 @@ function renderAibPortfolio() {
     var dd = aibEnsureDD(p);
     var fresh = aibDDFreshness(dd);
     var verdict = dd.recommendation.verdict;
-    var verdictHtml = verdict ? '<span class="aib-verdict aib-verdict-' + verdict + '">' + AIB_VERDICT_EMOJI[verdict] + ' ' + AIB_VERDICT_LABEL[verdict] + '</span>' : '';
+    var verdictHtml = verdict ? '<span class="aib-verdict aib-verdict-' + verdict + '">' + AIB_VERDICT_LABEL[verdict] + '</span>' : '';
     var ageDays = dd.lastAnalyzedAt ? Math.round((Date.now() - dd.lastAnalyzedAt) / 86400000) : null;
     var ageStr = ageDays == null ? 'keine AI-DD' : (ageDays === 0 ? 'heute' : ageDays + ' Tage');
     var mvLocal = (p.shares || 0) * (p.currentPrice || 0);
@@ -292,7 +291,7 @@ function renderAibPositionBody(pos) {
   var dd = aibEnsureDD(pos);
   var v = dd.recommendation.verdict;
   var recHtml = v
-    ? '<div class="aib-rec-bubble ' + v + '"><b>' + AIB_VERDICT_EMOJI[v] + ' ' + AIB_VERDICT_LABEL[v].toUpperCase() + '</b>' +
+    ? '<div class="aib-rec-bubble ' + v + '"><b>' + AIB_VERDICT_LABEL[v].toUpperCase() + '</b>' +
       (dd.recommendation.confidence ? ' <span style="opacity:.7;font-size:12px">· ' + dd.recommendation.confidence + '</span>' : '') +
       (dd.recommendation.rationale ? '<div style="font-size:13px;margin-top:4px;opacity:.95">' + aibEscape(dd.recommendation.rationale) + '</div>' : '') +
       '</div>'
@@ -307,7 +306,7 @@ function renderAibPositionBody(pos) {
       '<span>DD: ' + ageStr + '</span>' +
     '</div>' +
     recHtml +
-    '<button class="save-btn" style="margin-bottom:14px" onclick="aibRefreshDD(\'' + pos.id + '\')" id="aib-refresh-dd-btn">🤖 DD aktualisieren (web-search)</button>' +
+    '<button class="save-btn" style="margin-bottom:14px" onclick="aibRefreshDD(\'' + pos.id + '\')" id="aib-refresh-dd-btn">DD aktualisieren (mit Web-Recherche)</button>' +
 
     '<div class="aib-dd-section" style="padding-top:0;border-top:0">' +
       '<h4>Thesis</h4>' +
@@ -340,7 +339,7 @@ function renderAibPositionBody(pos) {
       '</div>' +
     '</div>' +
 
-    '<button class="btn-cancel" style="background:rgba(229,75,75,.15);color:#FF6B6B;border:1px solid rgba(229,75,75,.3);margin-top:14px" onclick="aibDeletePosition(\'' + pos.id + '\')">🗑 Position löschen</button>';
+    '<button class="btn-cancel" style="background:rgba(229,75,75,.15);color:#FF6B6B;border:1px solid rgba(229,75,75,.3);margin-top:14px" onclick="aibDeletePosition(\'' + pos.id + '\')">Position löschen</button>';
 }
 
 function aibRenderBulletSection(posId, field, label, items) {
@@ -448,7 +447,7 @@ async function aibRefreshDD(positionId) {
   var pos = AIB_STATE.portfolio.find(function (p) { return p.id === positionId; });
   if (!pos) return;
   var btn = document.getElementById('aib-refresh-dd-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Recherchiere…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Recherchiere…'; }
   try {
     var current = aibEnsureDD(pos);
     var system = 'Du bist ein Equity-Research-Analyst für einen Schweizer Privatanleger. Liefere eine fundierte Due-Diligence zu EINER Aktie/ETF/Fund. Recherchiere mit web_search aktuelle Earnings, Analyst-Calls, Sektor-News (max 5 Suchen). Sei knapp und präzise. Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt – kein Markdown, kein Text drumherum:\n{\n  "thesis": "1–2 Sätze, max 220 Zeichen",\n  "strengths": ["3–5 Bullets, max 110 Zeichen je"],\n  "risks": ["3–5 Bullets, max 110 Zeichen je"],\n  "catalysts": ["2–4 Events mit Datum"],\n  "fundamentals": "P/E, EV/EBITDA, Marge, Verschuldung, Wachstum. Max 400 Zeichen.",\n  "recommendation": { "verdict": "sell|reduce|hold|add|watch", "confidence": "low|medium|high", "rationale": "1–2 Sätze, max 240 Zeichen" },\n  "summary": "1 Satz für History, max 120 Zeichen"\n}\nVerdict-Leitplanke: sell=Strukturbruch/Bewertung überreizt, reduce=Position zu gross/Gewinnmitnahme, hold=These intakt, add=Bewertung spricht für aufstocken, watch=unklar/vor Earnings. WICHTIG: bestehende userNotes nie anfassen.';
@@ -496,7 +495,7 @@ async function aibRefreshDD(positionId) {
     if (typeof toast === 'function') toast('DD-Refresh fehlgeschlagen: ' + (e.message || e), 'err');
   } finally {
     var btn2 = document.getElementById('aib-refresh-dd-btn');
-    if (btn2) { btn2.disabled = false; btn2.textContent = '🤖 DD aktualisieren (web-search)'; }
+    if (btn2) { btn2.disabled = false; btn2.textContent = 'DD aktualisieren (mit Web-Recherche)'; }
   }
 }
 
@@ -539,6 +538,52 @@ function submitAibAddPosition() {
   closeModal('aib-add-position-modal');
   renderAibPortfolio();
   if (typeof toast === 'function') toast('Position hinzugefügt — vergiss nicht zu speichern', '');
+}
+
+// ── Settings-Modal: API-Keys + Connection-Test ─────────────────────────────
+function openAibSettingsModal() {
+  var ak = document.getElementById('aib-set-apikey');
+  var fh = document.getElementById('aib-set-finnhub');
+  var st = document.getElementById('aib-conn-status');
+  if (ak) ak.value = (typeof CFG !== 'undefined' && (CFG.anthropicApiKey || '')) || '';
+  if (fh) fh.value = (typeof CFG !== 'undefined' && (CFG.finnhubKey || '')) || '';
+  if (st) {
+    if (!CFG.sessionToken || !CFG.adminUrl) st.innerHTML = '<span style="color:#FFA372">Nicht angemeldet im finanztracker.</span>';
+    else st.innerHTML = 'Endpoint: <code style="font-size:11px">' + aibEscape(CFG.adminUrl).slice(0, 60) + '…</code>';
+  }
+  openModal('aib-settings-modal');
+}
+
+function aibSaveSettings() {
+  var ak = (document.getElementById('aib-set-apikey').value || '').trim();
+  var fh = (document.getElementById('aib-set-finnhub').value || '').trim();
+  CFG.anthropicApiKey = ak;
+  CFG.finnhubKey = fh;
+  if (typeof cfgSave === 'function') cfgSave();
+  if (typeof toast === 'function') toast('API-Keys gespeichert', '');
+  closeModal('aib-settings-modal');
+}
+
+async function aibTestConnection() {
+  var st = document.getElementById('aib-conn-status');
+  if (!st) return;
+  if (!CFG.sessionToken || !CFG.adminUrl) {
+    st.innerHTML = '<span style="color:#FF6B6B">Nicht angemeldet. Bitte im finanztracker einloggen.</span>';
+    return;
+  }
+  st.innerHTML = 'Teste…';
+  try {
+    var d = await aibApiCall({ action: 'ai_pull' });
+    var n = (d.portfolio || []).length + ' Positionen · ' + (d.transactions || []).length + ' Trades · ' + (d.chatHistory || []).length + ' Chat-Messages';
+    st.innerHTML = '<span style="color:#5DEABF">Verbindung OK — ' + n + '</span>';
+  } catch (e) {
+    var msg = e.message || String(e);
+    if (msg.indexOf('Unbekannte Aktion') >= 0) {
+      st.innerHTML = '<span style="color:#FF6B6B">Apps-Script ist NICHT auf der neuesten Version. Sie die Anleitung unten und stelle sicher dass du <b>Version: Neu</b> wählst.</span>';
+    } else {
+      st.innerHTML = '<span style="color:#FF6B6B">' + aibEscape(msg) + '</span>';
+    }
+  }
 }
 
 // ── goTab-Hook: bei 'aktien' → boot/render ─────────────────────────────────

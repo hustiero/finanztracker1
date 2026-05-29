@@ -253,7 +253,7 @@ function renderAibTax() {
   if (dl) dl.innerHTML = portfolios.map(function (p) { return '<option value="' + aibEscape(p) + '">'; }).join('');
 
   if (!AIB_STATE.transactions || AIB_STATE.transactions.length === 0) {
-    content.innerHTML = '<div class="aib-empty">Noch keine Transaktionen.<br><span style="font-size:12px;opacity:.7">CSV-Import oben rechts (📥).</span></div>';
+    content.innerHTML = '<div class="aib-empty">Noch keine Transaktionen importiert.<br><span style="font-size:12px;opacity:.7">CSV-Import findest du im Portfolio-Tab.</span></div>';
     return;
   }
 
@@ -266,7 +266,8 @@ function renderAibTax() {
   // ── HEADER ── Kompakte Total-Übersicht
   var totalCH = tax.dividendsCH.reduce(function (s, p) { return s + p.brutto; }, 0);
   var totalForeign = tax.dividendsForeign.reduce(function (s, p) { return s + p.brutto; }, 0);
-  html += '<div class="aib-stat-card" style="background:linear-gradient(135deg,rgba(255,107,53,.1),rgba(0,212,170,.05));border-color:var(--accent)">' +
+  var totalForeignWith = Object.values(tax.foreignWithholdingByCountry).reduce(function (s, v) { return s + v; }, 0);
+  html += '<div class="aib-stat-card">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
       '<div>' +
         '<div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Steuerjahr</div>' +
@@ -274,24 +275,24 @@ function renderAibTax() {
         (currentPf ? '<div style="font-size:11px;color:var(--text2)">Portfolio: ' + aibEscape(currentPf) + '</div>' : '') +
       '</div>' +
       '<div style="text-align:right">' +
-        '<div style="font-size:11px;color:var(--text2)">Total Brutto-Ertrag</div>' +
+        '<div style="font-size:11px;color:var(--text2)">Brutto-Erträge total</div>' +
         '<div style="font-size:18px;font-weight:600;color:var(--text)">' + fmt(totalCH + totalForeign + tax.interestIn) + '</div>' +
       '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;border-top:1px solid var(--border);padding-top:8px">' +
-      '<div><span style="color:var(--text2)">VST zurück</span><div style="font-weight:600;color:#5DEABF">' + fmt(tax.chWithholdingTotal) + '</div></div>' +
-      '<div><span style="color:var(--text2)">DA-1 Anrechnung</span><div style="font-weight:600;color:#9DDEFC">' + fmt(Object.values(tax.foreignWithholdingByCountry).reduce(function (s, v) { return s + v; }, 0)) + '</div></div>' +
+      '<div><span style="color:var(--text2)">Verrechnungssteuer zurück</span><div style="font-weight:600;color:#5DEABF">' + fmt(tax.chWithholdingTotal) + '</div></div>' +
+      '<div><span style="color:var(--text2)">DA-1-Anrechnung Ausland</span><div style="font-weight:600;color:#9DDEFC">' + fmt(totalForeignWith) + '</div></div>' +
     '</div>' +
   '</div>';
 
   // ── KARTE 1: Wertschriftenverzeichnis ──
   if (currentYear !== 'all') {
     html += '<div class="aib-stat-card">' +
-      '<h4>📋 Wertschriftenverzeichnis per 31.12.' + aibEscape(tax.year) + '</h4>';
+      '<h4>Wertschriftenverzeichnis per 31.12.' + aibEscape(tax.year) + '</h4>' +
+      '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">Bestand aus Transaktionen rekonstruiert. Steuerwert (per ESTV-Kursliste) musst du manuell ergänzen.</div>';
     if (holdings.length === 0) {
-      html += '<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px">Keine Positionen am Stichtag (aus Transaktionen rekonstruiert).</div>';
+      html += '<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px">Keine Positionen am Stichtag.</div>';
     } else {
-      html += '<div style="font-size:11px;color:var(--text2);margin-bottom:6px">' + holdings.length + ' Positionen · Einstand zur Bewertung (Steuerwert aus ESTV-Kursliste manuell)</div>';
       holdings.forEach(function (h) {
         html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:12px">' +
           '<div style="flex:1;min-width:0">' +
@@ -307,8 +308,8 @@ function renderAibTax() {
 
   // ── KARTE 2: Bruttoerträge CH ──
   html += '<div class="aib-stat-card">' +
-    '<h4>🇨🇭 Schweizer Wertschriftenerträge ' + aibEscape(tax.year) + '</h4>' +
-    '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">Brutto-Erträge, davon 35% Verrechnungssteuer (rückforderbar)</div>';
+    '<h4>Schweizer Wertschriftenerträge ' + aibEscape(tax.year) + '</h4>' +
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">Brutto-Erträge — davon 35% Verrechnungssteuer (rückforderbar via Wertschriftenverzeichnis)</div>';
   if (tax.dividendsCH.length === 0) {
     html += '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Keine CH-Erträge in ' + aibEscape(tax.year) + '.</div>';
   } else {
@@ -330,8 +331,8 @@ function renderAibTax() {
 
   // ── KARTE 3: Bruttoerträge Ausland (gruppiert nach Land) ──
   html += '<div class="aib-stat-card">' +
-    '<h4>🌍 Ausländische Wertschriftenerträge ' + aibEscape(tax.year) + '</h4>' +
-    '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pro Land — Quellensteuer via DA-1 anrechenbar</div>';
+    '<h4>Ausländische Wertschriftenerträge ' + aibEscape(tax.year) + '</h4>' +
+    '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">Pro Land gruppiert — Quellensteuer via DA-1-Formular anrechenbar (Vertragssätze: USA 15%, DE 15%, etc.)</div>';
   if (tax.dividendsForeign.length === 0) {
     html += '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Keine ausländischen Erträge in ' + aibEscape(tax.year) + '.</div>';
   } else {
@@ -366,19 +367,20 @@ function renderAibTax() {
 
   // ── KARTE 4: Abzüge ──
   html += '<div class="aib-stat-card">' +
-    '<h4>💰 Abzüge & weitere Erträge ' + aibEscape(tax.year) + '</h4>' +
-    '<div class="aib-stat-row"><span class="l">Zinsertrag (steuerbar)</span><span class="v">' + fmt(tax.interestIn) + '</span></div>' +
+    '<h4>Weitere Erträge und Abzüge ' + aibEscape(tax.year) + '</h4>' +
+    '<div class="aib-stat-row"><span class="l">Zinsertrag (steuerbar als Vermögensertrag)</span><span class="v">' + fmt(tax.interestIn) + '</span></div>' +
     '<div class="aib-stat-row"><span class="l">Schuldzinsen (abzugsfähig)</span><span class="v">' + fmt(tax.interestOut) + '</span></div>' +
-    '<div class="aib-stat-row"><span class="l">Depotgebühren (abzugsfähig)</span><span class="v">' + fmt(tax.feesCustody) + '</span></div>' +
+    '<div class="aib-stat-row"><span class="l">Depotgebühren (Vermögensverwaltungskosten)</span><span class="v">' + fmt(tax.feesCustody) + '</span></div>' +
+    '<div style="font-size:10px;color:var(--text2);margin-top:6px">Tipp: Pauschalabzug Vermögensverwaltung beträgt in vielen Kantonen 3‰ des Steuerwerts (max. CHF 6 000). Effektive Kosten nur deklarieren wenn höher.</div>' +
   '</div>';
 
   // ── KARTE 5: Trades (informativ, steuerfrei) ──
   if (tax.buysCount + tax.sellsCount > 0) {
     html += '<div class="aib-stat-card" style="opacity:.75">' +
-      '<h4>📊 Trades ' + aibEscape(tax.year) + ' (informativ, steuerfrei)</h4>' +
+      '<h4>Handels-Volumen ' + aibEscape(tax.year) + ' (informativ, steuerfrei)</h4>' +
       '<div class="aib-stat-row"><span class="l">' + tax.buysCount + ' Käufe</span><span class="v">' + fmt(tax.buysTotal) + '</span></div>' +
       '<div class="aib-stat-row"><span class="l">' + tax.sellsCount + ' Verkäufe</span><span class="v">' + fmt(tax.sellsTotal) + '</span></div>' +
-      '<div style="font-size:10px;color:var(--text2);margin-top:6px">Kapitalgewinne sind für Privatpersonen in der CH steuerfrei.</div>' +
+      '<div style="font-size:10px;color:var(--text2);margin-top:6px">Kapitalgewinne aus Wertschriften sind für Privatpersonen in der Schweiz steuerfrei.</div>' +
     '</div>';
   }
 
@@ -390,7 +392,7 @@ function renderAibTax() {
   });
   if (allTx.length) {
     html += '<details class="aib-stat-card" style="padding:0">' +
-      '<summary style="cursor:pointer;padding:12px 14px;font-weight:600;font-size:13px">📜 Alle Transaktionen anzeigen (' + allTx.length + ')</summary>' +
+      '<summary style="cursor:pointer;padding:12px 14px;font-weight:600;font-size:13px">Alle Transaktionen anzeigen (' + allTx.length + ')</summary>' +
       '<div style="padding:0 14px 12px">';
     allTx.slice(0, 200).forEach(function (t) {
       var ch = aibIsSwissIsin(t.isin);
@@ -398,7 +400,7 @@ function renderAibTax() {
         '<div><span style="color:var(--text2)">' + aibEscape(t.date) + '</span> ' +
           '<b>' + aibEscape(aibTxTypeLabel(t.type)) + '</b> ' +
           (t.symbol ? aibEscape(t.symbol) + ' ' : '') +
-          (t.portfolio ? '<span style="font-size:9px;color:var(--accent);background:rgba(255,107,53,.1);padding:1px 4px;border-radius:3px">' + aibEscape(t.portfolio) + '</span>' : '') +
+          (t.portfolio ? '<span style="font-size:9px;color:var(--text);background:var(--bg3);padding:1px 4px;border-radius:3px;border:1px solid var(--border)">' + aibEscape(t.portfolio) + '</span>' : '') +
         '</div>' +
         '<div class="v">' + (t.netAmount != null ? fmt(t.netAmount) : '—') + ' ' + aibEscape(t.currency || '') + '</div>' +
       '</div>';
