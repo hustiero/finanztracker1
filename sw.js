@@ -2,7 +2,7 @@
 // SERVICE WORKER — FinanzTracker PWA
 // Cache-first for static assets, network-first for API calls.
 // ═══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'ft-v2-aiberater';
+const CACHE_VERSION = 'ft-v3-aiberater';
 const STATIC_ASSETS = [
   '/finanztracker1/',
   '/finanztracker1/index.html',
@@ -23,8 +23,6 @@ const STATIC_ASSETS = [
   '/finanztracker1/js/design.js',
   '/finanztracker1/js/device.js',
   '/finanztracker1/js/init.js',
-  '/finanztracker1/aiberater/assets/aiberater.js',
-  '/finanztracker1/aiberater/assets/aiberater.css',
 ];
 
 // Install: pre-cache static assets
@@ -48,6 +46,22 @@ self.addEventListener('activate', event => {
 // Fetch strategy
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+
+  // Network-first für AI-Berater Bundle-Assets — damit Bundle-Updates
+  // sofort durchkommen ohne SW-Version-Bump (das Bundle wird oft genug
+  // neu gebaut, dass Cache-First nervt).
+  if (url.pathname.indexOf('/aiberater/') !== -1) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   // Network-first for Google Apps Script API calls
   if (url.hostname === 'script.google.com' || url.hostname.endsWith('.script.google.com')) {

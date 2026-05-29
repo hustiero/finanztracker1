@@ -17,7 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <!-- AI-Berater (eingebettet im Aktien-Tab) — preflight disabled, important: '#aiberater-root' scoped -->
-<link rel="stylesheet" href="aiberater/assets/aiberater.css">
+<link rel="stylesheet" href="aiberater/assets/aiberater.css?v=20251227b">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -1935,8 +1935,10 @@
 <script src="js/ui-groups.js"></script> <!-- 5c. Groups UI + Admin panel -->
 <script src="js/ui-settings.js"></script> <!-- 5d. Dynamic nav + settings tab -->
 <script src="js/portfolio.js"></script>
-<!-- AI-Berater Bundle (eingebettet im Aktien-Tab) — siehe aiberater-src/ für Quellen -->
-<script type="module" src="aiberater/assets/aiberater.js" defer></script>
+<!-- AI-Berater Bundle (eingebettet im Aktien-Tab) — siehe aiberater-src/ für Quellen.
+     ?v=… Cache-Bust auf jedes Rebuild bumpen, damit der Browser nicht aus
+     seinem eigenen Memory-Cache eine alte Version zieht. -->
+<script type="module" src="aiberater/assets/aiberater.js?v=20251227b" defer></script>
 <script src="js/oev.js"></script>
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
