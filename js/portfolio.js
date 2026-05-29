@@ -2,25 +2,48 @@
 // portfolio.js — Legacy-Stub
 // ═══════════════════════════════════════════════════════════════
 // Die ursprüngliche Aktien-Logik ist komplett ersetzt durch die
-// AI-Berater-Module:
-//   - js/aiberater.js       (Portfolio + State + Save)
-//   - js/aiberater-coach.js (Claude-Chat)
-//   - js/aiberater-tax.js   (Saxo-CSV + Steuer-Übersicht)
+// AI-Berater-Module (js/aiberater.js, -coach.js, -tax.js).
 //
-// Diese Datei bleibt nur, damit Skripte/HTML, die noch alte
-// Funktionsnamen referenzieren (z.B. der Aktien-Type-Button im
-// Eingabe-Tab), nicht crashen. Alle Aufrufe sind No-Ops.
+// Diese Datei ist nur eine No-Op-Hülle, damit Code-Referenzen aus
+// init.js (Namespace-Wiring) und io.js (Boot-Lifecycle) nicht in
+// ReferenceErrors laufen. Alle gelisteten Funktionen werden als
+// No-Ops auf window registriert.
 
 (function () {
   var noopList = [
-    'sdataLoad', 'sdataSave', 'syncKurseSheet', 'fetchStockPrice',
-    'refreshAllPrices', 'renderAktien', 'renderAktienTabelle',
+    // Data layer
+    'sdataLoad', 'sdataSave',
+    'syncKurseSheet', 'fetchStockPrice', 'refreshAllPrices',
+    'loadPortfolioVerlauf', 'appendPortfolioSnapshot',
+    'getAktienGesamtwert', 'getAktienGesamtPnl', 'getAktienPnlPct',
+    'getAktienPosWert', 'getAktienPosPnl',
+    // Renderers
+    'renderAktien', 'renderAktienList', 'renderAktienTabelle',
     'renderAktienCharts', 'renderAktienDashboardTop',
     'renderAktienSummaryBar', 'renderAktienFxRates',
+    'renderAktienTradeForm', 'renderAktieDetail',
+    'renderFxRates',
+    // Widgets
+    'renderWidgetAktienPortfolio', 'renderWidgetAktienWert',
+    'renderWidgetAktienPnl', 'renderWidgetAktienTop',
+    'renderWidgetAktienVerteilung', 'renderWidgetAktienPosition',
+    'renderWidgetAktienDashboard',
+    // Charts
+    'buildPortfolioPieChart', 'buildPreisVergleichChart',
+    'buildPortfolioVerlauf',
+    // Modals + Flow
+    'openNewAktieModal', 'openEditAktieModal',
+    'openAktieDetail', 'closeAktieDetail',
+    'openTradeModal', 'openAddAktieFlow',
+    'openAktieDetailFromFlow', 'openNewAktieModalFromEingabe',
+    'deleteAktie',
+    // View toggles
     'setAktienView', 'setAktienTabView', 'setAktienTradeType',
-    'openNewAktieModal', 'updateAktienTotal',
-    'saveAktienTradeFromEingabe', 'saveAktie', 'fetchYahooSearch',
-    'renderAktienTradeForm',
+    'updateAktienTotal',
+    // Trade saving (Eingabe-Tab)
+    'saveAktienTradeFromEingabe', 'saveAktie',
+    // Yahoo search (was im alten Modal)
+    'fetchYahooSearch',
   ];
   noopList.forEach(function (fn) {
     if (typeof window[fn] === 'undefined') window[fn] = function () {};

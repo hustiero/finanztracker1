@@ -801,10 +801,15 @@
       <!-- Steuern View -->
       <div id="aib-view-steuern" style="display:none">
         <div class="section" style="padding-bottom:8px">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+            <label class="form-label" style="margin:0;font-size:12px">Steuerjahr</label>
             <select id="aib-tax-year" class="form-select" style="flex:1" onchange="renderAibTax()"></select>
-            <button class="filter-chip" onclick="openAibTaxImportModal()">📥 CSV-Import</button>
-            <button class="filter-chip" onclick="exportTaxCsv()">📤 Export</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="aib-tax-portfolio-filter" class="form-select" style="flex:1" onchange="renderAibTax()"></select>
+            <button class="filter-chip" onclick="openAibTaxImportModal()" title="CSV importieren">📥</button>
+            <button class="filter-chip" onclick="exportTaxCsv()" title="CSV für Steuerberater exportieren">📤</button>
+            <button class="filter-chip" onclick="aibBuildPortfolioFromTx()" title="Positionen aus Transaktionen rekonstruieren">🔄 Auto</button>
           </div>
         </div>
         <div id="aib-tax-content"></div>
@@ -2244,14 +2249,18 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">Saxo-CSV importieren</div>
+      <div class="modal-title">CSV importieren</div>
       <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-tax-import-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <p style="color:var(--text2);font-size:13px;margin:0 0 10px">
-        Saxo-Banking → Konto-Auszug → Transaktionen → CSV exportieren.
-        Doppelte Einträge werden automatisch übersprungen.
+      <p style="color:var(--text2);font-size:13px;margin:0 0 12px">
+        Broker-CSV (Saxo-Format) importieren. Mehrere Portfolios möglich — gib einen Namen, dann werden alle Transaktionen damit getaggt.
       </p>
+      <div style="margin-bottom:12px">
+        <label class="form-label">Portfolio-Name (z.B. „Saxo", „PostFinance")</label>
+        <input id="aib-tax-portfolio" class="form-input" type="text" placeholder="Saxo" list="aib-tax-portfolio-list">
+        <datalist id="aib-tax-portfolio-list"></datalist>
+      </div>
       <button class="save-btn" style="margin-bottom:10px" onclick="document.getElementById('aib-tax-file').click()">Datei auswählen…</button>
       <input id="aib-tax-file" type="file" accept=".csv,text/csv" style="display:none" onchange="aibTaxHandleFile(event)">
       <details style="margin-top:6px">
@@ -2264,8 +2273,8 @@
   </div>
 </div>
 
-<!-- Save-FAB (sichtbar wenn AIB_STATE.dirty) -->
-<button id="aib-save-fab" onclick="aibSave()" style="display:none;position:fixed;right:18px;bottom:calc(var(--safe-bot,0px) + var(--nav-h,64px) + 16px);z-index:80;background:#FF6B35;color:#000;border:none;border-radius:32px;padding:12px 20px;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;gap:6px">
+<!-- Save-FAB (sichtbar wenn AIB_STATE.dirty) — links damit nicht überlappt mit finanztracker's eigenem + Button -->
+<button id="aib-save-fab" onclick="aibSave()" style="display:none;position:fixed;left:18px;bottom:calc(var(--safe-bot,0px) + var(--nav-h,64px) + 16px);z-index:80;background:#FF6B35;color:#000;border:none;border-radius:32px;padding:12px 18px;font-weight:700;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.4);cursor:pointer;align-items:center;gap:6px">
   💾 Speichern
 </button>
 
