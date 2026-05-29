@@ -2,7 +2,7 @@
 // SERVICE WORKER — FinanzTracker PWA
 // Cache-first for static assets, network-first for API calls.
 // ═══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'ft-v3-aiberater';
+const CACHE_VERSION = 'ft-v4-aiberater-native';
 const STATIC_ASSETS = [
   '/finanztracker1/',
   '/finanztracker1/index.html',
@@ -20,6 +20,9 @@ const STATIC_ASSETS = [
   '/finanztracker1/js/ui-groups.js',
   '/finanztracker1/js/ui-settings.js',
   '/finanztracker1/js/portfolio.js',
+  '/finanztracker1/js/aiberater.js',
+  '/finanztracker1/js/aiberater-coach.js',
+  '/finanztracker1/js/aiberater-tax.js',
   '/finanztracker1/js/design.js',
   '/finanztracker1/js/device.js',
   '/finanztracker1/js/init.js',
