@@ -460,7 +460,7 @@ function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).
 const AI_PORTFOLIO_COLS = ['id','ticker','name','assetClass','shares','costBasis','currentPrice','currency','purchaseDate','note','resolvedTicker','quoteSource','lastQuoteAt','dueDiligence'];
 const AI_WATCHLIST_COLS = ['id','ticker','name','triggerPrice','currentPrice','currency','thesis','source','addedAt','resolvedTicker','dueDiligence'];
 const AI_CHAT_COLS = ['ts','role','content'];
-const AI_TRANSACTIONS_COLS = ['id','date','type','symbol','name','isin','qty','price','fees','accruedInterest','netAmount','currency','netAccountCurrency','accountCurrency','source','importedAt'];
+const AI_TRANSACTIONS_COLS = ['id','date','type','symbol','name','isin','qty','price','fees','accruedInterest','netAmount','currency','netAccountCurrency','accountCurrency','source','importedAt','portfolio'];
 
 const AI_JSON_COLS = { 'dueDiligence': true };
 

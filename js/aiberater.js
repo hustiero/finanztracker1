@@ -70,10 +70,19 @@ function aibDDFreshness(dd) {
 }
 
 function aibUid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+function aibNum(v) {
+  if (v == null || v === '') return 0;
+  var n = typeof v === 'number' ? v : parseFloat(String(v).replace(/'/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
 function aibFmtCcy(n, ccy) {
-  if (!Number.isFinite(n)) n = 0;
-  try { return n.toLocaleString('de-CH', { style: 'currency', currency: ccy || 'CHF', maximumFractionDigits: 2 }); }
-  catch { return n.toFixed(2) + ' ' + (ccy || ''); }
+  n = aibNum(n);
+  ccy = ccy || 'CHF';
+  try { return n.toLocaleString('de-CH', { style: 'currency', currency: ccy, maximumFractionDigits: 2 }); }
+  catch { return n.toFixed(2) + ' ' + ccy; }
+}
+function aibFmt(n, digits) {
+  return aibNum(n).toLocaleString('de-CH', { minimumFractionDigits: digits == null ? 2 : digits, maximumFractionDigits: digits == null ? 2 : digits });
 }
 
 // ── Sub-Tab-Navigation ──────────────────────────────────────────────────────
