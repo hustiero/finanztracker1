@@ -16,8 +16,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<!-- AI-Berater (eingebettet im Aktien-Tab) — preflight disabled, important: '#aiberater-root' scoped -->
-<link rel="stylesheet" href="aiberater/assets/aiberater.css?v=20251227b">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -762,10 +760,55 @@
       <div id="lohn-fixkosten-section" class="section pt-0"></div>
     </div>
 
-    <!-- TAB: Aktien → AI-Berater Mount-Point (siehe js/portfolio.js für Bootstrap-Glue) -->
+    <!-- TAB: Aktien → AI-Berater (vanilla, siehe js/aiberater.js) -->
     <div id="tab-aktien" class="tab-page" style="display:none">
-      <div id="aiberater-root"></div>
-      <div id="aiberater-status" style="display:none;text-align:center;padding:24px 16px;color:var(--text2);font-size:14px"></div>
+      <!-- Sub-Tab-Strip: Portfolio | Coach | Steuern -->
+      <div class="section" style="padding-bottom:8px">
+        <div class="type-toggle" id="aib-subtabs">
+          <button class="type-btn active expense" id="aib-tab-portfolio" onclick="aibSetView('portfolio')">📊 Portfolio</button>
+          <button class="type-btn" id="aib-tab-coach" onclick="aibSetView('coach')">💬 Coach</button>
+          <button class="type-btn" id="aib-tab-steuern" onclick="aibSetView('steuern')">🧾 Steuern</button>
+        </div>
+      </div>
+
+      <!-- Portfolio View -->
+      <div id="aib-view-portfolio" style="display:block">
+        <div id="aib-portfolio-status" class="section" style="display:none;color:var(--text2);font-size:14px;text-align:center;padding:24px 16px"></div>
+        <div id="aib-portfolio-list"></div>
+        <div style="padding:4px 16px 12px">
+          <button class="save-btn" onclick="openAibAddPositionModal()">+ Position hinzufügen</button>
+        </div>
+      </div>
+
+      <!-- Coach View -->
+      <div id="aib-view-coach" style="display:none">
+        <div class="section" style="padding-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span style="color:var(--text2);font-size:12px;flex:1">Claude kennt dein Portfolio + DDs.</span>
+            <button class="filter-chip" onclick="aibCoachClearLocal()" title="Lokalen Chat neu starten">↻ Neu</button>
+            <button class="filter-chip" onclick="aibCoachClearSheet()" title="Chat-Verlauf im Sheet löschen">🗑 Sheet</button>
+          </div>
+        </div>
+        <div id="aib-chat-list" style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px;min-height:200px"></div>
+        <div class="section" style="position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);padding:8px 12px">
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <textarea id="aib-chat-input" class="form-input" rows="1" placeholder="Frag deinen Coach…" style="resize:none;min-height:38px;max-height:140px"></textarea>
+            <button class="save-btn" style="padding:8px 16px;white-space:nowrap" onclick="aibCoachSendFromInput()">Senden</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Steuern View -->
+      <div id="aib-view-steuern" style="display:none">
+        <div class="section" style="padding-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="aib-tax-year" class="form-select" style="flex:1" onchange="renderAibTax()"></select>
+            <button class="filter-chip" onclick="openAibTaxImportModal()">📥 CSV-Import</button>
+            <button class="filter-chip" onclick="exportTaxCsv()">📤 Export</button>
+          </div>
+        </div>
+        <div id="aib-tax-content"></div>
+      </div>
     </div>
 
     <!-- TAB: ÖV Fahrten-Tracker -->
@@ -1935,10 +1978,10 @@
 <script src="js/ui-groups.js"></script> <!-- 5c. Groups UI + Admin panel -->
 <script src="js/ui-settings.js"></script> <!-- 5d. Dynamic nav + settings tab -->
 <script src="js/portfolio.js"></script>
-<!-- AI-Berater Bundle (eingebettet im Aktien-Tab) — siehe aiberater-src/ für Quellen.
-     ?v=… Cache-Bust auf jedes Rebuild bumpen, damit der Browser nicht aus
-     seinem eigenen Memory-Cache eine alte Version zieht. -->
-<script type="module" src="aiberater/assets/aiberater.js?v=20251227b" defer></script>
+<!-- AI-Berater (vanilla — ersetzt das alte React-Bundle) -->
+<script src="js/aiberater-tax.js"></script>
+<script src="js/aiberater-coach.js"></script>
+<script src="js/aiberater.js"></script>
 <script src="js/oev.js"></script>
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
@@ -2123,6 +2166,109 @@
   <div id="intro-dots" class="intro-dots"></div>
   <button id="intro-next-btn" class="intro-next" onclick="introNext()">Weiter</button>
 </div>
+<!-- ═══════════════════ AI-Berater Modals ═══════════════════ -->
+
+<!-- Position-Detail-Modal -->
+<div class="modal-overlay" id="aib-position-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="aib-pos-title">Position</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-position-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="aib-pos-body"></div>
+  </div>
+</div>
+
+<!-- AddPosition-Modal -->
+<div class="modal-overlay" id="aib-add-position-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Neue Position</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-add-position-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="form-label">Ticker (z.B. NESN.SW, AAPL)</label>
+          <input id="aib-add-ticker" class="form-input" type="text" placeholder="NESN.SW">
+        </div>
+        <div>
+          <label class="form-label">Name</label>
+          <input id="aib-add-name" class="form-input" type="text" placeholder="Nestlé">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="form-label">Anzahl</label>
+            <input id="aib-add-shares" class="form-input" type="number" inputmode="decimal" min="0" step="any">
+          </div>
+          <div>
+            <label class="form-label">Einstand/Stück</label>
+            <input id="aib-add-cost" class="form-input" type="number" inputmode="decimal" min="0" step="any">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="form-label">Währung</label>
+            <select id="aib-add-currency" class="form-select">
+              <option>CHF</option><option>USD</option><option>EUR</option><option>GBP</option><option>SEK</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Kaufdatum</label>
+            <input id="aib-add-date" class="form-input" type="date">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Asset-Klasse</label>
+          <select id="aib-add-class" class="form-select">
+            <option>Aktie Pharma</option><option>Aktie Tech</option><option>Aktie Industrie</option>
+            <option>Aktie Financials</option><option>Aktie Energy</option><option>Aktie Defense</option>
+            <option>Aktie Halbleiter</option><option>Aktie Konsum</option><option>Fund Tech</option>
+            <option>Fund Mixed</option><option>Gold ETF</option><option>Anleihe</option>
+            <option>Krypto</option><option>Sonstige</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('aib-add-position-modal')">Abbrechen</button>
+      <button class="save-btn" onclick="submitAibAddPosition()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tax-Import-Modal -->
+<div class="modal-overlay" id="aib-tax-import-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Saxo-CSV importieren</div>
+      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-tax-import-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text2);font-size:13px;margin:0 0 10px">
+        Saxo-Banking → Konto-Auszug → Transaktionen → CSV exportieren.
+        Doppelte Einträge werden automatisch übersprungen.
+      </p>
+      <button class="save-btn" style="margin-bottom:10px" onclick="document.getElementById('aib-tax-file').click()">Datei auswählen…</button>
+      <input id="aib-tax-file" type="file" accept=".csv,text/csv" style="display:none" onchange="aibTaxHandleFile(event)">
+      <details style="margin-top:6px">
+        <summary style="cursor:pointer;color:var(--text2);font-size:13px">Oder CSV-Text einfügen</summary>
+        <textarea id="aib-tax-paste" class="form-input" rows="6" style="margin-top:6px;font-family:monospace;font-size:11px" placeholder="Datum;Auftrag #;Transaktionen;…"></textarea>
+        <button class="save-btn" style="margin-top:6px" onclick="aibTaxHandlePaste()">Parsen</button>
+      </details>
+      <div id="aib-tax-import-msg" style="margin-top:10px;font-size:13px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Save-FAB (sichtbar wenn AIB_STATE.dirty) -->
+<button id="aib-save-fab" onclick="aibSave()" style="display:none;position:fixed;right:18px;bottom:calc(var(--safe-bot,0px) + var(--nav-h,64px) + 16px);z-index:80;background:#FF6B35;color:#000;border:none;border-radius:32px;padding:12px 20px;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;gap:6px">
+  💾 Speichern
+</button>
+
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('/finanztracker1/sw.js').catch(()=>{});

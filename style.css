@@ -2018,3 +2018,52 @@ body.is-android .filter-row{touch-action:pan-x}
   font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);
   background:var(--bg3);transition:background .1s,border-color .1s,color .1s}
 .oev-abo-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── AI-Berater (Aktien-Tab) ─────────────────────────────────────────── */
+.aib-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin:0 16px 10px;cursor:pointer;transition:background .1s}
+.aib-card:active{background:var(--bg3)}
+.aib-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
+.aib-card-title{font-weight:600;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.aib-card-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.aib-card-meta{font-size:12px;color:var(--text2);display:flex;justify-content:space-between;gap:8px;margin-top:8px;align-items:center}
+.aib-verdict{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.aib-verdict-sell{background:rgba(229,75,75,.15);color:#FF6B6B;border:1px solid rgba(229,75,75,.3)}
+.aib-verdict-reduce{background:rgba(255,107,53,.15);color:#FFA372;border:1px solid rgba(255,107,53,.3)}
+.aib-verdict-hold{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.aib-verdict-add{background:rgba(0,212,170,.15);color:#5DEABF;border:1px solid rgba(0,212,170,.3)}
+.aib-verdict-watch{background:rgba(109,213,250,.15);color:#9DDEFC;border:1px solid rgba(109,213,250,.3)}
+.aib-aging-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.aib-aging-fresh{background:#00D4AA}
+.aib-aging-stale{background:#FFA372}
+.aib-aging-cold{background:#FF6B6B}
+.aib-aging-unknown{background:var(--border2)}
+.aib-dd-section{margin:14px 0;padding-top:14px;border-top:1px solid var(--border)}
+.aib-dd-section h4{font-size:13px;font-weight:600;color:var(--text);margin:0 0 8px}
+.aib-bullet-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.aib-bullet-row{display:flex;gap:8px;align-items:flex-start}
+.aib-bullet-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;color:var(--text)}
+.aib-bullet-add{background:var(--bg);border:1px dashed var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text2);width:100%;text-align:left;cursor:pointer}
+.aib-bullet-add:hover{color:var(--text)}
+.aib-bullet-del{background:none;border:none;color:var(--text2);cursor:pointer;padding:4px 6px}
+.aib-rec-bubble{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:10px 12px;margin-bottom:10px}
+.aib-rec-bubble.sell{background:rgba(229,75,75,.1);border-color:rgba(229,75,75,.3)}
+.aib-rec-bubble.reduce{background:rgba(255,107,53,.1);border-color:rgba(255,107,53,.3)}
+.aib-rec-bubble.add{background:rgba(0,212,170,.1);border-color:rgba(0,212,170,.3)}
+.aib-rec-bubble.watch{background:rgba(109,213,250,.1);border-color:rgba(109,213,250,.3)}
+.aib-chat-msg{padding:10px 14px;border-radius:14px;max-width:88%;white-space:pre-wrap;font-size:14px;line-height:1.4}
+.aib-chat-msg.user{background:#FF6B35;color:#000;align-self:flex-end;border-bottom-right-radius:4px}
+.aib-chat-msg.assistant{background:var(--bg2);color:var(--text);align-self:flex-start;border:1px solid var(--border);border-bottom-left-radius:4px}
+.aib-chat-msg.error{background:rgba(229,75,75,.15);color:#FF6B6B;border:1px solid rgba(229,75,75,.3);align-self:flex-start}
+.aib-dd-marker-card{background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px}
+.aib-dd-marker-card .aib-marker-head{color:var(--accent);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.4px;margin-bottom:3px}
+.aib-dd-marker-card .aib-marker-actions{display:flex;gap:6px;margin-top:6px}
+.aib-dd-marker-card .aib-marker-actions button{flex:1;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;border:none}
+.aib-dd-marker-card .aib-marker-accept{background:var(--accent);color:#fff}
+.aib-dd-marker-card .aib-marker-skip{background:var(--bg3);color:var(--text2)}
+.aib-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:12px 14px;margin:0 16px 8px}
+.aib-stat-card h4{font-size:13px;color:var(--text);margin:0 0 6px;font-weight:600}
+.aib-stat-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.aib-stat-row .l{color:var(--text2)}
+.aib-stat-row .v{color:var(--text);font-variant-numeric:tabular-nums}
+.aib-stat-row .v.pos{color:#5DEABF}.aib-stat-row .v.neg{color:#FF6B6B}
+.aib-empty{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
