@@ -162,7 +162,13 @@ async function aibPull() {
     AIB_STATE.dirty = false;
     return d;
   } catch (e) {
-    if (typeof toast === 'function') toast('Sheet-Laden fehlgeschlagen: ' + (e.message || e), 'err');
+    var msg = e.message || String(e);
+    // Hilfreiche Diagnose: wenn Apps-Script noch alte Version
+    if (msg.indexOf('Unbekannte Aktion') >= 0 || msg.indexOf('Unknown action') >= 0) {
+      msg = 'Apps-Script ist noch nicht aktualisiert. Bitte gas/admin-code.gs in Apps-Script-Editor neu deployen (Bereitstellen → Bereitstellungen verwalten → Bearbeiten → Version: Neu → Bereitstellen). URL bleibt gleich.';
+    }
+    AIB_STATE.bootErr = msg;
+    if (typeof toast === 'function') toast(msg.slice(0, 120), 'err');
     return null;
   } finally {
     AIB_STATE.loading = false;
@@ -213,7 +219,15 @@ async function aibBoot() {
     var status2 = document.getElementById('aib-portfolio-status');
     if (status2) { status2.style.display = 'block'; status2.textContent = 'Lade aus Sheet…'; }
     await aibPull();
-    if (status2) status2.style.display = 'none';
+    if (status2) {
+      if (AIB_STATE.bootErr) {
+        status2.style.display = 'block';
+        status2.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:6px">⚠ ' + aibEscape(AIB_STATE.bootErr) + '</div>' +
+          '<button class="filter-chip" onclick="AIB_STATE.bootErr=null;AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
+      } else {
+        status2.style.display = 'none';
+      }
+    }
   }
   aibRender();
 }
