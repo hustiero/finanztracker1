@@ -2067,3 +2067,7 @@ body.is-android .filter-row{touch-action:pan-x}
 .aib-stat-row .v{color:var(--text);font-variant-numeric:tabular-nums}
 .aib-stat-row .v.pos{color:#5DEABF}.aib-stat-row .v.neg{color:#FF6B6B}
 .aib-empty{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
+.aib-summary{margin:0 16px 10px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2)}
+.aib-summary-row{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:600;color:var(--text);gap:8px}
+.aib-summary-row span:last-child{font-variant-numeric:tabular-nums;font-weight:500;color:var(--text2);font-size:13px;text-align:right}
+.aib-summary-sub{font-size:12px;color:var(--text2);margin-top:4px}
