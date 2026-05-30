@@ -1,12 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
-// AI-Berater — Vanilla-Port (ersetzt das alte React-Bundle)
+// AI-Berater — Portfolio + Due-Diligence (vanilla, im Aktien-Tab)
 //
-// Lebt im Aktien-Tab des finanztrackers. Nutzt:
-//   - apiCall()  (js/data.js)  für ai_pull/ai_push gegen admin-code.gs
-//   - openModal/closeModal (js/ui.js) für Modals
-//   - toast() (js/ui.js) für Feedback
-//   - markDirty() (js/core.js) für Re-Render-Triggers
-//   - CFG.sessionToken, CFG.adminUrl — Auth via finanztracker-Login
+// Nutzt finanztracker-Infrastruktur:
+//   openModal/closeModal (ui.js), toast (ui.js), CFG (core.js)
+//   Auth via CFG.sessionToken + CFG.adminUrl
+//   Sheet-Sync via aibApiCall → admin-code.gs (ai_pull / ai_push)
+//
+// Sub-Module:
+//   aiberater-coach.js  — Claude-Chat über das Portfolio
+//   aiberater-tax.js    — Saxo-CSV-Import + CH-Steuer-Auswertung
 // ═══════════════════════════════════════════════════════════════
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -14,9 +16,9 @@ var AIB_STATE = {
   loaded: false,
   loading: false,
   dirty: false,
+  bootErr: null,
   lastSavedAt: null,
   portfolio: [],
-  watchlist: [],     // Phase 2 — UI MVP-leer
   chatHistory: [],
   transactions: [],
   openPositionId: null,
@@ -24,10 +26,11 @@ var AIB_STATE = {
 
 var aibView = 'portfolio'; // 'portfolio' | 'coach' | 'steuern'
 
-// ── Konstanten / DD-Schema ───────────────────────────────────────────────────
+// ── DD-Schema ─────────────────────────────────────────────────────────────────
 var AIB_MODEL_COACH = 'claude-sonnet-4-6';
 var AIB_VERDICTS = ['sell', 'reduce', 'hold', 'add', 'watch'];
 var AIB_VERDICT_LABEL = { sell: 'Verkaufen', reduce: 'Reduzieren', hold: 'Halten', add: 'Nachkaufen', watch: 'Beobachten' };
+var AIB_VERDICT_SORT = { sell: 0, reduce: 1, add: 2, watch: 3, hold: 4, '': 5 };
 var AIB_DD_LIST_FIELDS = ['strengths', 'risks', 'catalysts'];
 
 function aibEmptyDD() {
@@ -68,27 +71,38 @@ function aibDDFreshness(dd) {
   return 'cold';
 }
 
+// ── Utils ─────────────────────────────────────────────────────────────────────
 function aibUid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
 function aibNum(v) {
   if (v == null || v === '') return 0;
   var n = typeof v === 'number' ? v : parseFloat(String(v).replace(/'/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : 0;
 }
-function aibFmtCcy(n, ccy) {
-  n = aibNum(n);
-  ccy = ccy || 'CHF';
-  try { return n.toLocaleString('de-CH', { style: 'currency', currency: ccy, maximumFractionDigits: 2 }); }
-  catch { return n.toFixed(2) + ' ' + ccy; }
-}
 function aibFmt(n, digits) {
   return aibNum(n).toLocaleString('de-CH', { minimumFractionDigits: digits == null ? 2 : digits, maximumFractionDigits: digits == null ? 2 : digits });
+}
+function aibFmtCcy(n, ccy) {
+  return aibFmt(n, 2) + ' ' + (ccy || 'CHF');
+}
+function aibFmtShares(n) {
+  n = aibNum(n);
+  if (n === 0) return '0';
+  if (Math.abs(n) >= 1) return n % 1 === 0 ? String(n) : aibFmt(n, 2);
+  // Bruchteile (Krypto): bis 6 signifikante Stellen, ohne Trailing-Nullen
+  return parseFloat(n.toFixed(6)).toString();
+}
+function aibEscape(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+}
+function aibCurrentPos() {
+  return AIB_STATE.portfolio.find(function (p) { return p.id === AIB_STATE.openPositionId; }) || null;
 }
 
 // ── Sub-Tab-Navigation ──────────────────────────────────────────────────────
 function aibSetView(v) {
   aibView = v;
-  var tabs = ['portfolio', 'coach', 'steuern'];
-  tabs.forEach(function (t) {
+  ['portfolio', 'coach', 'steuern'].forEach(function (t) {
     var btn = document.getElementById('aib-tab-' + t);
     var view = document.getElementById('aib-view-' + t);
     if (btn) btn.classList.toggle('active', t === v);
@@ -97,7 +111,6 @@ function aibSetView(v) {
   aibRender();
 }
 
-// ── Dispatcher + Render ─────────────────────────────────────────────────────
 function aibRender() {
   if (aibView === 'portfolio') renderAibPortfolio();
   else if (aibView === 'coach') renderAibCoach();
@@ -107,8 +120,7 @@ function aibRender() {
 
 function aibUpdateSaveFab() {
   var fab = document.getElementById('aib-save-fab');
-  if (!fab) return;
-  fab.style.display = AIB_STATE.dirty ? 'flex' : 'none';
+  if (fab) fab.style.display = AIB_STATE.dirty ? 'flex' : 'none';
 }
 
 function aibMarkDirty() {
@@ -116,18 +128,16 @@ function aibMarkDirty() {
   aibUpdateSaveFab();
 }
 
-// ── Auth-Check + API-Wrapper ────────────────────────────────────────────────
+// ── Auth + Sheet-Sync ───────────────────────────────────────────────────────
 function aibCheckAuth() {
   if (!CFG.sessionToken || !CFG.adminUrl) {
-    if (typeof toast === 'function') toast('Bitte zuerst anmelden (Einstellungen → Account)', 'err');
+    if (typeof toast === 'function') toast('Bitte zuerst im finanztracker anmelden', 'err');
     return false;
   }
   return true;
 }
 
-// Big-payload-aware API-Call. Kleine Params (action, token) → URL.
-// Grosse Strings (portfolio-JSON etc.) → Body. doPost in admin-code.gs
-// merged beide und dispatcht via _handle.
+// Kleine Params → URL, grosse JSON-Strings → POST-Body (doPost merged beide).
 async function aibApiCall(params) {
   if (!aibCheckAuth()) throw new Error('Nicht angemeldet.');
   var urlParams = { token: CFG.sessionToken };
@@ -146,50 +156,60 @@ async function aibApiCall(params) {
   try { r = await fetch(url, opts); } catch (e) { throw new Error('Netzwerkfehler: ' + (e.message || e)); }
   if (r.status === 401) {
     CFG.sessionToken = ''; CFG.authRole = ''; if (typeof cfgSave === 'function') cfgSave();
-    if (typeof toast === 'function') toast('Sitzung abgelaufen', 'err');
-    throw new Error('HTTP 401');
+    throw new Error('Sitzung abgelaufen — bitte neu anmelden.');
   }
   if (!r.ok) throw new Error('HTTP ' + r.status);
   var d;
   try { d = await r.json(); } catch { throw new Error('Ungültige Server-Antwort'); }
-  if (d && d.error) throw new Error(d.error);
+  if (d && d.error) {
+    if (String(d.error).indexOf('Unbekannte Aktion') >= 0) {
+      throw new Error('Apps-Script ist nicht aktuell. Im Editor neu bereitstellen (Version: Neu) — siehe Einstellungen.');
+    }
+    throw new Error(d.error);
+  }
   return d;
 }
 
+// Bullets von leeren Strings befreien (entstehen beim Editieren).
+function aibSanitizePortfolio(list) {
+  return list.map(function (p) {
+    var c = Object.assign({}, p);
+    if (c.dueDiligence) {
+      var dd = Object.assign({}, c.dueDiligence);
+      AIB_DD_LIST_FIELDS.forEach(function (f) {
+        if (Array.isArray(dd[f])) dd[f] = dd[f].filter(function (x) { return String(x).trim() !== ''; });
+      });
+      c.dueDiligence = dd;
+    }
+    return c;
+  });
+}
+
 async function aibPull() {
-  if (!aibCheckAuth()) return null;
   AIB_STATE.loading = true;
+  AIB_STATE.bootErr = null;
   try {
     var d = await aibApiCall({ action: 'ai_pull' });
     AIB_STATE.portfolio = Array.isArray(d.portfolio) ? d.portfolio.map(function (p) { p.dueDiligence = aibEnsureDD(p); return p; }) : [];
-    AIB_STATE.watchlist = Array.isArray(d.watchlist) ? d.watchlist : [];
     AIB_STATE.chatHistory = Array.isArray(d.chatHistory) ? d.chatHistory : [];
     AIB_STATE.transactions = Array.isArray(d.transactions) ? d.transactions : [];
     AIB_STATE.loaded = true;
     AIB_STATE.lastSavedAt = Date.now();
     AIB_STATE.dirty = false;
-    return d;
+    return true;
   } catch (e) {
-    var msg = e.message || String(e);
-    // Hilfreiche Diagnose: wenn Apps-Script noch alte Version
-    if (msg.indexOf('Unbekannte Aktion') >= 0 || msg.indexOf('Unknown action') >= 0) {
-      msg = 'Apps-Script ist noch nicht aktualisiert. Bitte gas/admin-code.gs in Apps-Script-Editor neu deployen (Bereitstellen → Bereitstellungen verwalten → Bearbeiten → Version: Neu → Bereitstellen). URL bleibt gleich.';
-    }
-    AIB_STATE.bootErr = msg;
-    if (typeof toast === 'function') toast(msg.slice(0, 120), 'err');
-    return null;
+    AIB_STATE.bootErr = e.message || String(e);
+    return false;
   } finally {
     AIB_STATE.loading = false;
   }
 }
 
 async function aibPush() {
-  if (!aibCheckAuth()) return false;
   try {
     await aibApiCall({
       action: 'ai_push',
-      portfolio: AIB_STATE.portfolio,
-      watchlist: AIB_STATE.watchlist,
+      portfolio: aibSanitizePortfolio(AIB_STATE.portfolio),
       chatHistory: AIB_STATE.chatHistory,
       transactions: AIB_STATE.transactions,
     });
@@ -209,72 +229,93 @@ async function aibSave() {
   if (fab) { fab.disabled = false; fab.textContent = 'Speichern'; }
   aibUpdateSaveFab();
   if (ok && typeof toast === 'function') toast('Gespeichert', '');
-  aibRender();
 }
 
-// ── Bootstrap (bei goTab('aktien')) ─────────────────────────────────────────
+// ── Bootstrap ────────────────────────────────────────────────────────────────
 async function aibBoot() {
-  if (AIB_STATE.loading) return;
+  if (AIB_STATE.loading || AIB_STATE.loaded) { aibRender(); return; }
+  var status = document.getElementById('aib-portfolio-status');
   if (!aibCheckAuth()) {
-    var status = document.getElementById('aib-portfolio-status');
-    if (status) {
-      status.style.display = 'block';
-      status.textContent = 'Bitte zuerst im finanztracker anmelden.';
-    }
+    if (status) { status.style.display = 'block'; status.textContent = 'Bitte zuerst im finanztracker anmelden.'; }
     return;
   }
-  if (!AIB_STATE.loaded) {
-    var status2 = document.getElementById('aib-portfolio-status');
-    if (status2) { status2.style.display = 'block'; status2.textContent = 'Lade aus Sheet…'; }
-    await aibPull();
-    if (status2) {
-      if (AIB_STATE.bootErr) {
-        status2.style.display = 'block';
-        status2.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:6px">' + aibEscape(AIB_STATE.bootErr) + '</div>' +
-          '<button class="filter-chip" onclick="AIB_STATE.bootErr=null;AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
-      } else {
-        status2.style.display = 'none';
-      }
+  if (status) { status.style.display = 'block'; status.textContent = 'Lade aus Sheet…'; }
+  var ok = await aibPull();
+  if (status) {
+    if (!ok) {
+      status.style.display = 'block';
+      status.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:8px">' + aibEscape(AIB_STATE.bootErr) + '</div>' +
+        '<button class="filter-chip" onclick="AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
+      return;
     }
+    status.style.display = 'none';
   }
   aibRender();
 }
 
 // ── Portfolio-View ──────────────────────────────────────────────────────────
+function aibPortfolioSorted() {
+  return AIB_STATE.portfolio.slice().sort(function (a, b) {
+    var va = aibEnsureDD(a).recommendation.verdict;
+    var vb = aibEnsureDD(b).recommendation.verdict;
+    var ra = AIB_VERDICT_SORT[va], rb = AIB_VERDICT_SORT[vb];
+    if (ra !== rb) return ra - rb;
+    return (aibNum(b.shares) * aibNum(b.currentPrice)) - (aibNum(a.shares) * aibNum(a.currentPrice));
+  });
+}
+
 function renderAibPortfolio() {
   var listEl = document.getElementById('aib-portfolio-list');
-  if (!listEl) return;
   var statusEl = document.getElementById('aib-portfolio-status');
-  if (statusEl) statusEl.style.display = AIB_STATE.portfolio.length === 0 && AIB_STATE.loaded ? 'none' : statusEl.style.display;
-  if (AIB_STATE.portfolio.length === 0 && AIB_STATE.loaded) {
-    listEl.innerHTML = '<div class="aib-empty">Noch keine Positionen.<br><span style="font-size:12px;opacity:.7">Klicke unten auf „+ Position hinzufügen".</span></div>';
+  if (!listEl) return;
+  if (statusEl && AIB_STATE.loaded && !AIB_STATE.bootErr) statusEl.style.display = 'none';
+
+  if (AIB_STATE.portfolio.length === 0) {
+    listEl.innerHTML = '<div class="aib-empty">Noch keine Positionen.<br>' +
+      '<span style="font-size:12px;opacity:.7">„+ Position" für manuelle Erfassung, oder importiere eine Broker-CSV und nutze „Aus Trades aufbauen".</span></div>';
     return;
   }
-  var html = AIB_STATE.portfolio.map(function (p) {
+
+  // Summary: Wert je Währung + Verdict-Übersicht
+  var byCcy = {}, verdicts = { sell: 0, reduce: 0, hold: 0, add: 0, watch: 0, none: 0 };
+  AIB_STATE.portfolio.forEach(function (p) {
+    var ccy = p.currency || 'CHF';
+    byCcy[ccy] = (byCcy[ccy] || 0) + aibNum(p.shares) * aibNum(p.currentPrice);
+    var v = aibEnsureDD(p).recommendation.verdict;
+    verdicts[v || 'none']++;
+  });
+  var ccyStr = Object.keys(byCcy).map(function (c) { return aibFmt(byCcy[c], 0) + ' ' + c; }).join(' · ');
+  var actionable = verdicts.sell + verdicts.reduce + verdicts.add;
+  var verdictBits = [];
+  if (verdicts.sell) verdictBits.push(verdicts.sell + ' verkaufen');
+  if (verdicts.reduce) verdictBits.push(verdicts.reduce + ' reduzieren');
+  if (verdicts.add) verdictBits.push(verdicts.add + ' nachkaufen');
+  if (verdicts.none) verdictBits.push(verdicts.none + ' ohne DD');
+
+  var summary = '<div class="aib-summary">' +
+    '<div class="aib-summary-row"><span>' + AIB_STATE.portfolio.length + ' Positionen</span><span>' + aibEscape(ccyStr) + '</span></div>' +
+    (verdictBits.length ? '<div class="aib-summary-sub">' + (actionable ? 'Handeln: ' : '') + aibEscape(verdictBits.join(' · ')) + '</div>' : '') +
+  '</div>';
+
+  var cards = aibPortfolioSorted().map(function (p) {
     var dd = aibEnsureDD(p);
     var fresh = aibDDFreshness(dd);
     var verdict = dd.recommendation.verdict;
     var verdictHtml = verdict ? '<span class="aib-verdict aib-verdict-' + verdict + '">' + AIB_VERDICT_LABEL[verdict] + '</span>' : '';
     var ageDays = dd.lastAnalyzedAt ? Math.round((Date.now() - dd.lastAnalyzedAt) / 86400000) : null;
-    var ageStr = ageDays == null ? 'keine AI-DD' : (ageDays === 0 ? 'heute' : ageDays + ' Tage');
-    var mvLocal = (p.shares || 0) * (p.currentPrice || 0);
+    var ageStr = ageDays == null ? 'keine AI-DD' : (ageDays === 0 ? 'DD heute' : 'DD ' + ageDays + ' Tage');
+    var mvLocal = aibNum(p.shares) * aibNum(p.currentPrice);
     return '<div class="aib-card" onclick="openAibPositionModal(\'' + p.id + '\')">' +
-      '<div class="aib-card-head"><div class="aib-card-title">' +
-        aibEscape(p.name || p.ticker) + ' ' + verdictHtml +
-      '</div></div>' +
-      '<div class="aib-card-sub">' + aibEscape(p.ticker) + ' · ' + (p.shares || 0) + ' × ' + aibFmtCcy(p.currentPrice || 0, p.currency) + '</div>' +
+      '<div class="aib-card-head"><div class="aib-card-title">' + aibEscape(p.name || p.ticker) + ' ' + verdictHtml + '</div></div>' +
+      '<div class="aib-card-sub">' + aibEscape(p.ticker) + ' · ' + aibFmtShares(p.shares) + ' × ' + aibFmtCcy(p.currentPrice, p.currency) + '</div>' +
       '<div class="aib-card-meta">' +
-        '<span><span class="aib-aging-dot aib-aging-' + fresh + '"></span>DD ' + ageStr + '</span>' +
+        '<span><span class="aib-aging-dot aib-aging-' + fresh + '"></span>' + ageStr + '</span>' +
         '<span>' + aibFmtCcy(mvLocal, p.currency) + '</span>' +
       '</div>' +
     '</div>';
   }).join('');
-  listEl.innerHTML = html;
-}
 
-function aibEscape(s) {
-  if (s == null) return '';
-  return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  listEl.innerHTML = summary + cards;
 }
 
 // ── Position-Detail-Modal ───────────────────────────────────────────────────
@@ -295,7 +336,7 @@ function renderAibPositionBody(pos) {
       (dd.recommendation.confidence ? ' <span style="opacity:.7;font-size:12px">· ' + dd.recommendation.confidence + '</span>' : '') +
       (dd.recommendation.rationale ? '<div style="font-size:13px;margin-top:4px;opacity:.95">' + aibEscape(dd.recommendation.rationale) + '</div>' : '') +
       '</div>'
-    : '<div class="aib-rec-bubble" style="border-style:dashed;color:var(--text2);font-size:12px">Noch keine AI-Empfehlung. „DD aktualisieren" unten klicken.</div>';
+    : '<div class="aib-rec-bubble" style="border-style:dashed;color:var(--text2);font-size:12px">Noch keine AI-Empfehlung. „DD aktualisieren" unten startet die Recherche.</div>';
 
   var ageDays = dd.lastAnalyzedAt ? Math.round((Date.now() - dd.lastAnalyzedAt) / 86400000) : null;
   var ageStr = ageDays == null ? 'noch nie' : (ageDays === 0 ? 'heute' : 'vor ' + ageDays + ' Tagen');
@@ -310,54 +351,102 @@ function renderAibPositionBody(pos) {
 
     '<div class="aib-dd-section" style="padding-top:0;border-top:0">' +
       '<h4>Thesis</h4>' +
-      '<textarea id="aib-pos-thesis" class="form-input" rows="2" oninput="aibPosFieldChanged(\'thesis\', this.value)">' + aibEscape(dd.thesis) + '</textarea>' +
+      '<textarea class="form-input" rows="2" placeholder="Warum hältst du diese Position?" oninput="aibPosFieldChanged(\'thesis\', this.value)">' + aibEscape(dd.thesis) + '</textarea>' +
     '</div>' +
 
-    aibRenderBulletSection(pos.id, 'strengths', 'Stärken', dd.strengths) +
-    aibRenderBulletSection(pos.id, 'risks', 'Risiken', dd.risks) +
-    aibRenderBulletSection(pos.id, 'catalysts', 'Catalysts', dd.catalysts) +
+    aibRenderBulletSection('strengths', 'Stärken', dd.strengths) +
+    aibRenderBulletSection('risks', 'Risiken', dd.risks) +
+    aibRenderBulletSection('catalysts', 'Catalysts', dd.catalysts) +
 
     '<div class="aib-dd-section">' +
       '<h4>Fundamentals</h4>' +
-      '<textarea id="aib-pos-fundamentals" class="form-input" rows="3" placeholder="P/E, Margen, Verschuldung…" oninput="aibPosFieldChanged(\'fundamentals\', this.value)">' + aibEscape(dd.fundamentals) + '</textarea>' +
+      '<textarea class="form-input" rows="3" placeholder="P/E, Margen, Verschuldung…" oninput="aibPosFieldChanged(\'fundamentals\', this.value)">' + aibEscape(dd.fundamentals) + '</textarea>' +
     '</div>' +
 
     '<div class="aib-dd-section">' +
-      '<h4>Eigene Notizen <span style="font-weight:400;color:var(--text2);font-size:12px">(AI fasst diese NIE an)</span></h4>' +
-      '<textarea id="aib-pos-usernotes" class="form-input" rows="2" oninput="aibPosFieldChanged(\'userNotes\', this.value)">' + aibEscape(dd.userNotes) + '</textarea>' +
+      '<h4>Eigene Notizen <span style="font-weight:400;color:var(--text2);font-size:12px">(AI fasst diese nie an)</span></h4>' +
+      '<textarea class="form-input" rows="2" oninput="aibPosFieldChanged(\'userNotes\', this.value)">' + aibEscape(dd.userNotes) + '</textarea>' +
     '</div>' +
 
-    '<div class="aib-dd-section">' +
-      '<h4>Stammdaten</h4>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-        '<div><label class="form-label">Ticker</label><input id="aib-pos-ticker" class="form-input" type="text" value="' + aibEscape(pos.ticker) + '" oninput="aibPosFieldChanged(\'ticker\', this.value.toUpperCase())"></div>' +
-        '<div><label class="form-label">Asset-Klasse</label><input id="aib-pos-class" class="form-input" type="text" value="' + aibEscape(pos.assetClass || '') + '" oninput="aibPosFieldChanged(\'assetClass\', this.value)"></div>' +
-        '<div><label class="form-label">Anzahl</label><input id="aib-pos-shares" class="form-input" type="number" step="any" value="' + (pos.shares || 0) + '" oninput="aibPosFieldChanged(\'shares\', parseFloat(this.value)||0)"></div>' +
-        '<div><label class="form-label">Einstand</label><input id="aib-pos-cost" class="form-input" type="number" step="any" value="' + (pos.costBasis || 0) + '" oninput="aibPosFieldChanged(\'costBasis\', parseFloat(this.value)||0)"></div>' +
-        '<div><label class="form-label">Akt. Kurs</label><input id="aib-pos-price" class="form-input" type="number" step="any" value="' + (pos.currentPrice || 0) + '" oninput="aibPosFieldChanged(\'currentPrice\', parseFloat(this.value)||0)"></div>' +
-        '<div><label class="form-label">Währung</label><input id="aib-pos-currency" class="form-input" type="text" value="' + aibEscape(pos.currency || '') + '" oninput="aibPosFieldChanged(\'currency\', this.value.toUpperCase())"></div>' +
+    aibRenderHistory(dd) +
+
+    '<details class="aib-dd-section">' +
+      '<summary style="cursor:pointer;font-weight:600;font-size:13px;color:var(--text)">Stammdaten bearbeiten</summary>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
+        '<div><label class="form-label">Ticker</label><input class="form-input" type="text" value="' + aibEscape(pos.ticker) + '" oninput="aibPosFieldChanged(\'ticker\', this.value.toUpperCase())"></div>' +
+        '<div><label class="form-label">Asset-Klasse</label><input class="form-input" type="text" value="' + aibEscape(pos.assetClass || '') + '" oninput="aibPosFieldChanged(\'assetClass\', this.value)"></div>' +
+        '<div><label class="form-label">Anzahl</label><input class="form-input" type="number" step="any" value="' + aibNum(pos.shares) + '" oninput="aibPosFieldChanged(\'shares\', parseFloat(this.value)||0)"></div>' +
+        '<div><label class="form-label">Einstand</label><input class="form-input" type="number" step="any" value="' + aibNum(pos.costBasis) + '" oninput="aibPosFieldChanged(\'costBasis\', parseFloat(this.value)||0)"></div>' +
+        '<div><label class="form-label">Akt. Kurs</label><input class="form-input" type="number" step="any" value="' + aibNum(pos.currentPrice) + '" oninput="aibPosFieldChanged(\'currentPrice\', parseFloat(this.value)||0)"></div>' +
+        '<div><label class="form-label">Währung</label><input class="form-input" type="text" value="' + aibEscape(pos.currency || '') + '" oninput="aibPosFieldChanged(\'currency\', this.value.toUpperCase())"></div>' +
       '</div>' +
-    '</div>' +
+    '</details>' +
 
     '<button class="btn-cancel" style="background:rgba(229,75,75,.15);color:#FF6B6B;border:1px solid rgba(229,75,75,.3);margin-top:14px" onclick="aibDeletePosition(\'' + pos.id + '\')">Position löschen</button>';
 }
 
-function aibRenderBulletSection(posId, field, label, items) {
-  var rows = (items || []).map(function (it, i) {
-    return '<div class="aib-bullet-row">' +
-      '<input type="text" value="' + aibEscape(it) + '" oninput="aibBulletUpdate(\'' + field + '\', ' + i + ', this.value)">' +
-      '<button class="aib-bullet-del" onclick="aibBulletDelete(\'' + field + '\', ' + i + ')" title="Entfernen">✕</button>' +
-    '</div>';
+function aibRenderHistory(dd) {
+  var h = (dd.history || []).filter(function (x) { return x && x.summary; });
+  if (h.length === 0) return '';
+  var rows = h.slice(0, 5).map(function (e) {
+    var dt = e.ts ? new Date(e.ts).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+    return '<div style="font-size:11px;color:var(--text2);padding:4px 0;border-top:1px solid var(--border)">' +
+      '<span style="color:var(--text);font-weight:500">' + aibEscape(dt) + '</span> · ' + aibEscape(e.summary) + '</div>';
   }).join('');
-  return '<div class="aib-dd-section"><h4>' + label + '</h4>' +
+  return '<details class="aib-dd-section">' +
+    '<summary style="cursor:pointer;font-weight:600;font-size:13px;color:var(--text)">DD-Verlauf (' + h.length + ')</summary>' +
+    '<div style="margin-top:6px">' + rows + '</div>' +
+  '</details>';
+}
+
+function aibRenderBulletSection(field, label, items) {
+  var rows = (items || []).map(function (it) { return aibBulletRowHtml(field, it); }).join('');
+  return '<div class="aib-dd-section" data-bullet-section="' + field + '"><h4>' + label + '</h4>' +
     '<div class="aib-bullet-list">' + rows +
-      '<button class="aib-bullet-add" onclick="aibBulletAdd(\'' + field + '\')">+ ' + label.toLowerCase() + ' hinzufügen</button>' +
+      '<button class="aib-bullet-add" onclick="aibBulletAdd(\'' + field + '\')">+ ' + label.toLowerCase() + '</button>' +
     '</div>' +
   '</div>';
 }
 
+function aibBulletRowHtml(field, value) {
+  return '<div class="aib-bullet-row">' +
+    '<input type="text" data-bullet="' + field + '" value="' + aibEscape(value) + '" oninput="aibCollectBullets(\'' + field + '\')">' +
+    '<button class="aib-bullet-del" onclick="aibBulletDelRow(this, \'' + field + '\')" title="Entfernen">✕</button>' +
+  '</div>';
+}
+
+// Liest alle Bullet-Inputs eines Feldes aus dem DOM zurück in den State.
+// Index-frei → keine Verschiebungs-Bugs beim Löschen.
+function aibCollectBullets(field) {
+  var pos = aibCurrentPos();
+  if (!pos) return;
+  pos.dueDiligence = aibEnsureDD(pos);
+  var inputs = document.querySelectorAll('#aib-pos-body input[data-bullet="' + field + '"]');
+  pos.dueDiligence[field] = Array.prototype.map.call(inputs, function (i) { return i.value; });
+  aibMarkDirty();
+}
+
+function aibBulletAdd(field) {
+  var section = document.querySelector('#aib-pos-body [data-bullet-section="' + field + '"] .aib-bullet-list');
+  if (!section) return;
+  var addBtn = section.querySelector('.aib-bullet-add');
+  var tmp = document.createElement('div');
+  tmp.innerHTML = aibBulletRowHtml(field, '');
+  var row = tmp.firstChild;
+  section.insertBefore(row, addBtn);
+  var input = row.querySelector('input');
+  if (input) input.focus();
+  aibCollectBullets(field);
+}
+
+function aibBulletDelRow(btn, field) {
+  var row = btn.closest('.aib-bullet-row');
+  if (row) row.remove();
+  aibCollectBullets(field);
+}
+
 function aibPosFieldChanged(field, value) {
-  var pos = AIB_STATE.portfolio.find(function (p) { return p.id === AIB_STATE.openPositionId; });
+  var pos = aibCurrentPos();
   if (!pos) return;
   if (field === 'thesis' || field === 'fundamentals' || field === 'userNotes') {
     pos.dueDiligence = aibEnsureDD(pos);
@@ -367,43 +456,6 @@ function aibPosFieldChanged(field, value) {
     pos[field] = value;
   }
   aibMarkDirty();
-}
-
-function aibBulletUpdate(field, idx, value) {
-  var pos = AIB_STATE.portfolio.find(function (p) { return p.id === AIB_STATE.openPositionId; });
-  if (!pos) return;
-  pos.dueDiligence = aibEnsureDD(pos);
-  if (!pos.dueDiligence[field]) pos.dueDiligence[field] = [];
-  pos.dueDiligence[field][idx] = value;
-  aibMarkDirty();
-}
-
-function aibBulletDelete(field, idx) {
-  var pos = AIB_STATE.portfolio.find(function (p) { return p.id === AIB_STATE.openPositionId; });
-  if (!pos) return;
-  pos.dueDiligence = aibEnsureDD(pos);
-  pos.dueDiligence[field] = (pos.dueDiligence[field] || []).filter(function (_, i) { return i !== idx; });
-  document.getElementById('aib-pos-body').innerHTML = renderAibPositionBody(pos);
-  aibMarkDirty();
-}
-
-function aibBulletAdd(field) {
-  var pos = AIB_STATE.portfolio.find(function (p) { return p.id === AIB_STATE.openPositionId; });
-  if (!pos) return;
-  pos.dueDiligence = aibEnsureDD(pos);
-  if (!pos.dueDiligence[field]) pos.dueDiligence[field] = [];
-  pos.dueDiligence[field].push('');
-  document.getElementById('aib-pos-body').innerHTML = renderAibPositionBody(pos);
-  aibMarkDirty();
-  // Focus auf neues Input
-  setTimeout(function () {
-    var section = Array.from(document.querySelectorAll('#aib-pos-body .aib-dd-section h4'))
-      .find(function (h) { return h.textContent === (field === 'strengths' ? 'Stärken' : field === 'risks' ? 'Risiken' : 'Catalysts'); });
-    if (section) {
-      var inputs = section.parentNode.querySelectorAll('input[type="text"]');
-      if (inputs.length) inputs[inputs.length - 1].focus();
-    }
-  }, 30);
 }
 
 function aibDeletePosition(id) {
@@ -416,8 +468,8 @@ function aibDeletePosition(id) {
 
 // ── AI-DD-Refresh (Claude + web_search) ─────────────────────────────────────
 async function aibCallClaude(opts) {
-  var apiKey = CFG.anthropicApiKey || CFG.aibAnthropicKey || '';
-  if (!apiKey) throw new Error('Anthropic API-Key fehlt — bitte in Einstellungen setzen (CFG.anthropicApiKey).');
+  var apiKey = CFG.anthropicApiKey || '';
+  if (!apiKey) throw new Error('Anthropic API-Key fehlt — in den AI-Berater-Einstellungen setzen.');
   var body = {
     model: opts.model || AIB_MODEL_COACH,
     max_tokens: opts.maxTokens || 2500,
@@ -437,7 +489,7 @@ async function aibCallClaude(opts) {
   });
   if (!r.ok) {
     var txt = await r.text().catch(function () { return ''; });
-    throw new Error('Claude-API ' + r.status + ': ' + txt.slice(0, 200));
+    throw new Error('Claude-API ' + r.status + ': ' + txt.slice(0, 160));
   }
   var data = await r.json();
   return (data.content || []).filter(function (b) { return b && b.type === 'text' && typeof b.text === 'string'; }).map(function (b) { return b.text; }).join('\n').trim();
@@ -450,7 +502,7 @@ async function aibRefreshDD(positionId) {
   if (btn) { btn.disabled = true; btn.textContent = 'Recherchiere…'; }
   try {
     var current = aibEnsureDD(pos);
-    var system = 'Du bist ein Equity-Research-Analyst für einen Schweizer Privatanleger. Liefere eine fundierte Due-Diligence zu EINER Aktie/ETF/Fund. Recherchiere mit web_search aktuelle Earnings, Analyst-Calls, Sektor-News (max 5 Suchen). Sei knapp und präzise. Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt – kein Markdown, kein Text drumherum:\n{\n  "thesis": "1–2 Sätze, max 220 Zeichen",\n  "strengths": ["3–5 Bullets, max 110 Zeichen je"],\n  "risks": ["3–5 Bullets, max 110 Zeichen je"],\n  "catalysts": ["2–4 Events mit Datum"],\n  "fundamentals": "P/E, EV/EBITDA, Marge, Verschuldung, Wachstum. Max 400 Zeichen.",\n  "recommendation": { "verdict": "sell|reduce|hold|add|watch", "confidence": "low|medium|high", "rationale": "1–2 Sätze, max 240 Zeichen" },\n  "summary": "1 Satz für History, max 120 Zeichen"\n}\nVerdict-Leitplanke: sell=Strukturbruch/Bewertung überreizt, reduce=Position zu gross/Gewinnmitnahme, hold=These intakt, add=Bewertung spricht für aufstocken, watch=unklar/vor Earnings. WICHTIG: bestehende userNotes nie anfassen.';
+    var system = 'Du bist ein Equity-Research-Analyst für einen Schweizer Privatanleger. Liefere eine fundierte Due-Diligence zu EINER Aktie/ETF/Fund. Recherchiere mit web_search aktuelle Earnings, Analyst-Calls, Sektor-News (max 5 Suchen). Sei knapp und präzise. Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt – kein Markdown:\n{\n  "thesis": "1-2 Sätze, max 220 Zeichen",\n  "strengths": ["3-5 Bullets, max 110 Zeichen je"],\n  "risks": ["3-5 Bullets, max 110 Zeichen je"],\n  "catalysts": ["2-4 Events mit Datum"],\n  "fundamentals": "P/E, EV/EBITDA, Marge, Verschuldung, Wachstum. Max 400 Zeichen.",\n  "recommendation": { "verdict": "sell|reduce|hold|add|watch", "confidence": "low|medium|high", "rationale": "1-2 Sätze, max 240 Zeichen" },\n  "summary": "1 Satz für History, max 120 Zeichen"\n}\nVerdict-Leitplanke: sell=Strukturbruch/Bewertung überreizt, reduce=Position zu gross/Gewinnmitnahme, hold=These intakt, add=Bewertung spricht für aufstocken, watch=unklar/vor Earnings.';
     var input = {
       ticker: pos.ticker, name: pos.name, assetClass: pos.assetClass, currency: pos.currency,
       costBasis: pos.costBasis, currentPrice: pos.currentPrice,
@@ -483,17 +535,17 @@ async function aibRefreshDD(positionId) {
         setAt: Date.now(),
       };
     }
-    var hist = (current.history || []).slice(0, 4);
-    nextDD.history = [{ ts: Date.now(), source: 'deep', summary: (parsed.summary || nextDD.thesis || '').slice(0, 120), model: AIB_MODEL_COACH }].concat(hist);
+    nextDD.history = [{ ts: Date.now(), source: 'deep', summary: (parsed.summary || nextDD.thesis || '').slice(0, 120), model: AIB_MODEL_COACH }].concat((current.history || []).slice(0, 4));
     pos.dueDiligence = nextDD;
     pos.note = nextDD.thesis || pos.note || '';
     aibMarkDirty();
-    document.getElementById('aib-pos-body').innerHTML = renderAibPositionBody(pos);
+    if (AIB_STATE.openPositionId === positionId) {
+      document.getElementById('aib-pos-body').innerHTML = renderAibPositionBody(pos);
+    }
     renderAibPortfolio();
     if (typeof toast === 'function') toast('DD aktualisiert', '');
   } catch (e) {
     if (typeof toast === 'function') toast('DD-Refresh fehlgeschlagen: ' + (e.message || e), 'err');
-  } finally {
     var btn2 = document.getElementById('aib-refresh-dd-btn');
     if (btn2) { btn2.disabled = false; btn2.textContent = 'DD aktualisieren (mit Web-Recherche)'; }
   }
@@ -501,10 +553,7 @@ async function aibRefreshDD(positionId) {
 
 // ── AddPosition-Modal ───────────────────────────────────────────────────────
 function openAibAddPositionModal() {
-  document.getElementById('aib-add-ticker').value = '';
-  document.getElementById('aib-add-name').value = '';
-  document.getElementById('aib-add-shares').value = '';
-  document.getElementById('aib-add-cost').value = '';
+  ['ticker', 'name', 'shares', 'cost'].forEach(function (f) { var el = document.getElementById('aib-add-' + f); if (el) el.value = ''; });
   document.getElementById('aib-add-currency').value = 'CHF';
   document.getElementById('aib-add-date').value = new Date().toISOString().slice(0, 10);
   document.getElementById('aib-add-class').value = 'Sonstige';
@@ -520,24 +569,18 @@ function submitAibAddPosition() {
   if (!name) return toast('Name fehlt', 'err');
   if (!(shares > 0)) return toast('Anzahl ungültig', 'err');
   if (!(cost > 0)) return toast('Einstand ungültig', 'err');
-  var pos = {
-    id: aibUid(),
-    ticker: ticker,
-    name: name,
+  AIB_STATE.portfolio = [{
+    id: aibUid(), ticker: ticker, name: name,
     assetClass: document.getElementById('aib-add-class').value,
-    shares: shares,
-    costBasis: cost,
-    currentPrice: cost,
+    shares: shares, costBasis: cost, currentPrice: cost,
     currency: document.getElementById('aib-add-currency').value,
     purchaseDate: document.getElementById('aib-add-date').value,
-    note: '',
-    dueDiligence: aibEmptyDD(),
-  };
-  AIB_STATE.portfolio = [pos].concat(AIB_STATE.portfolio);
+    note: '', dueDiligence: aibEmptyDD(),
+  }].concat(AIB_STATE.portfolio);
   aibMarkDirty();
   closeModal('aib-add-position-modal');
   renderAibPortfolio();
-  if (typeof toast === 'function') toast('Position hinzugefügt — vergiss nicht zu speichern', '');
+  if (typeof toast === 'function') toast('Position hinzugefügt — Speichern nicht vergessen', '');
 }
 
 // ── Settings-Modal: API-Keys + Connection-Test ─────────────────────────────
@@ -545,22 +588,19 @@ function openAibSettingsModal() {
   var ak = document.getElementById('aib-set-apikey');
   var fh = document.getElementById('aib-set-finnhub');
   var st = document.getElementById('aib-conn-status');
-  if (ak) ak.value = (typeof CFG !== 'undefined' && (CFG.anthropicApiKey || '')) || '';
-  if (fh) fh.value = (typeof CFG !== 'undefined' && (CFG.finnhubKey || '')) || '';
-  if (st) {
-    if (!CFG.sessionToken || !CFG.adminUrl) st.innerHTML = '<span style="color:#FFA372">Nicht angemeldet im finanztracker.</span>';
-    else st.innerHTML = 'Endpoint: <code style="font-size:11px">' + aibEscape(CFG.adminUrl).slice(0, 60) + '…</code>';
-  }
+  if (ak) ak.value = (CFG.anthropicApiKey || '');
+  if (fh) fh.value = (CFG.finnhubKey || '');
+  if (st) st.innerHTML = (!CFG.sessionToken || !CFG.adminUrl)
+    ? '<span style="color:#FFA372">Nicht angemeldet im finanztracker.</span>'
+    : 'Endpoint: <code style="font-size:11px">' + aibEscape(String(CFG.adminUrl).slice(0, 50)) + '…</code>';
   openModal('aib-settings-modal');
 }
 
 function aibSaveSettings() {
-  var ak = (document.getElementById('aib-set-apikey').value || '').trim();
-  var fh = (document.getElementById('aib-set-finnhub').value || '').trim();
-  CFG.anthropicApiKey = ak;
-  CFG.finnhubKey = fh;
+  CFG.anthropicApiKey = (document.getElementById('aib-set-apikey').value || '').trim();
+  CFG.finnhubKey = (document.getElementById('aib-set-finnhub').value || '').trim();
   if (typeof cfgSave === 'function') cfgSave();
-  if (typeof toast === 'function') toast('API-Keys gespeichert', '');
+  if (typeof toast === 'function') toast('Gespeichert', '');
   closeModal('aib-settings-modal');
 }
 
@@ -571,22 +611,16 @@ async function aibTestConnection() {
     st.innerHTML = '<span style="color:#FF6B6B">Nicht angemeldet. Bitte im finanztracker einloggen.</span>';
     return;
   }
-  st.innerHTML = 'Teste…';
+  st.textContent = 'Teste…';
   try {
     var d = await aibApiCall({ action: 'ai_pull' });
-    var n = (d.portfolio || []).length + ' Positionen · ' + (d.transactions || []).length + ' Trades · ' + (d.chatHistory || []).length + ' Chat-Messages';
-    st.innerHTML = '<span style="color:#5DEABF">Verbindung OK — ' + n + '</span>';
+    st.innerHTML = '<span style="color:#5DEABF">Verbindung OK — ' + (d.portfolio || []).length + ' Positionen, ' + (d.transactions || []).length + ' Trades.</span>';
   } catch (e) {
-    var msg = e.message || String(e);
-    if (msg.indexOf('Unbekannte Aktion') >= 0) {
-      st.innerHTML = '<span style="color:#FF6B6B">Apps-Script ist NICHT auf der neuesten Version. Sie die Anleitung unten und stelle sicher dass du <b>Version: Neu</b> wählst.</span>';
-    } else {
-      st.innerHTML = '<span style="color:#FF6B6B">' + aibEscape(msg) + '</span>';
-    }
+    st.innerHTML = '<span style="color:#FF6B6B">' + aibEscape(e.message || String(e)) + '</span>';
   }
 }
 
-// ── goTab-Hook: bei 'aktien' → boot/render ─────────────────────────────────
+// ── goTab-Hook + Lifecycle ──────────────────────────────────────────────────
 (function () {
   function hook() {
     if (typeof window.goTab !== 'function') { setTimeout(hook, 100); return; }
@@ -599,20 +633,14 @@ async function aibTestConnection() {
     };
     window._aibGoTabHooked = true;
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      hook();
-      // beforeunload-Warning bei dirty
-      window.addEventListener('beforeunload', function (e) {
-        if (AIB_STATE.dirty) { e.preventDefault(); e.returnValue = 'Ungespeicherte Änderungen — wirklich verlassen?'; }
-      });
-      // Auto-Boot falls schon im Aktien-Tab
-      var tab = document.getElementById('tab-aktien');
-      if (tab && tab.style.display !== 'none') setTimeout(aibBoot, 50);
-    });
-  } else {
+  function start() {
     hook();
+    window.addEventListener('beforeunload', function (e) {
+      if (AIB_STATE.dirty) { e.preventDefault(); e.returnValue = 'Ungespeicherte Änderungen — wirklich verlassen?'; }
+    });
     var tab = document.getElementById('tab-aktien');
     if (tab && tab.style.display !== 'none') setTimeout(aibBoot, 50);
   }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
