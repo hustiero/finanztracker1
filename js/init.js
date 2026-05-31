@@ -28,8 +28,6 @@ Object.assign(App.Data, {
   // Aggregation
   getKategorienMitEintraegen, getKategorieDetails, buildMonthlyBarData,
   getBookedYears,
-  // Sparziele
-  getSparzieleNonTax, getSparTax, sparGoalPct, sparTotalMonthly,
   // Home widgets
   getHomeWidgets,
   // Aktien — data/calculation
@@ -51,9 +49,9 @@ Object.assign(App.IO, {
   apiCall, apiGet, apiAppend, apiUpdate, apiFindRow, apiGetMeta,
   // Data cache
   dataCacheSave, dataCacheLoad, dataCacheLoadIDB,
-  // IndexedDB + Sync Queue (Step 3)
+  // IndexedDB + Sync Queue
   IDB, syncQueue, queueSync, processQueue,
-  // Event Bus + Render Scheduler (Step 8)
+  // Event Bus + Render Scheduler
   AppBus, markDirty, flushRender, RENDER_FN_MAP,
   // Master load
   loadAll, launchApp, checkSheets,
@@ -67,8 +65,6 @@ Object.assign(App.IO, {
   addCategory, updateCategory, deleteCategory,
   // Oberkategorien CRUD
   createOberkategorie, renameOberkategoriePrompt, confirmDeleteOberkategorie,
-  // Sparziele CRUD
-  saveSparGoal, deleteSparGoal, addToSparGoal,
   // Aktien trade
   saveAktienTradeFromEingabe,
   // Profile sync
@@ -86,28 +82,23 @@ Object.assign(App.IO, {
 
 // ── App.UI: rendering, modals, navigation, form helpers ───────
 Object.assign(App.UI, {
-  // Rendering helpers (Step 2)
   h, fromTemplate,
-  // Form helpers (Step 5)
   fillForm, readForm, clearForm,
   // Master render
   renderAll,
   // Page renderers
-  renderHome, renderDashboard, renderVerlauf, renderLohn,
-  renderSparen, renderCategories, renderRecurring, renderAktien,
-  renderEinstellungen, renderMonat, renderNav, renderMonthView,
+  renderHome, renderVerlauf, renderLohn,
+  renderCategories, renderRecurring, renderAktien,
+  renderEinstellungen, renderNav,
   renderOberkategorien, renderMenuOverlay, renderNotifications,
   renderErscheinungsbild, renderAdmin,
-  // Widget renderers
+  // Widget renderers (curated set after Spar/Dashboard/Monat-Cleanup)
   renderWidgetContent, renderWidgetGreeting, renderWidgetVerlaufZeitraum,
   renderWidgetLohnzyklus, renderWidgetTagesavg, renderWidgetTopKategorien,
-  renderWidgetMonatverlauf, renderWidgetHeuteAusgaben, renderWidgetSparquote,
-  renderWidgetMonatSummary, renderWidgetMonatKategorien, renderWidgetKontostand,
-  renderWidgetJahresSparquote, renderWidgetJahresKategorien, renderWidgetMonatsverlaufJahr,
-  renderWidgetSparzieleOverview,
+  renderWidgetHeuteAusgaben, renderWidgetSparquote, renderWidgetEinnahmenPanel,
   renderWidgetAktienPortfolio, renderWidgetAktienWert, renderWidgetAktienPnl,
   renderWidgetAktienTop, renderWidgetAktienVerteilung, renderWidgetAktienPosition,
-  renderWidgetAktienDashboard,
+  renderWidgetAktienDashboard, renderWidgetCatBudgets,
   // Aktien sub-renderers
   renderAktienCharts, renderAktienDashboardTop, renderAktienList, renderFxRates,
   renderAktienTradeForm, renderAktienTabelle,
@@ -121,12 +112,10 @@ Object.assign(App.UI, {
   // Navigation
   goTab, openMenuOverlay, closeMenuOverlay, toggleMenuEditMode,
   openFabMenu, closeFabMenu, pinTab, unpinTab,
-  prevDashYear, nextDashYear, prevMvMonth, nextMvMonth,
-  openMonthView, closeMonthView, openMonthViewAt,
   // Modals
   openModal, closeModal, openGenericModal, closeGenericModal,
   openEditModal, openMaterializeModal, openRecModal, openCatModal,
-  openSparGoalModal, openSparGoalDetail, openSparziel, openAvgConfig,
+  openAvgConfig,
   openNewAktieModal, openEditAktieModal, openAktieDetail, closeAktieDetail,
   openTradeModal, openAddAktieFlow, openAktieDetailFromFlow,
   openNewAktieModalFromEingabe,
@@ -146,8 +135,6 @@ Object.assign(App.UI, {
   // Home widgets management
   toggleHomeEdit, addWidget, removeWidget, moveWidget, cycleWidgetSize,
   saveHomeWidgets, setHomeKontoMonths, tileClass, getWidgetSize,
-  // Dashboard
-  setDashboardMonths,
   // Lohn + Abos subtab
   setLohnMonths, toggleFixkosten, toggleAboForm,
   // Notifications
@@ -163,7 +150,6 @@ Object.assign(App.UI, {
   // Admin
   copyInviteLink, toggleCodeGs, copyCodeGs, toggleAdminCodeGs, copyAdminCodeGs,
   adminSetScriptUrl, adminApproveUser, adminRejectUser,
-  openUserManagement, closeUserManagement, refreshUserList, filterUsers,
   adminResetPw, adminDeleteUser, adminToggleRole,
   setAdminDefaultBg, toggleAdminDefaultGlass, saveAdminDefaultDesign, setAdminAccentColor,
 });
@@ -187,19 +173,15 @@ Object.assign(App.Design, {
   setPanelBgColor, resetPanelBgColor,
 });
 
-// ── Render scheduler map (Step 8) ─────────────────────────────
-// Now that all render functions are defined, wire up the map.
+// ── Render scheduler map ──────────────────────────────────────
 RENDER_FN_MAP = {
   home:          renderHome,
   verlauf:       renderVerlauf,
-  dashboard:     renderDashboard,
   lohn:          renderLohn,
   kategorien:    renderCategories,
   dauerauftraege:renderRecurring,
-  sparen:        renderSparen,
   aktien:        renderAktien,
   einstellungen: renderEinstellungen,
-  monat:         renderMonat,
   admin:         renderAdmin,
   nav:           renderNav,
   dropdowns:     fillAllDropdowns,

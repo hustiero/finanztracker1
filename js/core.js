@@ -292,10 +292,9 @@ setInterval(processQueue, 5000);
 const ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzTQxteXTVipuf6iN4A-ekztfThxD2roR8htdLVUeC1CNGQZF3OLcG8usQDv4TH_7NwPQ/exec';
 
 const CFG_KEY = 'ft_v4';
-let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, sparziel:0, mSparziel:0, pinnedTabs:[], navInitialized:false, introSeen:false, notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null,
+let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:'', demo:false, lohnTag:25, pinnedTabs:[], navInitialized:false, introSeen:false, notifSettings:{}, homeWidgets:null, userName:'', fixkostenKats:[], aktienEnabled:false, aktienInBilanz:false, widgetAktienPosId:'', currency:'CHF', bgPreset:'', glassEnabled:false, glassBlur:12, glassAlpha:12, glassClean:false, bgImgBlur:0, themeMode:'', fontColor:'', fontColors:{}, adminDefaultDesign:null, designPackageId:null, designPackage:null,
   // Budget formula toggles (what goes into the variable-budget calculation)
   budgetInclCarryover: true,   // add/subtract previous cycle's leftover
-  budgetInclSparziel:  true,   // subtract monthly savings target
   // Per-category monthly budget limits: { [catName]: amountCHF }
   catBudgets: {},
   // Dauerauftrag renewal skips: { [recurId]: [cycleStartStr, ...] }
@@ -340,9 +339,11 @@ function cfgLoad(){
   if(!CFG.pinnedTabs){
     CFG.pinnedTabs = Array.isArray(CFG.navSlots) ? CFG.navSlots.filter(k=>!!k) : [];
   }
-  // Migrate: 'dauerauftraege' pin → 'lohn' (now merged as subtab of Lohn)
-  if(Array.isArray(CFG.pinnedTabs) && CFG.pinnedTabs.includes('dauerauftraege')){
-    CFG.pinnedTabs = [...new Set(CFG.pinnedTabs.map(k=>k==='dauerauftraege'?'lohn':k))].slice(0,3);
+  // Migrate: prune pins to tabs that still exist (Sparen/Dashboard/Monat/Kategorien/Groups out)
+  if(Array.isArray(CFG.pinnedTabs)){
+    const VALID = new Set(['verlauf','aktien','lohn','dauerauftraege','kategorien']);
+    const pruned = CFG.pinnedTabs.filter(k=>VALID.has(k));
+    if(pruned.length !== CFG.pinnedTabs.length){ CFG.pinnedTabs = pruned; }
   }
   // Migrate old theme toggle to themeMode
   if(!CFG.themeMode && CFG.theme==='light') CFG.themeMode = 'light';

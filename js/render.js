@@ -1,148 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // MODULE: RENDER
 // ═══════════════════════════════════════════════════════════════
-// MODULE: MONATSÜBERSICHT
-// ═══════════════════════════════════════════════════════════════
-let mvYear = new Date().getFullYear();
-let mvMonth = new Date().getMonth();
-const mvMonths=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-const mvWdays=['So','Mo','Di','Mi','Do','Fr','Sa'];
-
-// ── Dashboard year navigation ──────────────────────────────────
-let dashYear = new Date().getFullYear();
-
-// Cached booked-years list — rebuilt only when data lengths change.
-// Parses year directly from YYYY-MM-DD string to avoid Date object allocation.
-let _bookedYearsCache = null, _bookedYearsCacheKey = null;
-function getBookedYears(){
-  const key = DATA.expenses.length+'|'+DATA.incomes.length;
-  if(_bookedYearsCache && _bookedYearsCacheKey===key) return _bookedYearsCache;
-  const years = new Set([new Date().getFullYear()]);
-  for(const e of DATA.expenses){ const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
-  for(const e of DATA.incomes){  const y=+((e.date||'').slice(0,4)); if(y>2000&&y<2100) years.add(y); }
-  _bookedYearsCache = [...years].sort((a,b)=>a-b);
-  _bookedYearsCacheKey = key;
-  return _bookedYearsCache;
-}
-
-function prevDashYear(){
-  const years = getBookedYears();
-  const idx = years.indexOf(dashYear);
-  if(idx > 0){ dashYear = years[idx-1]; renderDashboard(); }
-}
-
-function nextDashYear(){
-  const years = getBookedYears();
-  const idx = years.indexOf(dashYear);
-  if(idx >= 0 && idx < years.length-1){ dashYear = years[idx+1]; renderDashboard(); }
-}
-
-function openMonthView(){
-  mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth();
-  renderMonthView();
-  dom('month-view').classList.add('open');
-  Device.pushNav('monthview','month-view');
-}
-function closeMonthView(){
-  dom('month-view').classList.remove('open');
-}
-function prevMvMonth(){ mvMonth--; if(mvMonth<0){mvMonth=11;mvYear--;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
-function nextMvMonth(){ mvMonth++; if(mvMonth>11){mvMonth=0;mvYear++;} if(currentTab==='monat') renderMonat(); else renderMonthView(); }
-
-function renderMonthView(){
-  const now=new Date(), yr=mvYear, mo=mvMonth;
-  const isCurrent = yr===now.getFullYear()&&mo===now.getMonth();
-  document.getElementById('mv-title-text').textContent=mvMonths[mo]+' '+yr;
-  document.getElementById('mv-next-btn').disabled=isCurrent;
-
-  const mExp=DATA.expenses.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const mInc=DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const totalOut=mExp.reduce((s,e)=>s+e.amt,0);
-  const totalIn=mInc.reduce((s,e)=>s+e.amt,0);
-  const bal=totalIn-totalOut;
-
-  // Category breakdown (grouped by parent if set)
-  const catMap={}; mExp.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
-  // Roll up subcategories to parent
-  const parentMap={}; DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
-  const parentTotals={};
-  Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
-  const cats=Object.entries(parentTotals).sort(([,a],[,b])=>b-a).slice(0,6);
-  const maxCat=cats[0]?.[1]||1;
-
-  const dateSet=new Set([...mExp.map(e=>e.date),...mInc.map(e=>e.date)]);
-  const sortedDates=[...dateSet].sort((a,b)=>b.localeCompare(a));
-  const todayStr=today();
-
-  document.getElementById('mv-content').innerHTML=`
-    <div class="section pb-0">
-      <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
-        <div class="stat-card">
-          <div class="stat-label">Einnahmen</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--green);font-weight:500;margin-top:2px">+${fmtAmt(totalIn)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Ausgaben</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:var(--red);font-weight:500;margin-top:2px">−${fmtAmt(totalOut)}</div>
-        </div>
-        <div class="stat-card" style="background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'}">
-          <div class="stat-label">Bilanz</div>
-          <div style="font-size:15px;font-family:'DM Mono',monospace;color:${bal>=0?'var(--green)':'var(--red)'};font-weight:500;margin-top:2px">${bal>=0?'+':''}${fmtAmt(bal)}</div>
-        </div>
-      </div>
-    </div>
-
-    ${cats.length?`
-    <div class="section" style="padding-top:10px;padding-bottom:0">
-      <div class="card" style="padding:12px 14px">
-        ${cats.map(([cat,amt])=>`
-          <div class="bar-wrap">
-            <div class="bar-label-row">
-              <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
-              <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill" style="--bar-w:${(amt/maxCat*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
-          </div>`).join('')}
-      </div>
-    </div>`:''}
-
-    ${sortedDates.length?`
-    <div class="section" style="padding-top:10px">
-      <div class="card p-0">
-        ${sortedDates.map(ds=>{
-          const d=new Date(ds+'T12:00:00');
-          const dExp=DATA.expenses.filter(e=>e.date===ds);
-          const dInc=DATA.incomes.filter(e=>e.date===ds);
-          const dOut=dExp.reduce((s,e)=>s+e.amt,0);
-          const dIn=dInc.reduce((s,e)=>s+e.amt,0);
-          const isToday=ds===todayStr;
-          const entries=[...dInc.map(e=>({...e,t:'i'})),...dExp.map(e=>({...e,t:'e'}))];
-          return `<div class="mv-day-group">
-            <div class="mv-day-hdr">
-              <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':mvWdays[d.getDay()]+' '+d.getDate()+'.'}</span>
-              <span class="mv-day-totals">
-                ${dIn>0?`<span style="color:var(--green)">+${fmtAmt(dIn)}</span>`:''}
-                ${dOut>0?`<span class="t-red">−${fmtAmt(dOut)}</span>`:''}
-              </span>
-            </div>
-            ${entries.map(e=>{
-              const par=parentOf(e.cat);
-              const catLabel=par?`${esc(par)} › ${esc(e.cat)}`:esc(e.cat);
-              return `
-              <div class="mv-entry">
-                <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
-                <span class="mv-entry-what">${esc(e.what)}</span>
-                <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
-                  ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
-                </span>
-              </div>`;}).join('')}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`
-    :`<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Noch keine Einträge</div><button class="empty-cta" onclick="goTab('eingabe')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Eintrag erfassen</button></div></div>`}
-  `;
-}
 
 // ── Swipe gestures ───────────────────────────────────────────────────────────
 // Main tabs: swipe left/right to switch between adjacent tabs
@@ -169,7 +27,6 @@ function renderMonthView(){
   }
 
   const content = ()=>dom('content');
-  const mv = ()=>dom('month-view');
 
   document.addEventListener('touchstart',e=>{
     sx=e.touches[0].clientX; sy=e.touches[0].clientY; sTime=Date.now(); handled=false;
@@ -190,12 +47,7 @@ function renderMonthView(){
       handled=true; return;
     }
 
-    // 1. Month-view open: swipe right to close
-    if(mv()?.classList.contains('open')){
-      if(dx>0){ closeMonthView(); handled=true; return; }
-    }
-
-    // 2. Any open modal: swipe right to close
+    // 1. Any open modal: swipe right to close
     const openModal = document.querySelector('.modal-overlay.show');
     if(openModal && dx>0){
       openModal.classList.remove('show'); handled=true; return;
@@ -330,17 +182,13 @@ let verlaufType = 'alle';         // 'alle' | 'ausgaben' | 'einnahmen'
 let verlaufKat = null;            // null | string — gewählte Kategorie für L3
 let verlaufL3SearchVis = false;   // Suchfeld auf L3 sichtbar?
 let verlaufCatSort = 'amount';    // 'amount' | 'count' — sort for L2 tiles
-let dashboardChartMonths = 3;
 
 function renderAll(){
   fillAllDropdowns();
-  // Render tabs selectively: always-visible ones + current tab
   renderHome();
   renderVerlauf();
   renderCategories();
   renderRecurring();
-  renderDashboard();
-  renderSparen();
   renderLohn();
   updatePageSub();
   // Post-render side-effects (non-blocking)
@@ -792,7 +640,6 @@ function verlaufToggleL3Search(){
   if(verlaufL3SearchVis) setTimeout(()=>document.getElementById('verlauf-search')?.focus(), 50);
   else renderVerlaufL3();
 }
-function setDashboardMonths(m){ dashboardChartMonths=m; renderDashboard(); }
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: VERLAUF ZEITRAUM-FILTER
@@ -1195,26 +1042,18 @@ const WIDGET_CATALOG = [
   { key:'lohnzyklus',      label:'Lohnzyklus',              sub:'Budget, Ausgaben & Tagesrate im Zyklus' },
   { key:'tagesavg',        label:'Ø Tagesausgaben',         sub:'Durchschnittliche Ausgaben pro Tag (laufender Monat, ohne Fixkosten)' },
   { key:'topKategorien',   label:'Top Kategorien (Zyklus)', sub:'Top 5 Ausgabenkategorien im Lohnzyklus' },
-  { key:'monatsverlauf',   label:'Monatsverlauf (6 Mo.)',   sub:'Ausgaben-Balken der letzten 6 Monate' },
   { key:'heuteAusgaben',   label:'Heutige Ausgaben',        sub:'Alle Buchungen von heute' },
   { key:'sparquote',       label:'Zyklus-Sparquote',        sub:'Sparquote im laufenden Lohnzyklus' },
-  { key:'monatSummary',    label:'Monats-Zusammenfassung',  sub:'Einnahmen, Ausgaben & Bilanz + Ø Tagesausgabe aktueller Monat' },
-  { key:'monatKategorien', label:'Monats-Kategorien',       sub:'Top Ausgabenkategorien des aktuellen Monats' },
-  { key:'kontostand',      label:'Kontostand-Verlauf',      sub:'Kontostand-Linienchart der letzten Monate' },
-  { key:'jahresSparquote', label:'Jahres-Sparquote',        sub:'Sparquote und Zielerreichung für das laufende Jahr' },
-  { key:'jahresKategorien',label:'Jahres-Kategorien',       sub:'Top 5 Ausgabenkategorien des laufenden Jahres' },
-  { key:'monatsverlaufJahr',label:'Monatsverlauf Jahr',     sub:'Ein-/Ausgaben je Monat für das laufende Jahr' },
-  { key:'verlaufZeitraum',  label:'Verlauf: Zeitraum',          sub:'Ausgaben, Einnahmen und Netto im gewählten Zeitraum mit Kategorie-Donut' },
-  { key:'aktienDashboard',  label:'Aktien-Dashboard',         sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
-  { key:'aktienPortfolio',  label:'Aktienportfolio',          sub:'Gesamtübersicht Aktien-Positionen & P&L' },
-  { key:'aktienWert',       label:'Portfolio-Wert',           sub:'Aktueller Gesamtwert des Depots (prominent)' },
-  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',     sub:'Gesamt-P&L in Zielwährung und % (benötigt Live-Kurse)' },
-  { key:'aktienTop',        label:'Top-Performer',            sub:'Aktie mit höchstem prozentualen Gewinn' },
-  { key:'aktienVerteilung', label:'Portfolio-Verteilung',     sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
-  { key:'aktienPosition',   label:'Einzelposition',           sub:'Detailansicht einer Aktie (konfigurierbar)' },
-  { key:'sparzieleOverview', label:'Sparziele',              sub:'Übersicht deiner Sparziele mit Fortschrittsbalken' },
-  { key:'einnahmenPanel',   label:'Einnahmen & Budget',     sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
-  { key:'catBudgets',       label:'Kategorie-Budgets',      sub:'Monatliche Ausgabelimits pro Kategorie mit Fortschrittsbalken' },
+  { key:'verlaufZeitraum',  label:'Verlauf: Zeitraum',     sub:'Ausgaben, Einnahmen und Netto im gewählten Zeitraum mit Kategorie-Donut' },
+  { key:'aktienDashboard',  label:'Aktien-Dashboard',      sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
+  { key:'aktienPortfolio',  label:'Aktienportfolio',       sub:'Gesamtübersicht Aktien-Positionen & P&L' },
+  { key:'aktienWert',       label:'Portfolio-Wert',        sub:'Aktueller Gesamtwert des Depots (prominent)' },
+  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',  sub:'Gesamt-P&L in Zielwährung und % (benötigt Live-Kurse)' },
+  { key:'aktienTop',        label:'Top-Performer',         sub:'Aktie mit höchstem prozentualen Gewinn' },
+  { key:'aktienVerteilung', label:'Portfolio-Verteilung',  sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
+  { key:'aktienPosition',   label:'Einzelposition',        sub:'Detailansicht einer Aktie (konfigurierbar)' },
+  { key:'einnahmenPanel',   label:'Einnahmen & Budget',    sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
+  { key:'catBudgets',       label:'Kategorie-Budgets',     sub:'Monatliche Ausgabelimits pro Kategorie mit Fortschrittsbalken' },
 ];
 const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
 let homeEditMode = false;
@@ -1279,15 +1118,8 @@ const WIDGET_SIZES = {
   lohnzyklus:       '2x3',
   tagesavg:         '1x1',
   topKategorien:    '1x2',
-  monatsverlauf:    '2x1',
   heuteAusgaben:    '1x1',
   sparquote:        '1x1',
-  monatSummary:     '2x1',
-  monatKategorien:  '1x2',
-  kontostand:       '2x2',
-  jahresSparquote:  '1x1',
-  jahresKategorien: '1x2',
-  monatsverlaufJahr:'2x2',
   verlaufZeitraum:  '2x2',
   aktienDashboard:  '2x2',
   aktienPortfolio:  '2x1',
@@ -1296,8 +1128,8 @@ const WIDGET_SIZES = {
   aktienTop:        '1x1',
   aktienVerteilung: '1x2',
   aktienPosition:   '1x1',
-  sparzieleOverview:'2x1',
   einnahmenPanel:   '2x2',
+  catBudgets:       '2x2',
 };
 
 /** Return tile CSS class for a widget key. Draft/CFG.widgetSizes overrides defaults. Falls back to 2x1. */
@@ -1323,19 +1155,15 @@ function cycleWidgetSize(key){
 // Widget → target tab mapping for clickable widgets
 const WIDGET_TAB_MAP = {
   lohnzyklus:'lohn', tagesavg:'verlauf', topKategorien:'kategorien',
-  monatsverlauf:'dashboard', heuteAusgaben:'verlauf', sparquote:'lohn',
-  monatSummary:'monat', monatKategorien:'kategorien', kontostand:'dashboard',
-  jahresSparquote:'dashboard', jahresKategorien:'kategorien',
-  monatsverlaufJahr:'dashboard', verlaufZeitraum:'verlauf', einnahmenPanel:'lohn',
+  heuteAusgaben:'verlauf', sparquote:'lohn',
+  verlaufZeitraum:'verlauf', einnahmenPanel:'lohn',
   aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
   aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
-  sparzieleOverview:'sparen',
 };
 
 // Human-readable section labels for each target tab
 const WIDGET_SECTION_LABELS = {
   lohn:'Lohn & Budget', verlauf:'Verlauf', kategorien:'Kategorien',
-  dashboard:'Jahresübersicht', monat:'Monatsübersicht', sparen:'Sparen',
   aktien:'Aktien',
 };
 
@@ -1622,15 +1450,8 @@ function renderWidgetContent(key){
     case 'lohnzyklus':       return renderWidgetLohnzyklus();
     case 'tagesavg':         return renderWidgetTagesavg();
     case 'topKategorien':    return renderWidgetTopKategorien();
-    case 'monatsverlauf':    return renderWidgetMonatverlauf();
     case 'heuteAusgaben':    return renderWidgetHeuteAusgaben();
     case 'sparquote':        return renderWidgetSparquote();
-    case 'monatSummary':     return renderWidgetMonatSummary();
-    case 'monatKategorien':  return renderWidgetMonatKategorien();
-    case 'kontostand':       return renderWidgetKontostand();
-    case 'jahresSparquote':  return renderWidgetJahresSparquote();
-    case 'jahresKategorien': return renderWidgetJahresKategorien();
-    case 'monatsverlaufJahr':return renderWidgetMonatsverlaufJahr();
     case 'verlaufZeitraum':  return renderWidgetVerlaufZeitraum();
     case 'aktienDashboard':  return renderWidgetAktienDashboard();
     case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
@@ -1639,7 +1460,6 @@ function renderWidgetContent(key){
     case 'aktienTop':        return renderWidgetAktienTop();
     case 'aktienVerteilung': return renderWidgetAktienVerteilung();
     case 'aktienPosition':   return renderWidgetAktienPosition();
-    case 'sparzieleOverview': return renderWidgetSparzieleOverview();
     case 'einnahmenPanel':   return renderWidgetEinnahmenPanel();
     case 'catBudgets':       return renderWidgetCatBudgets();
     default: return '';
@@ -1752,17 +1572,6 @@ function renderWidgetLohnzyklus(){
     <div style="margin-bottom:6px">
       ${row('Lohn / Einnahmen', '+', z.lohn, 'var(--green)')}
       ${z.fixKosten>0 ? row('Fixkosten', '−', z.fixKosten, 'var(--text2)') : ''}
-
-      <!-- Sparziel row with toggle -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
-        <span style="display:flex;align-items:center;gap:4px;color:var(--text3)">
-          ${chip('Sparziel', z.inclSparziel, 'toggleBudgetSparziel')}
-          ${z.inclSparziel && z.mSparzielRaw>0 ? `<span style="color:var(--text3)">− Sparziel</span>` : ''}
-        </span>
-        ${z.inclSparziel && z.mSparzielRaw>0
-          ? `<span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(z.mSparzielRaw)}</span>`
-          : `<span style="font-size:10px;color:var(--text3);font-style:italic">nicht einbezogen</span>`}
-      </div>
 
       <!-- Carryover row with toggle + detail -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
@@ -1906,120 +1715,6 @@ function renderWidgetTopKategorien(){
   </div>`;
 }
 
-function renderWidgetMonatverlauf(){
-  const now = new Date();
-  const months = [];
-  for(let i=5;i>=0;i--){
-    const d = new Date(now.getFullYear(),now.getMonth()-i,1);
-    months.push({mo:d.getMonth(),yr:d.getFullYear(),label:d.toLocaleDateString('de-CH',{month:'short'})});
-  }
-  const totals = months.map(m=>{
-    const s=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-01`;
-    const e=`${m.yr}-${String(m.mo+1).padStart(2,'0')}-${String(new Date(m.yr,m.mo+1,0).getDate()).padStart(2,'0')}`;
-    const recur=getRecurringOccurrences(s,e,true,true).reduce((a,x)=>a+x.amt,0);
-    return DATA.expenses.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amt,0)+recur;
-  });
-  const max = Math.max(...totals,1);
-  const barH = 48;
-  return `<div>
-    <div class="widget-title">Monatsverlauf (6 Monate)</div>
-    <div style="display:flex;align-items:flex-end;gap:4px;height:${barH+20}px;padding-bottom:18px;position:relative">
-      ${totals.map((t,i)=>{
-        const h = Math.max(4,Math.round(t/max*barH));
-        const isCur = i===5;
-        const m = months[i];
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%;cursor:pointer"
-          onclick="mvMonth=${m.mo};mvYear=${m.yr};goTab('monat');renderMonat()">
-          <div style="width:100%;height:${h}px;background:${isCur?'var(--accent)':'var(--bg3)'};border-radius:3px 3px 0 0;opacity:${isCur?1:.8}"></div>
-          <div style="font-size:9px;color:${isCur?'var(--accent)':'var(--text3)'};font-weight:${isCur?700:400};white-space:nowrap">${m.label}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
-      <span>Ø <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(totals.reduce((a,v)=>a+v,0)/totals.filter(v=>v>0).length||1)}</span></span>
-      <span>Akt.: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(totals[5])}</span></span>
-    </div>
-  </div>`;
-}
-
-function renderWidgetHeuteAusgaben(){
-  const t = today();
-  const dExp = DATA.expenses.filter(e=>e.date===t);
-  const dInc = DATA.incomes.filter(e=>e.date===t);
-  // Variable spending today (excluding fixkosten — what daily budget tracks)
-  const todayVar = dExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
-  const todayFix  = dExp.filter(e=>isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
-  const todayIn   = dInc.reduce((s,e)=>s+e.amt,0);
-  // Virtual recurring for today (not yet materialized)
-  const dRec = getRecurringOccurrences(t, t, false, true);
-
-  // Daily budget and color — both display and comparison use variable spending
-  const z = getZyklusInfo();
-  const dailyBudget = z.dailyRate;
-  const overBudget = dailyBudget!==null && todayVar > dailyBudget;
-  const amtColor = dailyBudget===null ? 'var(--text)' : overBudget ? 'var(--red)' : 'var(--green)';
-
-  let html = `<div>
-    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">HEUTE</div>
-    <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;line-height:1;color:${amtColor};margin-bottom:4px">${curr()}&nbsp;${fmtAmt(todayVar)}</div>`;
-
-  if(todayFix>0){
-    html += `<div style="font-size:11px;color:var(--text3);margin-bottom:4px">+ ${curr()} ${fmtAmt(todayFix)} Fixkosten</div>`;
-  }
-  if(todayIn>0){
-    html += `<div style="font-size:12px;color:var(--green);margin-bottom:4px">+${curr()} ${fmtAmt(todayIn)} Einnahmen</div>`;
-  }
-
-  if(dailyBudget!==null){
-    const remaining = dailyBudget - todayVar;
-    const remainingDisplay = remaining >= 0
-      ? `noch <span class="t-mono" style="color:var(--green)">${curr()} ${fmtAmt(remaining)}</span>`
-      : `<span class="t-mono" style="color:var(--red)">− ${curr()} ${fmtAmt(Math.abs(remaining))}</span> überzogen`;
-    // Show where the daily budget comes from: varRemaining ÷ daysLeft
-    const sourceHint = z.daysLeft>0
-      ? `<span style="color:var(--text3);font-size:10px">(${curr()} ${fmtAmt(z.varRemaining)} ÷ ${z.daysLeft} Tage)</span>`
-      : '';
-    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px">
-      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:2px">
-        <span>Tagesbudget: <span style="font-family:'DM Mono',monospace;color:var(--accent)">${curr()} ${fmtAmt(dailyBudget)}</span></span>
-        ${sourceHint}
-      </div>
-      <div style="color:${remaining>=0?'var(--green)':'var(--red)'}">${remainingDisplay} heute</div>
-    </div>`;
-  } else { html += `<div style="height:6px"></div>`; }
-
-  if(!dExp.length && !dInc.length && !dRec.length){
-    html += `<div style="font-size:13px;color:var(--text3)">Noch keine Buchungen heute.</div>`;
-  } else {
-    html += `<div style="margin:0 -14px;border-top:1px solid var(--border)">${buildDayGroup(t, dExp, dInc, dRec)}</div>`;
-  }
-  html += `</div>`;
-  return html;
-}
-
-function renderWidgetSparquote(){
-  const z = getZyklusInfo();
-  if(!z.hasSalary) return `<div><div class="widget-title">Sparquote</div><div class="t-muted">Kein Lohneingang erkannt.</div></div>`;
-  const ziel = CFG.mSparziel||0;
-  const saved = z.lohn - z.fixKosten - z.varSpent;
-  const pct = z.lohn>0 ? Math.round(saved/z.lohn*100) : 0;
-  const zielPct = z.lohn>0 && ziel>0 ? Math.round(ziel/z.lohn*100) : 0;
-  const barColor = saved<0?'var(--red)':pct>=zielPct?'var(--green)':'var(--yellow)';
-  return `<div>
-    <div class="widget-title">Sparquote (laufender Zyklus)</div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <span style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:${barColor}">${pct}%</span>
-      ${zielPct>0?`<span class="t-muted-sm">Ziel: ${zielPct}%</span>`:''}
-    </div>
-    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
-      <div style="height:100%;width:${Math.min(100,Math.max(0,pct))}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
-    </div>
-    <div style="margin-top:6px;font-size:12px;color:var(--text3)">
-      Gespart: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(saved)}</span>
-      ${ziel>0?` / Ziel: <span style="color:var(--text);font-family:'DM Mono',monospace">${curr()} ${fmtAmt(ziel)}</span>`:''}
-    </div>
-  </div>`;
-}
 
 function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
 
@@ -2064,200 +1759,8 @@ function renderWidgetEinnahmenPanel(){
   </div>`;
 }
 
-function renderWidgetMonatSummary(mo, yr){
-  const now = new Date();
-  if(mo==null) mo = now.getMonth();
-  if(yr==null) yr = now.getFullYear();
-  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
-  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const recurExp = getRecurringOccurrences(s,e,true,true);
-  const totalOut = mExp.reduce((a,ex)=>a+ex.amt,0) + recurExp.reduce((a,ex)=>a+ex.amt,0);
-  const totalIn  = mInc.reduce((a,ex)=>a+ex.amt,0);
-  const bal      = totalIn - totalOut;
-  const mNames   = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  return `<div>
-    <div class="widget-title">Monats-Zusammenfassung – ${mNames[mo]} ${yr}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <div style="text-align:center">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Einnahmen</div>
-        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--green)">+${fmtAmt(totalIn)}</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Ausgaben</div>
-        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--red)">−${fmtAmt(totalOut)}</div>
-      </div>
-      <div style="text-align:center;background:${bal>=0?'rgba(61,219,150,.07)':'rgba(255,77,109,.07)'};border-radius:6px;padding:4px">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Bilanz</div>
-        <div style="font-family:'DM Mono',monospace;font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${bal>=0?'+':''}${fmtAmt(bal)}</div>
-      </div>
-    </div>
-    <div style="border-top:1px solid var(--border);padding-top:8px">${buildTagesavgCard(mo, yr)}</div>
-  </div>`;
-}
 
-function renderWidgetMonatKategorien(mo, yr, limit=5){
-  const now = new Date();
-  if(mo==null) mo = now.getMonth();
-  if(yr==null) yr = now.getFullYear();
-  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
-  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const catMap={};
-  [...DATA.expenses.filter(x=>x.date>=s&&x.date<=e),...getRecurringOccurrences(s,e,true,true)].forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.amt;});
-  // Parent-category rollup
-  const parentMap={};
-  DATA.categories.forEach(c=>{if(c.parent)parentMap[c.name]=c.parent;});
-  const parentTotals={};
-  Object.entries(catMap).forEach(([cat,amt])=>{const key=parentMap[cat]||cat;parentTotals[key]=(parentTotals[key]||0)+amt;});
-  const sorted=Object.entries(parentTotals).sort((a,b)=>b[1]-a[1]).slice(0,limit);
-  if(!sorted.length) return `<div class="widget-title mb-0">Keine Ausgaben diesen Monat.</div>`;
-  const maxVal=sorted[0][1]||1;
-  const mNames=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  return `<div>
-    <div class="widget-title">Monats-Kategorien – ${mNames[mo]}</div>
-    ${sorted.map(([cat,amt])=>`
-      <div class="bar-wrap">
-        <div class="bar-label-row">
-          <span class="bar-label">${catEmoji(cat)} ${esc(cat)}</span>
-          <span class="bar-val">${curr()} ${fmtAmt(amt)}</span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" style="--bar-w:${(amt/maxVal*100).toFixed(1)}%;background:${catColor(cat)}"></div></div>
-      </div>`).join('')}
-  </div>`;
-}
 
-function renderWidgetKontostand(){
-  return `<div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div class="widget-title mb-0">Kontostand-Verlauf</div>
-      <div style="display:flex;gap:3px">
-        ${[1,3,6,12].map(m=>`<button onclick="setHomeKontoMonths(${m});event.stopPropagation()" style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid ${homeKontoMonths===m?'var(--accent)':'var(--border)'};background:${homeKontoMonths===m?'rgba(200,245,60,.15)':'var(--bg3)'};color:${homeKontoMonths===m?'var(--accent)':'var(--text3)'}">${m}M</button>`).join('')}
-      </div>
-    </div>
-    <div style="overflow-x:auto">${buildBalanceChart(homeKontoMonths)}</div>
-  </div>`;
-}
-
-function renderWidgetJahresSparquote(yr){
-  const now = new Date();
-  if(!yr) yr = now.getFullYear();
-  const isCurrentYear = yr === now.getFullYear();
-  const maxMonth = isCurrentYear ? now.getMonth() : 11;
-  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const sparziel=CFG.sparziel||0;
-  const yMonths=[];
-  for(let m=0;m<=maxMonth;m++){
-    const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
-    const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
-    const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
-    const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
-      +getRecurringOccurrences(s,e,true,true).reduce((a,ex)=>a+ex.amt,0);
-    yMonths.push({label:months[m],net:inc-out,cur:isCurrentYear&&m===now.getMonth()});
-  }
-  const cashSaved=yMonths.reduce((s,m)=>s+m.net,0);
-  const depotWert=isCurrentYear&&CFG.aktienInBilanz?getGesamtPortfoliowert():0;
-  const yearSaved=cashSaved+depotWert;
-  const sparPct=sparziel>0?Math.min(yearSaved/sparziel*100,100):0;
-  const goalReached=sparziel>0&&sparPct>=100;
-  const savedColor=yearSaved>=0?'var(--green)':'var(--red)';
-  const maxNet=Math.max(...yMonths.map(m=>Math.abs(m.net)),1);
-  const doneM=yMonths.filter(m=>!m.cur);
-  const avgM=doneM.length>0?doneM.reduce((s,m)=>s+m.net,0)/doneM.length:yearSaved;
-  // Projection: already saved (completed months) + average × remaining months (incl. current)
-  const pastSaved=doneM.reduce((s,m)=>s+m.net,0);
-  const proj=doneM.length>0 ? pastSaved+avgM*(12-doneM.length) : yearSaved;
-  return `<div onclick="goTab('sparen')" style="cursor:pointer">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="widget-title mb-0">Jahres-Sparquote ${yr}</div>
-      ${isCurrentYear?`<button onclick="openSparziel();event.stopPropagation()" style="background:none;color:var(--text3);font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:6px">Ziel ⚙</button>`:''}
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:${sparziel?'8px':'4px'}">
-      <span style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:${savedColor}">${yearSaved>=0?'+':''}${curr()} ${fmtAmt(yearSaved)}</span>
-      ${goalReached?`<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(61,219,150,.15);padding:2px 8px;border-radius:99px">✓ Ziel erreicht</span>`:''}
-    </div>
-    ${isCurrentYear&&CFG.aktienInBilanz&&depotWert>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:${sparziel?'8px':'6px'}">davon ${curr()} ${fmtAmt(cashSaved)} Cash + ${curr()} ${fmtAmt(depotWert)} Depot</div>`:''}
-    ${sparziel>0?`<div class="mb-10">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Ziel: ${curr()} ${fmtAmt(sparziel)}</span><span style="color:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};font-weight:600">${sparPct.toFixed(0)}%</span></div>
-      <div style="height:5px;border-radius:3px;background:var(--bg3)"><div style="height:100%;width:${sparPct.toFixed(1)}%;background:${sparPct>=100?'var(--green)':sparPct>50?'var(--accent)':'var(--yellow)'};border-radius:3px"></div></div>
-    </div>`:''}
-    ${yMonths.map(m=>{
-      const isPos=m.net>=0;
-      const bw=Math.min(Math.abs(m.net)/maxNet*100,100).toFixed(1);
-      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-        <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'}">${m.label}</div>
-        <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px"><div style="width:${bw}%;height:100%;background:${isPos?'var(--green)':'var(--red)'};border-radius:2px"></div></div>
-        <div style="width:72px;text-align:right;font-size:10px;font-family:'DM Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}${fmtAmt(m.net)}</div>
-      </div>`;
-    }).join('')}
-    ${doneM.length>0?`<div style="display:flex;gap:20px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Ø / Monat</div>
-        <div style="font-size:13px;font-family:'DM Mono',monospace;color:${avgM>=0?'var(--green)':'var(--red)'}">${avgM>=0?'+':''}${curr()} ${fmtAmt(Math.abs(avgM))}</div>
-      </div>
-      <div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">Hochrechnung ${yr}</div>
-        <div style="font-size:13px;font-family:'DM Mono',monospace;color:var(--text2)">${proj>=0?'+':''}${curr()} ${fmtAmt(Math.abs(proj))}</div>
-      </div>
-    </div>`:''}
-  </div>`;
-}
-
-function renderWidgetJahresKategorien(yr){
-  if(!yr) yr = new Date().getFullYear();
-  const catMap={};
-  const yrStart=`${yr}-01-01`, yrEnd=`${yr}-12-31`;
-  [...DATA.expenses.filter(e=>new Date(e.date+'T12:00:00').getFullYear()===yr),...getRecurringOccurrences(yrStart,yrEnd,true,true)]
-    .forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
-  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  if(!sorted.length) return `<div><div class="widget-title">Jahres-Kategorien</div><div class="t-muted">Keine Ausgaben erfasst.</div></div>`;
-  const total=Object.values(catMap).reduce((a,v)=>a+v,0);
-  return `<div>
-    <div class="widget-title">Jahres-Kategorien ${yr}</div>
-    ${sorted.map(([cat,amt])=>{
-      const pct=total>0?Math.round(amt/total*100):0;
-      const col=catColor(cat);
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${col}"></div><span style="font-size:13px">${esc(cat)}</span></div>
-          <div style="font-size:12px;font-family:'DM Mono',monospace"><span class="t-text3">${pct}%</span> ${curr()} ${fmtAmt(amt)}</div>
-        </div>
-        <div style="height:4px;border-radius:2px;background:var(--bg3)"><div style="height:100%;width:${pct}%;background:${col};border-radius:2px;opacity:.7"></div></div>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
-
-function renderWidgetMonatsverlaufJahr(yr){
-  const now = new Date();
-  if(!yr) yr = now.getFullYear();
-  const isCurrentYear = yr === now.getFullYear();
-  const maxMonth = isCurrentYear ? now.getMonth() : 11;
-  const months=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  const trend=[];
-  for(let m=0;m<=maxMonth;m++){
-    const s=`${yr}-${String(m+1).padStart(2,'0')}-01`;
-    const e=`${yr}-${String(m+1).padStart(2,'0')}-${String(new Date(yr,m+1,0).getDate()).padStart(2,'0')}`;
-    const out=DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0)
-      +getRecurringOccurrences(s,e,true,true).reduce((a,ex)=>a+ex.amt,0);
-    const inc=DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===yr;}).reduce((a,ex)=>a+ex.amt,0);
-    trend.push({label:months[m],out,inc,net:inc-out,mo:m,cur:isCurrentYear&&m===now.getMonth()});
-  }
-  if(!trend.length) return `<div><div class="widget-title">Monatsverlauf ${yr}</div><div class="t-muted">Keine Daten.</div></div>`;
-  const maxT=Math.max(...trend.map(t=>Math.max(t.out,t.inc)),1);
-  return `<div>
-    <div class="widget-title">Monatsverlauf ${yr}</div>
-    ${trend.map(m=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="mvMonth=${m.mo};mvYear=${yr};goTab('monat');renderMonat()">
-      <div style="width:26px;font-size:10px;color:${m.cur?'var(--accent)':'var(--text3)'};font-weight:${m.cur?600:400}">${m.label}</div>
-      <div style="flex:1;display:flex;flex-direction:column;gap:2px">
-        <div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${m.out?Math.max(m.out/maxT*100,2).toFixed(1):0}%;background:${m.cur?'var(--accent)':'var(--red)'};border-radius:2px;opacity:${m.cur?1:.7}"></div></div>
-        ${m.inc>0?`<div style="height:5px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:${Math.max(m.inc/maxT*100,2).toFixed(1)}%;background:var(--green);border-radius:2px;opacity:.7"></div></div>`:''}
-      </div>
-      <div style="min-width:70px;text-align:right;font-size:10px;font-family:'DM Mono',monospace">
-        <div style="color:${m.cur?'var(--accent)':'var(--red)'}">${m.out?'−'+fmtAmt(m.out):'—'}</div>
-        ${m.net!==0?`<div style="color:${m.net>=0?'var(--green)':'var(--red)'}">${m.net>=0?'+':''}${fmtAmt(m.net)}</div>`:''}
-      </div>
-    </div>`).join('')}
-  </div>`;
-}
 
 function renderWidgetAktienPortfolio(){
   const active = SDATA.stocks.filter(s=>{
@@ -2445,129 +1948,7 @@ function _memberAvatars(members, max=3){
   return `<div style="display:flex;align-items:center">${avatars}${extraBadge}</div>`;
 }
 
-function renderDashboard(){
-  const now = new Date();
-  const isCurrentYear = dashYear === now.getFullYear();
-  const todayStr = today();
 
-  // Year navigation state
-  const bookedYears = getBookedYears();
-  const dashYearIdx = bookedYears.indexOf(dashYear);
-  const hasPrev = dashYearIdx > 0;
-  const hasNext = dashYearIdx < bookedYears.length - 1;
-
-  // Current-year-only calculations
-  let todayOut=0, weekOut=0;
-  if(isCurrentYear){
-    const dow = now.getDay()===0?6:now.getDay()-1;
-    const ws = new Date(now); ws.setDate(now.getDate()-dow);
-    todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
-    weekOut  = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
-  }
-  // Yearly Ø Tagesausgabe (all years)
-  const avgDayYear = avgDailyVarSpendYear(dashYear);
-  const avgDayYearPrev = avgDailyVarSpendYear(dashYear-1);
-  const avgDayYearDiff = avgDayYearPrev>0 ? ((avgDayYear-avgDayYearPrev)/avgDayYearPrev*100) : null;
-  // Lohn % Einnahmen (all years)
-  const yearTotalInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear;}).reduce((s,e)=>s+e.amt,0);
-  const yearLohnInc = DATA.incomes.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===dashYear&&e.isLohn;}).reduce((s,e)=>s+e.amt,0);
-  const lohnPct = yearTotalInc>0 ? yearLohnInc/yearTotalInc*100 : 0;
-
-  const container=document.getElementById('dashboard-content');
-  container.innerHTML=`
-    <!-- Jahres-Navigation -->
-    <div class="section pb-0">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px">
-        <button class="btn-cancel" onclick="prevDashYear()" style="padding:8px 16px;font-size:18px"${hasPrev?'':' disabled'}>‹</button>
-        <div style="font-size:16px;font-weight:700">${dashYear}</div>
-        <button class="btn-cancel" onclick="nextDashYear()" style="padding:8px 16px;font-size:18px"${hasNext?'':' disabled'}>›</button>
-      </div>
-    </div>
-
-    ${isCurrentYear ? `
-    <!-- Heute & Woche stats -->
-    <div class="section pt-0">
-      <div class="stats-grid mb-0">
-        <div class="stat-card">
-          <div class="stat-label">Heute ausgegeben</div>
-          <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">
-            ${todayOut>0?'− '+fmtAmt(todayOut):'—'}
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Diese Woche</div>
-          <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">
-            ${weekOut>0?'− '+fmtAmt(weekOut):'—'}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Kontostand-Verlauf (Linienchart) -->
-    <div class="section pt-0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div class="section-title mb-0">Kontostand-Verlauf</div>
-        <div style="display:flex;gap:4px">
-          ${[1,3,6,12].map(m=>`<button class="chart-period-btn${dashboardChartMonths===m?' active':''}" onclick="setDashboardMonths(${m})">${m}M</button>`).join('')}
-        </div>
-      </div>
-      <div style="overflow-x:auto">${buildBalanceChart(dashboardChartMonths)}</div>
-    </div>
-    ` : ''}
-
-    <!-- Ø Tagesausgabe (Jahresdurchschnitt) -->
-    <div class="section pt-0">
-      <div class="stats-grid mb-0">
-        <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
-          <div class="stat-label">Ø Tagesausgabe ${dashYear} (ohne Fixkosten)
-            ${avgDayYearDiff!==null?`<span style="font-size:11px;color:${avgDayYearDiff<=0?'var(--green)':'var(--red)'};margin-left:6px">${avgDayYearDiff<=0?'↓':'↑'}${Math.abs(avgDayYearDiff).toFixed(0)}% vs. ${dashYear-1}</span>`:''}
-            <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
-          </div>
-          <div class="stat-value" style="font-size:18px;color:${avgDayYear>0?'var(--text)':'var(--text3)'}">
-            ${avgDayYear>0?curr()+' '+fmtAmt(avgDayYear):'—'}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Lohn % Einnahmen -->
-    <div class="section pt-0">
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Lohn % Einnahmen ${dashYear}</div>
-        ${yearTotalInc>0 ? `
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
-          <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;color:var(--text)">${lohnPct.toFixed(1)}%</span>
-          <span class="t-muted-sm">${curr()} ${fmtAmt(yearLohnInc)} von ${curr()} ${fmtAmt(yearTotalInc)}</span>
-        </div>
-        <div class="zy-prog-wrap" style="margin:0;height:8px">
-          <div class="zy-prog-fill" style="width:${Math.min(lohnPct,100).toFixed(1)}%;background:var(--accent)"></div>
-        </div>
-        ` : `<div style="font-size:13px;color:var(--text3)">Keine Einnahmen erfasst</div>`}
-      </div>
-    </div>
-
-    <!-- Jahres-Sparquote (shared widget) — click navigates to Sparen tab -->
-    <div class="section pt-0">
-      <div class="card" style="padding:14px;cursor:pointer" onclick="goTab('sparen')">${renderWidgetJahresSparquote(dashYear)}</div>
-    </div>
-
-    <!-- Top Kategorien (shared widget) -->
-    <div class="section pt-0">
-      <div class="card" style="padding:14px">${renderWidgetJahresKategorien(dashYear)}</div>
-    </div>
-
-    <!-- Monatsverlauf (shared widget) -->
-    <div class="section pt-0">
-      <div class="card" style="padding:14px">${renderWidgetMonatsverlaufJahr(dashYear)}</div>
-    </div>
-  `;
-}
-
-function openMonthViewAt(mo,yr){
-  mvMonth=mo; mvYear=yr;
-  renderMonthView();
-  dom('month-view').classList.add('open');
-}
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: VERLAUF SEARCH
@@ -2575,101 +1956,6 @@ function openMonthViewAt(mo,yr){
 let verlaufSearch = '';
 function setVerlaufSearch(v){ verlaufSearch=v; verlaufL1Page=1; renderVerlauf(); }
 
-// ═══════════════════════════════════════════════════════════════
-// MODULE: MONATSÜBERSICHT TAB
-// ═══════════════════════════════════════════════════════════════
-function renderMonat(){
-  const now = new Date();
-  const todayStr = today();
-  const yr = mvYear, mo = mvMonth;
-  const isCurrent = yr===now.getFullYear() && mo===now.getMonth();
-
-  // Auto-materialization now happens globally via autoMaterializeRecurrings()
-
-  const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
-  const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-
-  const mExp = DATA.expenses.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-  const mInc = DATA.incomes.filter(ex=>{const d=new Date(ex.date+'T12:00:00');return d.getMonth()===mo&&d.getFullYear()===yr;});
-
-  // Virtual recurring: future occurrences not yet materialized (current month only)
-  // capToToday=false shows upcoming entries; skipMaterialized=true avoids double-counting
-  const mRecVirtual = isCurrent ? getRecurringOccurrences(s, e, false, true) : [];
-
-  // Date set includes virtual recurring dates
-  const dateSet = new Set([...mExp.map(ex=>ex.date),...mInc.map(ex=>ex.date),...mRecVirtual.map(r=>r.date)]);
-  const sortedDates = [...dateSet].sort((a,b)=>b.localeCompare(a));
-
-  // Today/week stats (current month only)
-  let todayOut=0, weekOut=0;
-  if(isCurrent){
-    const dow = now.getDay()===0?6:now.getDay()-1;
-    const ws = new Date(now); ws.setDate(now.getDate()-dow);
-    todayOut = DATA.expenses.filter(e=>e.date===todayStr).reduce((s,e)=>s+e.amt,0);
-    weekOut = DATA.expenses.filter(e=>e.date>=dateStr(ws)&&e.date<=todayStr).reduce((s,e)=>s+e.amt,0);
-  }
-
-  const container = document.getElementById('monat-content');
-  if(!container) return;
-
-  // Render sub-widgets defensively so errors surface visibly instead of blanking the whole tab
-  let widgetSummary, widgetKategorien;
-  try { widgetSummary = renderWidgetMonatSummary(mo, yr); }
-  catch(e){ widgetSummary = `<div style="color:var(--red);font-size:13px;padding:4px 0">Fehler: ${e.message}</div>`; console.error('renderWidgetMonatSummary', e); }
-  try { widgetKategorien = renderWidgetMonatKategorien(mo, yr, 8); }
-  catch(e){ widgetKategorien = ''; console.error('renderWidgetMonatKategorien', e); }
-
-  container.innerHTML = `
-    <!-- Month navigation -->
-    <div class="section pb-0">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px">
-        <button class="btn-cancel" onclick="prevMvMonth()" style="padding:8px 16px;font-size:18px">‹</button>
-        <div style="font-size:16px;font-weight:700">${mvMonths[mo]} ${yr}</div>
-        <button class="btn-cancel" onclick="nextMvMonth()" style="padding:8px 16px;font-size:18px" ${isCurrent?'disabled':''}>›</button>
-      </div>
-    </div>
-
-    <!-- Monats-Zusammenfassung (shared widget — includes 3-stat + Ø Tagesausgabe) -->
-    <div class="section pt-0">
-      <div class="card" style="padding:14px">${widgetSummary}</div>
-    </div>
-
-    ${isCurrent ? `
-    <!-- Heute & Woche (current month only) -->
-    <div class="section pt-0">
-      <div class="stats-grid mb-0">
-        <div class="stat-card">
-          <div class="stat-label">Heute ausgegeben</div>
-          <div class="stat-value" style="font-size:18px;color:${todayOut>0?'var(--red)':'var(--text3)'}">${todayOut>0?'− '+fmtAmt(todayOut):'—'}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Diese Woche</div>
-          <div class="stat-value" style="font-size:18px;color:${weekOut>0?'var(--red)':'var(--text3)'}">${weekOut>0?'− '+fmtAmt(weekOut):'—'}</div>
-        </div>
-      </div>
-    </div>
-    ` : ''}
-
-    <!-- Kategorien (shared widget) -->
-    <div class="section pt-0">
-      <div class="card" style="padding:12px 14px">${widgetKategorien}</div>
-    </div>
-
-    ${sortedDates.length ? `
-    <!-- Day entries -->
-    <div class="section pt-0">
-      <div class="section-title">Einträge</div>
-      <div class="card p-0">
-        ${sortedDates.map(ds=>buildDayGroup(ds,
-          DATA.expenses.filter(ex=>ex.date===ds),
-          DATA.incomes.filter(ex=>ex.date===ds),
-          mRecVirtual.filter(r=>r.date===ds)
-        )).join('')}
-      </div>
-    </div>`
-    : `<div class="section"><div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--border2);fill:none;stroke-width:1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><div class="empty-text">Keine Einträge</div></div></div>`}
-  `;
-}
 
 function renderWidgetCatBudgets(){
   const budgets = CFG.catBudgets || {};

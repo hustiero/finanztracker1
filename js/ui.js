@@ -83,13 +83,10 @@ function goTab(tab){
   }
   document.getElementById('page-title').textContent = {
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
-    dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
-    aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
-    einstellungen:'Einstellungen', admin:'Admin',
+    lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
+    aktien:'Aktien', einstellungen:'Einstellungen', admin:'Admin',
   }[tab]||tab;
   updatePageSub();
-  // Special pre-render setup (state that must be set before first render)
-  if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); }
   if(tab==='verlauf' && typeof verlaufL1Page !== 'undefined') verlaufL1Page = 1;
   // Delegate to render scheduler — avoids double-rendering when markDirty is also called
   markDirty(tab);
@@ -154,14 +151,11 @@ function openAktieDetailFromFlow(stockId){
 
 // All tabs available for pinning / showing in Mehr
 const PINNABLE_TABS = [
-  { key:'dashboard',      label:'Jahresübersicht',      icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>' },
   { key:'verlauf',        label:'Verlauf',              icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
-  { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
   { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
   { key:'dauerauftraege', label:'Dauerauftr&auml;ge',   icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
-  { key:'sparen',         label:'Sparen &amp; Planen',   icon:'<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.4-11.3-1.5-11.3 5.2 0 4 3 6.8 7.3 10.8l1 1 1-1C18 19 21 16.2 21 12.2c0-2-1-3.2-2-3.2z"/>' },
 ];
 const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>';
 
@@ -678,7 +672,7 @@ function openNotifDetail(id){
   } else if(n.type==='weeklyReport' || n.type==='dailyReport' || n.type==='monthEnd'){
     dismissNotif(id);
     closeNotifOverlay();
-    goTab('dashboard');
+    goTab('verlauf');
   } else {
     dismissNotif(id);
   }
@@ -758,17 +752,6 @@ function renderLohn(){
           ${z.hasSalary ? `
           <div class="zy-row"><span class="zy-row-label">+ Lohn / Einnahmen</span><span class="zy-row-val" style="color:var(--green)">${curr()} ${fmtAmt(z.lohn)}</span></div>
           ${z.fixKosten>0?`<div class="zy-row"><span class="zy-row-label">− Fixkosten</span><span class="zy-row-val t-text2">${curr()} ${fmtAmt(z.fixKosten)}</span></div>`:''}
-
-          <!-- Sparziel with toggle -->
-          <div class="zy-row" style="align-items:center;gap:6px">
-            <span class="zy-row-label" style="display:flex;align-items:center;gap:6px">
-              ${chip('Sparziel', z.inclSparziel, 'toggleBudgetSparziel')}
-              ${z.inclSparziel && z.mSparzielRaw>0 ? '− Sparziel' : ''}
-            </span>
-            <span class="zy-row-val" style="color:var(--accent)">
-              ${z.inclSparziel && z.mSparzielRaw>0 ? `${curr()} ${fmtAmt(z.mSparzielRaw)}` : '<span style="font-size:11px;color:var(--text3);font-style:italic">nicht einbezogen</span>'}
-            </span>
-          </div>
 
           <!-- Übertrag with toggle + detail -->
           <div class="zy-row" style="align-items:center;gap:6px">
@@ -971,8 +954,10 @@ function saveLohnTag(){
   const lt = parseInt(document.getElementById('sp-lohntag').value)||25;
   CFG.lohnTag = Math.min(Math.max(lt,1),31);
   cfgSave();
-  toast('✓ Gespeichert','ok');
-  renderDashboard();
+  invalidateZyklusCache();
+  toast('Gespeichert','ok');
+  renderHome();
+  renderLohn();
 }
 
 // Budget formula toggles — called from Lohnzyklus widget buttons.
@@ -984,20 +969,12 @@ function toggleBudgetCarryover(){
   renderHome();
   renderLohn();
 }
-function toggleBudgetSparziel(){
-  CFG.budgetInclSparziel = CFG.budgetInclSparziel === false ? true : false;
-  cfgSave();
-  invalidateZyklusCache();
-  renderHome();
-  renderLohn();
-}
 
 async function toggleFixkosten(id){
   const e = DATA.expenses.find(e=>e.id===id);
   if(!e) return;
   e.isFixkosten = !e.isFixkosten;
   renderLohn();
-  renderDashboard();
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
@@ -1006,21 +983,6 @@ async function toggleFixkosten(id){
       setSyncStatus('online');
     } catch(err){ setSyncStatus('error'); toast('Sync-Fehler','err'); }
   }
-}
-
-function openSparziel(){
-  document.getElementById('sz-msparziel').value = CFG.mSparziel||0;
-  document.getElementById('sz-sparziel').value = CFG.sparziel||0;
-  openModal('sparziel-modal');
-}
-
-function saveSparziel(){
-  CFG.mSparziel = parseFloat(document.getElementById('sz-msparziel').value)||0;
-  CFG.sparziel = parseFloat(document.getElementById('sz-sparziel').value)||0;
-  cfgSave();
-  closeModal('sparziel-modal');
-  toast('✓ Gespeichert','ok');
-  renderDashboard();
 }
 
 function openAvgConfig(){
@@ -1045,8 +1007,6 @@ async function saveAvgConfig(){
     if(r && r.affectsAvg !== cb.checked){ r.affectsAvg=cb.checked; changed.push(r); }
   });
   closeModal('avg-config-modal');
-  renderDashboard();
-  if(currentTab==='monat') renderMonat();
   if(!CFG.demo && changed.length){
     for(const r of changed){
       try{
@@ -1054,8 +1014,8 @@ async function saveAvgConfig(){
         if(row) await apiUpdate(`Daueraufträge!K${row}`,[[r.affectsAvg?'1':'0']]);
       } catch(e){ toast('Sync-Fehler','err'); }
     }
-    setSyncStatus('online'); toast('✓ Gespeichert','ok');
-  } else toast('✓ Gespeichert','ok');
+    setSyncStatus('online'); toast('Gespeichert','ok');
+  } else toast('Gespeichert','ok');
 }
 
 // ─── CHARTS ────────────────────────────────────────────────────

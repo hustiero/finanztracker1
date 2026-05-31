@@ -692,10 +692,6 @@
     <!-- TAB: Home (Widget-Dashboard) -->
     <div id="tab-home" class="tab-page" style="display:none;padding-top:8px"></div>
 
-    <div id="tab-dashboard" class="tab-page" style="display:none">
-      <div id="dashboard-content"></div>
-    </div>
-
     <!-- TAB: Lohn & Einnahmen -->
     <div id="tab-lohn" class="tab-page" style="display:none">
       <div class="section">
@@ -894,16 +890,6 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- TAB: Monatsübersicht -->
-    <div id="tab-monat" class="tab-page" style="display:none">
-      <div id="monat-content"></div>
-    </div>
-
-    <!-- TAB: Sparen / Planen -->
-    <div id="tab-sparen" class="tab-page" style="display:none">
-      <div id="sparen-content"></div>
     </div>
 
     <!-- TAB: Einstellungen -->
@@ -1191,6 +1177,19 @@
               <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Als Excel exportieren
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Kategorien verwalten ──────────────────── -->
+      <div class="section pt-0">
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--text)">Kategorien</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Ober- und Unterkategorien anlegen, umbenennen, Budget setzen.</div>
+            </div>
+            <button class="btn-outline-setup" onclick="goTab('kategorien')" style="font-size:12px;padding:6px 14px;white-space:nowrap">Öffnen →</button>
           </div>
         </div>
       </div>
@@ -1576,48 +1575,6 @@
       <button class="btn-save" onclick="saveAvgConfig()">Speichern</button>
     </div>
   </div>
-</div>
-
-<!-- Sparziele Modal -->
-<div class="modal-overlay" id="sparziel-modal" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title">Sparziele</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('sparziel-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Monatliches Sparziel (CHF)</label>
-        <input id="sz-msparziel" type="number" min="0" step="50" class="form-input" placeholder="0">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Wird vom Zyklusbudget abgezogen</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Jahres-Sparziel (CHF)</label>
-        <input id="sz-sparziel" type="number" min="0" step="100" class="form-input" placeholder="0">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Für die Jahres-Sparquote in der Übersicht</div>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('sparziel-modal')">Abbrechen</button>
-      <button class="btn-save" onclick="saveSparziel()">Speichern</button>
-    </div>
-  </div>
-</div>
-
-<!-- Monatsübersicht slide-in view -->
-<div id="month-view" class="month-view">
-  <div class="mv-bar">
-    <button class="mv-back" onclick="closeMonthView()">
-      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div class="mv-bar-title" id="mv-title-text">März 2026</div>
-    <div class="mv-nav">
-      <button onclick="prevMvMonth()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <button id="mv-next-btn" onclick="nextMvMonth()"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
-    </div>
-  </div>
-  <div class="mv-content" id="mv-content"></div>
 </div>
 
 <div id="toast"></div>

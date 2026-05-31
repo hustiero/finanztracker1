@@ -70,8 +70,6 @@ const Device = (() => {
         _closeTopModal(entry.id);
       } else if (entry.type === 'menu') {
         closeMenuOverlay();
-      } else if (entry.type === 'monthview') {
-        closeMonthView();
       } else if (entry.type === 'aktiedetail') {
         closeAktieDetail();
       } else if (entry.type === 'tab' && entry.id !== 'home') {

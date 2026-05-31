@@ -392,7 +392,7 @@ function launchApp(){
   // One-time default nav tabs for new users
   if(!CFG.navInitialized){
     if(!CFG.pinnedTabs || !CFG.pinnedTabs.length)
-      CFG.pinnedTabs = ['verlauf','kategorien','dauerauftraege'];
+      CFG.pinnedTabs = ['verlauf','dauerauftraege','lohn'];
     CFG.navInitialized = true;
     cfgSave();
   }
@@ -532,17 +532,6 @@ function _parseRecurring(res, hadCache){
   invalidateRecurCache();
 }
 
-function _parseSparziele(res){
-  if(res.status==='fulfilled'){
-    DATA.sparziele = (res.value.values||[])
-      .filter(r=>r[0] && String(r[10]||'')!=='1')
-      .map(r=>({id:r[0],name:r[1]||'',target:parseFloat(r[2])||0,start:parseFloat(r[3])||0,
-        saved:parseFloat(r[4])||0,deadline:r[5]||'',open:String(r[6]||'')==='1',
-        priority:parseInt(r[7])||99,taxPct:parseFloat(r[8])||0,taxAmt:parseFloat(r[9])||0,
-        isTax:String(r[6]||'')==='tax'}));
-  }
-}
-
 function _parseAktienTrades(aktRes, tradeRes){
   if(aktRes.status!=='fulfilled' || tradeRes.status!=='fulfilled') return;
   const uc = curr().toUpperCase();
@@ -582,7 +571,7 @@ async function loadAll(){
   if(hadCache) renderAll();
 
   try{
-    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] =
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes] =
       await Promise.allSettled([
         apiGet('Kategorien!A2:G500'),
         apiGet('Ausgaben!A2:J5000'),
@@ -591,14 +580,12 @@ async function loadAll(){
         apiGet('Aktien!A2:I5000'),
         apiGet('Trades!A2:J5000'),
         loadProfileFromSheet(),
-        apiGet('Sparziele!A2:K200'),
       ]);
 
     _parseCategories(katRes, hadCache);
     _parseExpenses(ausgRes, hadCache);
     _parseIncomes(einRes, hadCache);
     _parseRecurring(dauerRes, hadCache);
-    _parseSparziele(sparRes);
     _parseAktienTrades(aktRes, tradeRes);
 
     dataCacheSave();
@@ -1561,360 +1548,6 @@ function exportExcel(){
   const fname=`Finanzen_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.xlsx`;
   XLSX.writeFile(wb,fname);
   toast('✓ Excel exportiert','ok');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE: SPAREN & PLANEN
-// Sparziele CRUD, progress, priority, Steuern, budget integration
-// Sheet: "Sparziele" — columns A:K
-//   A=id, B=name, C=target, D=start, E=saved, F=deadline, G=open/tax, H=priority, I=taxPct, J=taxAmt, K=deleted
-// ═══════════════════════════════════════════════════════════════
-
-function getSparzieleNonTax(){ return DATA.sparziele.filter(g=>!g.isTax).sort((a,b)=>a.priority-b.priority); }
-function getSparTax(){ return DATA.sparziele.filter(g=>g.isTax); }
-
-function sparGoalPct(g){
-  if(g.open) return g.saved>0?100:0;
-  if(g.target<=0) return 0;
-  return Math.min((g.saved/g.target)*100, 100);
-}
-
-function sparTotalMonthly(){
-  // Sum of monthly minimums from all active goals
-  const goals = getSparzieleNonTax();
-  let total = 0;
-  for(const g of goals){
-    if(g.target<=0||g.open) continue;
-    if(!g.deadline) continue;
-    const remaining = g.target - g.saved;
-    if(remaining<=0) continue;
-    const now = new Date();
-    const dl = new Date(g.deadline);
-    const months = Math.max(1, (dl.getFullYear()-now.getFullYear())*12 + dl.getMonth()-now.getMonth());
-    total += remaining / months;
-  }
-  // Add tax amounts
-  const taxes = getSparTax();
-  for(const t of taxes){
-    if(t.taxAmt>0) total += t.taxAmt;
-  }
-  return total;
-}
-
-function renderSparen(){
-  const el = document.getElementById('sparen-content');
-  if(!el) return;
-  const goals = getSparzieleNonTax();
-  const taxes = getSparTax();
-  const totalSaved = goals.reduce((s,g)=>s+g.saved,0);
-  const totalTarget = goals.filter(g=>!g.open).reduce((s,g)=>s+g.target,0);
-  const monthlyMin = sparTotalMonthly();
-
-  const _pigSvg = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2"/><path d="M2 9.1C1.8 6.6 3.1 4.7 5.3 4"/></svg>`;
-  let html = '';
-
-  // Page header
-  html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 16px 4px">
-    ${_pigSvg}
-    <span style="font-size:18px;font-weight:700;letter-spacing:-.3px">Sparen &amp; Planen</span>
-  </div>`;
-
-  // Summary card
-  html += `<div class="section">
-    <div class="section-title">Übersicht</div>
-    <div class="card" style="padding:14px">
-      <div class="spar-summary-row">
-        <span class="spar-summary-label">Gespart (gesamt)</span>
-        <span class="spar-summary-val t-accent">${curr()} ${fmtAmt(totalSaved)}</span>
-      </div>
-      <div class="spar-summary-row">
-        <span class="spar-summary-label">Ziel (gesamt)</span>
-        <span class="spar-summary-val">${curr()} ${fmtAmt(totalTarget)}</span>
-      </div>
-      ${totalTarget>0?`
-      <div style="margin-top:8px">
-        <div class="spar-prog-wrap" style="height:10px">
-          <div class="spar-prog-fill" style="width:${Math.min(totalSaved/totalTarget*100,100).toFixed(1)}%;background:var(--accent)"></div>
-        </div>
-        <div class="spar-prog-sub"><span>${(totalSaved/totalTarget*100).toFixed(0)}%</span><span>${curr()} ${fmtAmt(totalTarget-totalSaved)} verbleibend</span></div>
-      </div>`:''}
-      ${monthlyMin>0?`<div class="spar-summary-row" style="margin-top:4px">
-        <span class="spar-summary-label">Monatl. Minimum</span>
-        <span class="spar-summary-val" style="color:var(--yellow)">${curr()} ${fmtAmt(monthlyMin)}</span>
-      </div>`:''}
-    </div>
-  </div>`;
-
-  // Goals list (sorted by priority)
-  html += `<div class="section pt-0">
-    <div class="section-title">Sparziele (Priorität)</div>`;
-  if(goals.length===0){
-    html += `<div class="card" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">
-      Noch keine Sparziele erfasst. Erstelle dein erstes Ziel!
-    </div>`;
-  }
-  goals.forEach((g,i)=>{
-    const pct = sparGoalPct(g);
-    const done = !g.open && pct>=100;
-    const progColor = done ? 'var(--green)' : 'var(--accent)';
-    let deadlineLabel = '';
-    if(g.deadline){
-      const dl = new Date(g.deadline);
-      const now = new Date();
-      const daysLeft = Math.ceil((dl-now)/86400000);
-      deadlineLabel = daysLeft>0 ? `${daysLeft} Tage verbleibend` : 'Frist abgelaufen';
-    }
-    html += `<div class="spar-goal-card" onclick="openSparGoalDetail('${g.id}')">
-      <div class="spar-goal-header">
-        <span class="spar-goal-name">${esc(g.name)}</span>
-        ${done?'<span class="spar-goal-badge done">Erreicht ✓</span>':g.open?'<span class="spar-goal-badge open">Offen</span>':''}
-      </div>
-      <div class="spar-goal-amounts">
-        <span class="saved">${curr()} ${fmtAmt(g.saved)}</span>
-        ${!g.open?`<span class="target">/ ${curr()} ${fmtAmt(g.target)}</span>`:''}
-      </div>
-      ${!g.open?`<div class="spar-prog-wrap"><div class="spar-prog-fill" style="width:${pct.toFixed(1)}%;background:${progColor}"></div></div>
-      <div class="spar-prog-sub"><span>${pct.toFixed(0)}%</span>${deadlineLabel?`<span>${deadlineLabel}</span>`:''}</div>`:''}
-      <div class="spar-prio">
-        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
-        Priorität ${i+1}
-      </div>
-    </div>`;
-  });
-  html += `<button class="spar-add-btn" onclick="openSparGoalModal()">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Neues Sparziel
-  </button>`;
-  html += `</div>`;
-
-  // Steuern section
-  html += `<div class="section pt-0">
-    <div class="section-title">Steuern</div>`;
-  if(taxes.length===0){
-    html += `<div class="card" style="padding:14px;font-size:13px;color:var(--text3)">
-      Noch keine Steuerrückstellung erfasst. Steuern werden als feste Kosten vom Budget abgezogen.
-    </div>`;
-  }
-  taxes.forEach(t=>{
-    html += `<div class="spar-goal-card" onclick="openSparGoalDetail('${t.id}')">
-      <div class="spar-goal-header">
-        <span class="spar-goal-name">${esc(t.name)}</span>
-        <span class="spar-goal-badge tax">Steuer</span>
-      </div>
-      <div class="spar-goal-amounts">
-        ${t.taxPct>0?`<span class="target">${t.taxPct}% vom Lohn</span>`:''}
-        <span class="saved">${curr()} ${fmtAmt(t.taxAmt)} / Monat</span>
-      </div>
-    </div>`;
-  });
-  html += `<button class="spar-add-btn" onclick="openSparGoalModal(true)">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Steuerrückstellung hinzufügen
-  </button>`;
-  html += `</div>`;
-
-  // Budget integration info
-  const budgetDeduct = sparTotalMonthly();
-  if(budgetDeduct>0){
-    html += `<div class="section pt-0">
-      <div class="section-title">Budget-Integration</div>
-      <div class="card" style="padding:14px;font-size:13px;color:var(--text2);line-height:1.6">
-        Monatlich werden <strong class="t-accent">${curr()} ${fmtAmt(budgetDeduct)}</strong> vom Lohnzyklus-Budget abgezogen
-        (Sparziele + Steuern). Überschüsse fliessen automatisch in das Sparziel mit höchster Priorität.
-      </div>
-    </div>`;
-  }
-
-  el.innerHTML = html;
-}
-
-// ── Sparziel Modal (create/edit) ──
-function openSparGoalModal(isTax=false, editId=null){
-  const existing = editId ? DATA.sparziele.find(g=>g.id===editId) : null;
-  const isEdit = !!existing;
-  const title = isTax ? (isEdit?'Steuer bearbeiten':'Steuerrückstellung') : (isEdit?'Sparziel bearbeiten':'Neues Sparziel');
-
-  let body = `<div style="display:flex;flex-direction:column;gap:12px">
-    <div>
-      <label class="form-label">Name</label>
-      <input id="spar-name" class="form-input" placeholder="${isTax?'z.B. Einkommenssteuer':'z.B. Ferien, Notgroschen'}" value="${isEdit?esc(existing.name):''}">
-    </div>`;
-
-  if(isTax){
-    body += `<div>
-      <label class="form-label">Prozent vom Lohn (optional)</label>
-      <input id="spar-tax-pct" type="number" class="form-input" placeholder="z.B. 15" step="0.1" value="${isEdit?existing.taxPct||'':''}">
-    </div>
-    <div>
-      <label class="form-label">Fester Monatsbetrag (${curr()})</label>
-      <input id="spar-tax-amt" type="number" class="form-input" placeholder="z.B. 500" step="0.01" value="${isEdit?existing.taxAmt||'':''}">
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">Wenn % gesetzt, wird der Betrag automatisch berechnet.</div>
-    </div>`;
-  } else {
-    body += `<div>
-      <label class="form-label">Zielbetrag (${curr()})</label>
-      <input id="spar-target" type="number" class="form-input" placeholder="z.B. 5000" step="0.01" value="${isEdit?existing.target||'':''}">
-    </div>
-    <div>
-      <label class="form-label">Startbetrag / bereits gespart (${curr()})</label>
-      <input id="spar-saved" type="number" class="form-input" placeholder="0" step="0.01" value="${isEdit?existing.saved||0:''}">
-    </div>
-    <div>
-      <label class="form-label">Zieldatum (optional — leer = offenes Ziel)</label>
-      <input id="spar-deadline" type="date" class="form-input" value="${isEdit&&existing.deadline?existing.deadline:''}">
-    </div>
-    <div>
-      <label class="form-label">Priorität (1 = höchste)</label>
-      <input id="spar-priority" type="number" class="form-input" min="1" value="${isEdit?existing.priority:getSparzieleNonTax().length+1}">
-    </div>`;
-  }
-  body += `</div>`;
-
-  const actions = isEdit
-    ? `<div style="display:flex;gap:8px">
-        <button class="btn-delete flex-1" onclick="deleteSparGoal('${editId}')">Löschen</button>
-        <button class="btn-primary" style="flex:2" onclick="saveSparGoal('${editId}',${isTax})">Speichern</button>
-      </div>`
-    : `<button class="btn-primary w-full" onclick="saveSparGoal(null,${isTax})">Erstellen</button>`;
-
-  openGenericModal(title, body, actions);
-}
-
-function openSparGoalDetail(id){
-  const g = DATA.sparziele.find(x=>x.id===id);
-  if(!g) return;
-  openSparGoalModal(g.isTax, id);
-}
-
-async function saveSparGoal(editId, isTax){
-  const name = document.getElementById('spar-name')?.value.trim();
-  if(!name){ toast('Name eingeben','err'); return; }
-
-  let goal;
-  if(isTax){
-    const taxPct = parseFloat(document.getElementById('spar-tax-pct')?.value)||0;
-    let taxAmt = parseFloat(document.getElementById('spar-tax-amt')?.value)||0;
-    // Auto-calc from Lohn if pct set
-    if(taxPct>0){
-      const z = getZyklusInfo();
-      if(z.lohn>0) taxAmt = Math.round(z.lohn * taxPct / 100 * 100)/100;
-    }
-    goal = {id:editId||genId('SZ'),name,target:0,start:0,saved:0,deadline:'',open:false,priority:99,taxPct,taxAmt,isTax:true};
-  } else {
-    const target = parseFloat(document.getElementById('spar-target')?.value)||0;
-    const saved = parseFloat(document.getElementById('spar-saved')?.value)||0;
-    const deadline = document.getElementById('spar-deadline')?.value||'';
-    const priority = parseInt(document.getElementById('spar-priority')?.value)||99;
-    const open = !deadline && target<=0;
-    // On edit: preserve original start (starting balance); only set start=saved for new goals
-    const existingGoal = editId ? DATA.sparziele.find(g=>g.id===editId) : null;
-    const start = existingGoal ? (existingGoal.start ?? existingGoal.saved) : saved;
-    goal = {id:editId||genId('SZ'),name,target,start,saved,deadline,open,priority,taxPct:0,taxAmt:0,isTax:false};
-  }
-
-  if(editId){
-    const idx = DATA.sparziele.findIndex(g=>g.id===editId);
-    if(idx>=0) DATA.sparziele[idx] = goal;
-  } else {
-    DATA.sparziele.push(goal);
-  }
-
-  closeGenericModal();
-  renderSparen();
-  toast('Gespeichert');
-
-  // Sync to Sheet
-  setSyncStatus('syncing');
-  try{
-    // Ensure the Sparziele sheet exists
-    await apiCall({action:'ensureSheet', sheet:'Sparziele', headers:JSON.stringify(['ID','Name','Zielbetrag','Startbetrag','Gespart','Deadline','Typ','Priorität','SteuerPct','SteuerBetrag','Deleted'])});
-    const row = [goal.id,goal.name,goal.target,goal.start,goal.saved,goal.deadline,
-      goal.isTax?'tax':(goal.open?'1':'0'),goal.priority,goal.taxPct,goal.taxAmt,''];
-    if(editId){
-      const rowNum = await apiFindRow('Sparziele', editId);
-      if(rowNum) await apiUpdate(`Sparziele!A${rowNum}:K${rowNum}`, [row]);
-      else await apiAppend('Sparziele', [row]);
-    } else {
-      await apiAppend('Sparziele', [row]);
-    }
-    setSyncStatus('online');
-  }catch(e){ toast('Sync-Fehler: '+e.message,'err'); setSyncStatus('error'); }
-}
-
-async function deleteSparGoal(id){
-  const idx = DATA.sparziele.findIndex(g=>g.id===id);
-  if(idx<0) return;
-  DATA.sparziele.splice(idx,1);
-  closeGenericModal();
-  renderSparen();
-  toast('Gelöscht');
-  if(!CFG.demo){
-    const rowNum = await apiFindRow('Sparziele', id).catch(()=>null);
-    if(rowNum) await _syncUpdate(`Sparziele!K${rowNum}`, [['1']]);
-  }
-}
-
-async function addToSparGoal(id, amount){
-  const g = DATA.sparziele.find(x=>x.id===id);
-  if(!g) return;
-  const amt = parseFloat(amount);
-  if(isNaN(amt)||amt===0) return;
-  g.saved = Math.max(0, (g.saved||0) + amt);
-  renderSparen();
-  toast(`${amt>0?'+':''}${fmtAmt(amt)} ${curr()} eingetragen`);
-  if(!CFG.demo){
-    const rowNum = await apiFindRow('Sparziele', id).catch(()=>null);
-    if(rowNum) await _syncUpdate(`Sparziele!E${rowNum}`, [[String(g.saved)]]);
-  }
-}
-
-
-// Generic modal helper (reused for sparen)
-function openGenericModal(title, bodyHtml, actionsHtml){
-  let modal = document.getElementById('generic-modal');
-  if(!modal){
-    modal = document.createElement('div');
-    modal.id = 'generic-modal';
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `<div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title" id="generic-modal-title"></div>
-      </div>
-      <div id="generic-modal-body" style="padding:16px 20px"></div>
-      <div id="generic-modal-actions" style="padding:0 20px 24px"></div>
-    </div>`;
-    modal.addEventListener('click', e=>{ if(e.target===modal) closeGenericModal(); });
-    document.body.appendChild(modal);
-  }
-  document.getElementById('generic-modal-title').textContent = title;
-  document.getElementById('generic-modal-body').innerHTML = bodyHtml;
-  document.getElementById('generic-modal-actions').innerHTML = actionsHtml;
-  modal.classList.add('show');
-}
-function closeGenericModal(){
-  const m = document.getElementById('generic-modal');
-  if(m) m.classList.remove('show');
-}
-
-// Widget: Sparziele overview for Home
-function renderWidgetSparzieleOverview(){
-  const goals = getSparzieleNonTax().slice(0,3);
-  const pigSvg = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2"/><path d="M2 9.1C1.8 6.6 3.1 4.7 5.3 4"/></svg>`;
-  let html = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px"><span class="widget-title mb-0">${pigSvg} Sparziele</span></div>`;
-  if(goals.length===0) return html+'<div style="font-size:13px;color:var(--text3);padding:4px 0">Keine Sparziele erfasst</div>';
-  goals.forEach(g=>{
-    const pct = sparGoalPct(g);
-    const done = !g.open && pct>=100;
-    html += `<div class="mb-10">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-        <span class="t-bold">${esc(g.name)}</span>
-        <span class="t-text3">${g.open?curr()+' '+fmtAmt(g.saved):pct.toFixed(0)+'%'}</span>
-      </div>
-      ${!g.open?`<div class="spar-prog-wrap"><div class="spar-prog-fill" style="width:${pct.toFixed(1)}%;background:${done?'var(--green)':'var(--accent)'}"></div></div>`:''}
-    </div>`;
-  });
-  return html;
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -2,7 +2,7 @@
 // SERVICE WORKER — FinanzTracker PWA
 // Cache-first for static assets, network-first for API calls.
 // ═══════════════════════════════════════════════════════════════
-const CACHE_VERSION = 'ft-v10-groups-out';
+const CACHE_VERSION = 'ft-v11-tabs-decluttered';
 const STATIC_ASSETS = [
   '/finanztracker1/',
   '/finanztracker1/index.html',
