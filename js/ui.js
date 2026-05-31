@@ -85,12 +85,11 @@ function goTab(tab){
     home:'Home', eingabe:'Eingabe', verlauf:'Verlauf', kategorien:'Kategorien',
     dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
-    groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin',
+    einstellungen:'Einstellungen', admin:'Admin',
   }[tab]||tab;
   updatePageSub();
   // Special pre-render setup (state that must be set before first render)
   if(tab==='monat'){ mvYear=new Date().getFullYear(); mvMonth=new Date().getMonth(); }
-  if(tab==='groups') fillGroupDropdown();
   if(tab==='verlauf' && typeof verlaufL1Page !== 'undefined') verlaufL1Page = 1;
   // Delegate to render scheduler — avoids double-rendering when markDirty is also called
   markDirty(tab);
@@ -163,7 +162,6 @@ const PINNABLE_TABS = [
   { key:'dauerauftraege', label:'Dauerauftr&auml;ge',   icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
   { key:'sparen',         label:'Sparen &amp; Planen',   icon:'<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.4-11.3-1.5-11.3 5.2 0 4 3 6.8 7.3 10.8l1 1 1-1C18 19 21 16.2 21 12.2c0-2-1-3.2-2-3.2z"/>' },
-  { key:'groups',         label:'Gruppen &amp; Events',  icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
 ];
 const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>';
 
@@ -558,8 +556,6 @@ function toggleNotifOverlay(){
     renderNotifications();
     overlay.classList.add('open');
     backdrop.classList.add('open');
-    // Mark group notifications as read in backend (fire-and-forget)
-    if(typeof markGroupNotifsRead === 'function') markGroupNotifsRead();
   }
 }
 
@@ -572,7 +568,7 @@ function renderNotifications(){
   const body = document.getElementById('notif-body');
   if(!body) return;
   const notifs = (CFG.notifications||[])
-    .filter(n=>!n.confirmed||n.type==='dauerauftrag_info'||n.type==='group_activity')
+    .filter(n=>!n.confirmed||n.type==='dauerauftrag_info')
     .filter(n=>!n.dismissed)
     .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
@@ -618,9 +614,7 @@ function renderNotifications(){
   };
 
   const renderOtherNotif = n => {
-    const icon = n.type==='group_activity'
-      ? '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
-      : '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>';
+    const icon = '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>';
     return `<div class="notif-item${n.dismissed?' dismissed':''}" onclick="openNotifDetail('${n.id}')">
       <div class="notif-item-icon">
         <svg viewBox="0 0 24 24">${icon}</svg>
@@ -657,13 +651,7 @@ function dismissAllNotifs(){
 function openNotifDetail(id){
   const n = (CFG.notifications||[]).find(n=>n.id===id);
   if(!n) return;
-  if(n.type==='group_activity'){
-    dismissNotif(id);
-    if(n.groupId){
-      goTab('groups');
-      setTimeout(()=>openGroupDetail(n.groupId), 100);
-    }
-  } else if(n.type==='dauerauftrag_renewal'){
+  if(n.type==='dauerauftrag_renewal'){
     closeNotifOverlay();
     goTab('dauerauftraege');
   } else if(n.type==='dauerauftrag_info'){
@@ -1180,7 +1168,6 @@ function fillDropdown(elId, type, selected=''){
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
   fillDropdown('r-cat', document.getElementById('r-type')?.value||'ausgabe');
-  fillGroupDropdown();
   // Show/hide Aktien tab button based on setting
   const aktBtn = document.getElementById('type-akt');
   if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
@@ -1420,13 +1407,6 @@ const _TAB_HELP = {
     'Käufe und Verkäufe einzeln erfassen für genaue Kostenbasis.',
     '↻-Button lädt aktuelle Kurse via Google Sheet.',
     'In Einstellungen: Depot in die Jahres-Sparrate einberechnen.',
-  ]},
-  groups: { title:'Gruppen & Events', items:[
-    '«Event»: Alle Kosten sammeln — ideal für Reisen und gemeinsame Ausflüge.',
-    '«Split»: Die App berechnet, wer wem wie viel schuldet.',
-    'Einladen per Link oder Code — Mitglieder sehen alle Buchungen.',
-    'Buchungen im persönlichen Verlauf einblenden: Toggle in der Gruppenansicht.',
-    'Gruppenname als Admin änderbar (Stift-Icon oben rechts).',
   ]},
   einstellungen: { title:'Einstellungen', items:[
     '«Verbindung»: Google Apps Script URL eingeben und testen.',
