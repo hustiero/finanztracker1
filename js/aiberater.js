@@ -583,29 +583,48 @@ function submitAibAddPosition() {
   if (typeof toast === 'function') toast('Position hinzugefügt — Speichern nicht vergessen', '');
 }
 
-// ── Settings-Modal: API-Keys + Connection-Test ─────────────────────────────
+// ── Settings: API-Keys + Connection-Test (in zentralem Settings-Tab) ───────
+// Aufruf vom Aktien-Tab "Einstellungen"-Button → Tab-Wechsel + Section öffnen.
 function openAibSettingsModal() {
-  var ak = document.getElementById('aib-set-apikey');
-  var fh = document.getElementById('aib-set-finnhub');
-  var st = document.getElementById('aib-conn-status');
+  if (typeof goTab === 'function') goTab('einstellungen');
+  setTimeout(function () {
+    var body = document.getElementById('sg-aiberater');
+    if (body && body.style.display === 'none') {
+      var btn = body.previousElementSibling;
+      if (btn) btn.click();
+    }
+    // Felder befüllen + scrollen
+    aibSyncSettingsFields();
+    var sect = document.getElementById('settings-aiberater-section');
+    if (sect) sect.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
+function aibSyncSettingsFields() {
+  var ak = document.getElementById('s-aib-apikey');
+  var fh = document.getElementById('s-aib-finnhub');
+  var st = document.getElementById('s-aib-conn-status');
   if (ak) ak.value = (CFG.anthropicApiKey || '');
   if (fh) fh.value = (CFG.finnhubKey || '');
-  if (st) st.innerHTML = (!CFG.sessionToken || !CFG.adminUrl)
-    ? '<span style="color:#FFA372">Nicht angemeldet im finanztracker.</span>'
-    : 'Endpoint: <code style="font-size:11px">' + aibEscape(String(CFG.adminUrl).slice(0, 50)) + '…</code>';
-  openModal('aib-settings-modal');
+  if (st) {
+    if (!CFG.sessionToken || !CFG.adminUrl) {
+      st.textContent = 'Nicht angemeldet im finanztracker.';
+    } else {
+      st.textContent = 'Bereit zum Testen.';
+    }
+  }
 }
 
-function aibSaveSettings() {
-  CFG.anthropicApiKey = (document.getElementById('aib-set-apikey').value || '').trim();
-  CFG.finnhubKey = (document.getElementById('aib-set-finnhub').value || '').trim();
+// Wird live aus dem Input gerufen — sofort persistieren, kein Save-Button.
+function aibPersistKey(which, value) {
+  var v = (value || '').trim();
+  if (which === 'anthropic') CFG.anthropicApiKey = v;
+  else if (which === 'finnhub') CFG.finnhubKey = v;
   if (typeof cfgSave === 'function') cfgSave();
-  if (typeof toast === 'function') toast('Gespeichert', '');
-  closeModal('aib-settings-modal');
 }
 
-async function aibTestConnection() {
-  var st = document.getElementById('aib-conn-status');
+async function aibTestConnectionSettings() {
+  var st = document.getElementById('s-aib-conn-status');
   if (!st) return;
   if (!CFG.sessionToken || !CFG.adminUrl) {
     st.innerHTML = '<span style="color:#FF6B6B">Nicht angemeldet. Bitte im finanztracker einloggen.</span>';
@@ -614,7 +633,7 @@ async function aibTestConnection() {
   st.textContent = 'Teste…';
   try {
     var d = await aibApiCall({ action: 'ai_pull' });
-    st.innerHTML = '<span style="color:#5DEABF">Verbindung OK — ' + (d.portfolio || []).length + ' Positionen, ' + (d.transactions || []).length + ' Trades.</span>';
+    st.innerHTML = '<span style="color:#5DEABF">OK — ' + (d.portfolio || []).length + ' Positionen, ' + (d.transactions || []).length + ' Trades.</span>';
   } catch (e) {
     st.innerHTML = '<span style="color:#FF6B6B">' + aibEscape(e.message || String(e)) + '</span>';
   }

@@ -67,7 +67,7 @@ function goTab(tab){
     else if(pinned[2]===tab) activeNavBtn = document.getElementById('nav-slot3-btn');
   }
   if(activeNavBtn){ activeNavBtn.classList.add('active'); activeNavBtn.setAttribute('aria-current','page'); }
-  // FAB: active (X) state when on eingabe; context-sensitive on oev
+  // FAB: active (X) state when on eingabe
   const fab = document.getElementById('fab-add');
   if(fab){
     fab.classList.toggle('fab-active', tab==='eingabe');
@@ -75,10 +75,6 @@ function goTab(tab){
       fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       fab.setAttribute('aria-label', 'Eingabe schließen');
       fab.onclick = ()=>goTab('home');
-    } else if(tab==='oev'){
-      fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-      fab.setAttribute('aria-label', 'Neue Fahrt');
-      fab.onclick = ()=>{ if(oevView==='abos') openNewAboModal(); else openNewFahrtModal(); };
     } else {
       fab.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
       fab.setAttribute('aria-label', 'Neuer Eintrag');
@@ -90,7 +86,6 @@ function goTab(tab){
     dashboard:'Jahresübersicht', lohn:'Lohn & Einnahmen', dauerauftraege:'Daueraufträge',
     aktien:'Aktien', monat:'Monatsübersicht', sparen:'Sparen & Planen',
     groups:'Gruppen & Events', einstellungen:'Einstellungen', admin:'Admin',
-    oev:'ÖV Fahrten'
   }[tab]||tab;
   updatePageSub();
   // Special pre-render setup (state that must be set before first render)
@@ -164,7 +159,6 @@ const PINNABLE_TABS = [
   { key:'verlauf',        label:'Verlauf',              icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
   { key:'monat',          label:'Monatsübersicht',       icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
   { key:'aktien',         label:'Aktien',               icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>' },
-  { key:'oev',            label:'ÖV Fahrten',           icon:'<rect x="1" y="9" width="22" height="12" rx="2"/><path d="M8 9V5a3 3 0 0 1 6 0v4"/><circle cx="8" cy="15" r="1.5"/><circle cx="16" cy="15" r="1.5"/>' },
   { key:'lohn',           label:'Lohn &amp; Einnahmen', icon:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
   { key:'dauerauftraege', label:'Dauerauftr&auml;ge',   icon:'<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.36"/>' },
   { key:'kategorien',     label:'Kategorien',            icon:'<circle cx="9" cy="9" r="4"/><circle cx="15" cy="15" r="4"/>' },
@@ -184,7 +178,7 @@ function renderMenuOverlay(){
   if(!container) return;
   let html = '';
   // Filter aktien tab when feature is disabled
-  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled).filter(t => t.key !== 'oev' || CFG.oevEnabled);
+  const visibleTabs = PINNABLE_TABS.filter(t => t.key !== 'aktien' || CFG.aktienEnabled);
 
   if(menuEditMode){
     // Edit mode: show pinned with unpin + unpinned with pin icon
