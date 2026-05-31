@@ -458,10 +458,8 @@ function getZyklusInfo(){
     prevCarryover, prevCarryoverRaw,
     prevStart, prevEnd, prevStartStr, prevEndStr,
     prevLohn, prevFixKosten, prevVarSpent,
-    // Savings target — raw always available
-    mSparziel, mSparzielRaw,
     // Toggle state (consumed by widgets)
-    inclCarryover, inclSparziel,
+    inclCarryover,
   };
   _zykulsCacheKey = key;
   return _zyklusCache;

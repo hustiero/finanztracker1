@@ -56,7 +56,7 @@ Object.assign(App.IO, {
   // Auto-materialization
   autoMaterializeRecurrings,
   // Entry CRUD
-  saveEntryOrRecurring, saveEntry, updateEntry, deleteEntry,
+  saveEntry, updateEntry, deleteEntry,
   // Recurring CRUD
   saveRecurring, updateRecurring, deleteRecurring,
   // Category CRUD
@@ -118,9 +118,7 @@ Object.assign(App.UI, {
   // Form helpers
   setType, fillDropdown, fillAllDropdowns, fillParentDropdown,
   selectColor, buildEmojiGrid, esc,
-  toggleRecurringFields, updateRecurToggleUI, toggleRecLohnField,
   toggleLohnField, updateLohnToggleUI,
-  setAktienTradeType, updateAktienTotal,
   // Verlauf navigation
   verlaufSetType, verlaufOpenKat, verlaufOpenKatFromEl, verlaufGoBack,
   verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufCatSort,

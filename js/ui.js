@@ -1121,9 +1121,6 @@ function fillDropdown(elId, type, selected=''){
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
   fillDropdown('r-cat', document.getElementById('r-type')?.value||'ausgabe');
-  // Show/hide Aktien tab button based on setting
-  const aktBtn = document.getElementById('type-akt');
-  if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
 }
 
 function fillParentDropdown(elId, type, selected=''){

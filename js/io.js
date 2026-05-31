@@ -607,34 +607,22 @@ async function loadAll(){
 // MODULE: ENTRIES — Save, Update, Delete
 // ═══════════════════════════════════════════════════════════════
 let currentEntryType = 'ausgabe';
-let recurringMode = false;
 let lohnMode = false;
 
 function setType(t){
+  // Eingabe kennt nur noch Ausgabe + Einnahme. Daueraufträge und
+  // Aktien-Trades haben ihre eigenen Tabs.
+  if(t!=='ausgabe' && t!=='einnahme') t = 'ausgabe';
   currentEntryType = t;
   document.getElementById('type-aus').className = 'type-btn'+(t==='ausgabe'?' active expense':'');
   document.getElementById('type-ein').className = 'type-btn'+(t==='einnahme'?' active income':'');
-  const aktBtn = document.getElementById('type-akt');
-  if(aktBtn) aktBtn.className = 'type-btn'+(t==='aktien'?' active':'');
-  // Toggle standard vs aktien section
-  const stdSec = document.getElementById('eingabe-standard-section');
-  const aktSec = document.getElementById('eingabe-aktien-section');
-  if(stdSec) stdSec.style.display = t==='aktien' ? 'none' : '';
-  if(aktSec) aktSec.style.display = t==='aktien' ? '' : 'none';
-  if(t==='aktien'){ renderAktienTradeForm(); return; }
-  // Show recurring toggle for Ausgabe AND Einnahme (not Aktien)
-  const recWrap = document.getElementById('f-recur-toggle-wrap');
-  if(recWrap) recWrap.style.display = (t==='ausgabe'||t==='einnahme')?'block':'none';
-  if(t==='aktien' && recurringMode) { recurringMode=false; updateRecurToggleUI(); }
-  // Show/hide Lohn toggle in recurring section
-  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
-  if(recLohnWrap) recLohnWrap.style.display = (t==='einnahme'&&recurringMode)?'block':'none';
-  // Show/hide Lohn toggle only for Einnahme
+  // Lohn-Toggle nur für Einnahme
   const lohnWrap = document.getElementById('f-lohn-toggle-wrap');
   if(lohnWrap) lohnWrap.style.display = t==='einnahme'?'block':'none';
-  if(t!=='einnahme' && lohnMode) { lohnMode=false; updateLohnToggleUI(); }
-  fillDropdown('f-cat', t==='ausgabe'?'ausgabe':'einnahme');
-  document.getElementById('f-date-label').textContent = recurringMode&&t==='ausgabe' ? 'Startdatum' : 'Datum';
+  if(t!=='einnahme' && lohnMode){ lohnMode=false; updateLohnToggleUI(); }
+  fillDropdown('f-cat', t);
+  const dateLabel = document.getElementById('f-date-label');
+  if(dateLabel) dateLabel.textContent = 'Datum';
 }
 
 function toggleLohnField(){
@@ -649,79 +637,6 @@ function updateLohnToggleUI(){
   if(row){ row.className = 'lohn-toggle-row'+(lohnMode?' active':''); row.setAttribute('aria-checked', lohnMode?'true':'false'); }
 }
 
-function toggleRecurringFields(){
-  recurringMode = !recurringMode;
-  updateRecurToggleUI();
-}
-
-function updateRecurToggleUI(){
-  const sw = document.getElementById('f-recur-switch');
-  const row = document.getElementById('f-recur-row');
-  const sec = document.getElementById('f-rec-section');
-  const btn = document.getElementById('f-save-btn');
-  const dateLabel = document.getElementById('f-date-label');
-  if(sw) sw.className = 'toggle-switch'+(recurringMode?' on':'');
-  if(row){ row.className = 'recur-toggle-row'+(recurringMode?' active':''); row.setAttribute('aria-checked', recurringMode?'true':'false'); }
-  if(sec) sec.classList.toggle('rec-section-open', recurringMode);
-  if(btn) btn.textContent = recurringMode?'Als Dauerauftrag speichern':'Eintrag speichern';
-  if(dateLabel) dateLabel.textContent = recurringMode ? 'Startdatum' : 'Datum';
-  // Show rec-lohn toggle when in einnahme recurring mode
-  const recLohnWrap = document.getElementById('f-rec-lohn-wrap');
-  if(recLohnWrap) recLohnWrap.style.display = (recurringMode && currentEntryType==='einnahme')?'block':'none';
-}
-
-function toggleRecLohnField(){
-  const sw = document.getElementById('f-rec-lohn-switch');
-  if(sw) sw.classList.toggle('on');
-}
-
-async function saveEntryOrRecurring(){
-  if(recurringMode && (currentEntryType==='ausgabe'||currentEntryType==='einnahme')){
-    // Build recurring from shared form fields
-    const what = document.getElementById('f-what').value.trim();
-    const amt = parseFloat(document.getElementById('f-amt').value)||0;
-    const cat = document.getElementById('f-cat').value;
-    const start = document.getElementById('f-date').value||'';
-    const interval = document.getElementById('f-r-interval')?.value||'monatlich';
-    const day = parseInt(document.getElementById('f-r-day')?.value)||1;
-    const endDate = document.getElementById('f-r-end')?.value||'';
-    const affectsAvg = document.getElementById('f-r-affects-avg')?.checked||false;
-    const note = document.getElementById('f-note').value.trim();
-    const type = currentEntryType;
-    const isLohn = type==='einnahme' && (document.getElementById('f-rec-lohn-switch')?.classList.contains('on')||false);
-    const subType = _readSubTypeToggle('f-rec-subtype') || 'normal';
-    const steps = subType==='gestuft' ? _readStepsEditor('f-rec-steps') : [];
-    if(!what){ _inputErr('f-what','Bezeichnung erforderlich'); toast('Bezeichnung erforderlich','err'); return; }
-    if(!amt || amt <= 0){ _inputErr('f-amt','Betrag muss größer als 0 sein'); toast('Betrag muss > 0 sein','err'); return; }
-    const btn = document.getElementById('f-save-btn');
-    if(btn){ btn.disabled=true; btn.classList.add('loading'); btn.textContent='Wird gespeichert…'; }
-    try{
-    const id = genId('D');
-    const rec = {id,what,cat,amt,interval,day,note,active:true,start,endDate,affectsAvg,type,isLohn,subType,steps};
-    DATA.recurring.push(rec);
-    if(!CFG.demo){
-      setSyncStatus('syncing');
-      try{
-        await apiAppend('Daueraufträge',[[id,what,cat,amt,interval,day,note,'1',start,endDate,affectsAvg?'1':'0',type,isLohn?'1':'0',subType,JSON.stringify(steps)]]);
-        setSyncStatus('online');
-      } catch(e){ setSyncStatus('error'); toast('Sync-Fehler: '+e.message,'err'); return; }
-    }
-    // Reset form
-    ['f-amt','f-what','f-note','f-r-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    const cb=document.getElementById('f-r-affects-avg'); if(cb) cb.checked=false;
-    const rlSw=document.getElementById('f-rec-lohn-switch'); if(rlSw) rlSw.classList.remove('on');
-    recurringMode=false; updateRecurToggleUI();
-    toast('✓ Dauerauftrag gespeichert','ok');
-    dataCacheSave();
-    markDirty('dauerauftraege','dashboard','home','lohn');
-    } finally {
-      if(btn){ btn.disabled=false; btn.classList.remove('loading'); }
-      updateRecurToggleUI();
-    }
-  } else {
-    saveEntry();
-  }
-}
 
 // ── Shared API-sync helpers ───────────────────────────────────────────────────
 // Both helpers manage sync status and show a toast on failure.
@@ -775,8 +690,7 @@ async function saveEntry(){
   if(btn){ btn.disabled = true; btn.textContent = 'Wird gespeichert…'; }
   try { await _saveEntryImpl(); } finally {
     _saveEntryInProgress = false;
-    if(btn){ btn.disabled = false; }
-    updateRecurToggleUI();
+    if(btn){ btn.disabled = false; btn.textContent = 'Eintrag speichern'; }
   }
 }
 

@@ -1010,25 +1010,26 @@ function renderRecurring(){
   };
 
   // Stats summary header
-  const statsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px 12px">
-    <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">
-      <div style="font-size:10px;color:var(--text3);margin-bottom:2px">∑ Ausgaben / Monat${hasMixed?' (anteilig)':''}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--red)">− ${curr()} ${fmtAmt(totalAusgaben)}</div>
+  const subLabel = hasMixed ? ' (anteilig)' : '';
+  const statsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px 14px">
+    <div style="background:var(--bg2);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ausgaben / Monat${subLabel}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--red);letter-spacing:-.3px">−${curr()} ${fmtAmt(totalAusgaben)}</div>
     </div>
-    <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">
-      <div style="font-size:10px;color:var(--text3);margin-bottom:2px">∑ Einnahmen / Monat${hasMixed?' (anteilig)':''}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--green)">+ ${curr()} ${fmtAmt(totalEinnahmen)}</div>
+    <div style="background:var(--bg2);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Einnahmen / Monat${subLabel}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--green);letter-spacing:-.3px">+${curr()} ${fmtAmt(totalEinnahmen)}</div>
     </div>
   </div>`;
 
   // Ausgaben section
   const ausgabenHtml = ausgaben.length ? `
-    <div style="padding:0 16px 4px;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Ausgaben & Fixkosten</div>
+    <div class="section-title" style="padding:0 4px;margin:14px 16px 8px">Ausgaben &amp; Fixkosten</div>
     <div class="card" style="margin:0 16px 12px">${ausgaben.map(renderRow).join('')}</div>` : '';
 
   // Einnahmen section
   const einnahmenHtml = einnahmen.length ? `
-    <div style="padding:0 16px 4px;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Wiederkehrende Einnahmen</div>
+    <div class="section-title" style="padding:0 4px;margin:14px 16px 8px">Wiederkehrende Einnahmen</div>
     <div class="card" style="margin:0 16px 12px">${einnahmen.map(renderRow).join('')}</div>` : '';
 
   container.innerHTML = statsHtml + ausgabenHtml + einnahmenHtml;
