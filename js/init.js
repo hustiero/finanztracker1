@@ -28,8 +28,6 @@ Object.assign(App.Data, {
   // Aggregation
   getKategorienMitEintraegen, getKategorieDetails, buildMonthlyBarData,
   getBookedYears,
-  // Home widgets
-  getHomeWidgets,
   // Aktien — data/calculation
   aktieColor, calcPosition, getDurchschnittsPreis,
   getAktuellerKurs, getCachedStock,
@@ -92,13 +90,9 @@ Object.assign(App.UI, {
   renderEinstellungen, renderNav,
   renderOberkategorien, renderMenuOverlay, renderNotifications,
   renderErscheinungsbild, renderAdmin,
-  // Widget renderers (curated set after Spar/Dashboard/Monat-Cleanup)
-  renderWidgetContent, renderWidgetGreeting, renderWidgetVerlaufZeitraum,
-  renderWidgetLohnzyklus, renderWidgetTagesavg, renderWidgetTopKategorien,
-  renderWidgetHeuteAusgaben, renderWidgetSparquote, renderWidgetEinnahmenPanel,
-  renderWidgetAktienPortfolio, renderWidgetAktienWert, renderWidgetAktienPnl,
-  renderWidgetAktienTop, renderWidgetAktienVerteilung, renderWidgetAktienPosition,
-  renderWidgetAktienDashboard, renderWidgetCatBudgets,
+  // Home render helpers (curated Wiedereinstieg-Dashboard)
+  renderWidgetGreeting, renderWidgetLohnzyklus, renderWidgetTopKategorien,
+  startGreetingClock,
   // Aktien sub-renderers
   renderAktienCharts, renderAktienDashboardTop, renderAktienList, renderFxRates,
   renderAktienTradeForm, renderAktienTabelle,
@@ -132,9 +126,6 @@ Object.assign(App.UI, {
   verlaufToggleL3Search, toggleVerlaufFilter, toggleVerlaufCatSort,
   setVerlaufZeitraum, setVerlaufCustomRange, setVerlaufSearch,
   renderVerlaufFilterSummary, verlaufCalcSummary,
-  // Home widgets management
-  toggleHomeEdit, addWidget, removeWidget, moveWidget, cycleWidgetSize,
-  saveHomeWidgets, setHomeKontoMonths, tileClass, getWidgetSize,
   // Lohn + Abos subtab
   setLohnMonths, toggleFixkosten, toggleAboForm,
   // Notifications

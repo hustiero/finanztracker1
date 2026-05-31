@@ -1034,219 +1034,212 @@ function renderRecurring(){
   container.innerHTML = statsHtml + ausgabenHtml + einnahmenHtml;
 }
 
-// ═══════════════════════════════════════════════════
-//  HOME TAB – WIDGET SYSTEM
-// ═══════════════════════════════════════════════════
-const WIDGET_CATALOG = [
-  { key:'greeting',        label:'Begrüssung',              sub:'Persönliche Begrüssung mit Datum' },
-  { key:'lohnzyklus',      label:'Lohnzyklus',              sub:'Budget, Ausgaben & Tagesrate im Zyklus' },
-  { key:'tagesavg',        label:'Ø Tagesausgaben',         sub:'Durchschnittliche Ausgaben pro Tag (laufender Monat, ohne Fixkosten)' },
-  { key:'topKategorien',   label:'Top Kategorien (Zyklus)', sub:'Top 5 Ausgabenkategorien im Lohnzyklus' },
-  { key:'heuteAusgaben',   label:'Heutige Ausgaben',        sub:'Alle Buchungen von heute' },
-  { key:'sparquote',       label:'Zyklus-Sparquote',        sub:'Sparquote im laufenden Lohnzyklus' },
-  { key:'verlaufZeitraum',  label:'Verlauf: Zeitraum',     sub:'Ausgaben, Einnahmen und Netto im gewählten Zeitraum mit Kategorie-Donut' },
-  { key:'aktienDashboard',  label:'Aktien-Dashboard',      sub:'Portfolio-Wert, Tagesperformance, G/V und Positionen in einer Karte' },
-  { key:'aktienPortfolio',  label:'Aktienportfolio',       sub:'Gesamtübersicht Aktien-Positionen & P&L' },
-  { key:'aktienWert',       label:'Portfolio-Wert',        sub:'Aktueller Gesamtwert des Depots (prominent)' },
-  { key:'aktienPnl',        label:'Depot Gewinn/Verlust',  sub:'Gesamt-P&L in Zielwährung und % (benötigt Live-Kurse)' },
-  { key:'aktienTop',        label:'Top-Performer',         sub:'Aktie mit höchstem prozentualen Gewinn' },
-  { key:'aktienVerteilung', label:'Portfolio-Verteilung',  sub:'Kuchendiagramm: Depotgewichtung nach Wert' },
-  { key:'aktienPosition',   label:'Einzelposition',        sub:'Detailansicht einer Aktie (konfigurierbar)' },
-  { key:'einnahmenPanel',   label:'Einnahmen & Budget',    sub:'Alle Einnahmen im Lohnzyklus + Budgetformel (Lohn-Panel)' },
-  { key:'catBudgets',       label:'Kategorie-Budgets',     sub:'Monatliche Ausgabelimits pro Kategorie mit Fortschrittsbalken' },
-];
-const DEFAULT_HOME_WIDGETS = ['greeting','heuteAusgaben','lohnzyklus','einnahmenPanel','topKategorien','tagesavg'];
-let homeEditMode = false;
-let homeKontoMonths = 3;
-let _editDraftWidgets = null;
-let _editDraftSizes = null;
 
-function getHomeWidgets(){
-  if(_editDraftWidgets !== null) return _editDraftWidgets;
-  if(!CFG.homeWidgets || CFG.homeWidgets.length===0) return [...DEFAULT_HOME_WIDGETS];
-  return CFG.homeWidgets;
+// ═══════════════════════════════════════════════════════════════
+// HOME — Wiedereinstieg-Dashboard
+// Einspaltig, kuratiert. Drei Aufgaben: zeigen was während der
+// Abwesenheit passiert ist, Budget-Status, schneller Eintrag.
+// ═══════════════════════════════════════════════════════════════
+
+// Wie viele Tage liegt ein Datum zurück?
+function _daysSince(dateStr){
+  if(!dateStr) return 0;
+  const a = new Date(dateStr+'T12:00:00'), b = new Date(today()+'T12:00:00');
+  return Math.round((b - a) / 86400000);
 }
-
-function saveHomeWidgets(arr){ CFG.homeWidgets=arr; cfgSave(); autoSyncProfile(); }
-
-function toggleHomeEdit(){
-  if(!homeEditMode){
-    // Enter edit: snapshot current state into draft
-    _editDraftWidgets = [...getHomeWidgets()];
-    _editDraftSizes = {...(CFG.widgetSizes||{})};
-    homeEditMode = true;
-  } else {
-    // Exit edit: batch-save draft to CFG
-    saveHomeWidgets(_editDraftWidgets);
-    CFG.widgetSizes = _editDraftSizes;
-    cfgSave();
-    autoSyncProfile();
-    _editDraftWidgets = null;
-    _editDraftSizes = null;
-    homeEditMode = false;
-  }
-  renderHome();
-}
-
-function addWidget(key){
-  if(!_editDraftWidgets) return;
-  if(!_editDraftWidgets.includes(key)) _editDraftWidgets.push(key);
-  renderHome();
-}
-
-function removeWidget(key){
-  if(!_editDraftWidgets) return;
-  _editDraftWidgets = _editDraftWidgets.filter(k=>k!==key);
-  renderHome();
-}
-
-function moveWidget(key, dir){
-  if(!_editDraftWidgets) return;
-  const w = _editDraftWidgets;
-  const i = w.indexOf(key);
-  if(i<0) return;
-  const j = i + dir;
-  if(j<0 || j>=w.length) return;
-  [w[i],w[j]] = [w[j],w[i]];
-  renderHome();
-}
-
-// ── Tile sizes: widget key → CSS size class ──
-// Sizes: 1x1, 2x1 (wide), 1x2 (tall), 2x2, 2x3, 2x4
-const WIDGET_SIZES = {
-  greeting:         '2x1',
-  lohnzyklus:       '2x3',
-  tagesavg:         '1x1',
-  topKategorien:    '1x2',
-  heuteAusgaben:    '1x1',
-  sparquote:        '1x1',
-  verlaufZeitraum:  '2x2',
-  aktienDashboard:  '2x2',
-  aktienPortfolio:  '2x1',
-  aktienWert:       '1x1',
-  aktienPnl:        '1x1',
-  aktienTop:        '1x1',
-  aktienVerteilung: '1x2',
-  aktienPosition:   '1x1',
-  einnahmenPanel:   '2x2',
-  catBudgets:       '2x2',
-};
-
-/** Return tile CSS class for a widget key. Draft/CFG.widgetSizes overrides defaults. Falls back to 2x1. */
-function tileClass(key){
-  const sizes = _editDraftSizes || CFG.widgetSizes;
-  const custom = sizes && sizes[key];
-  return 'tile-'+(custom || WIDGET_SIZES[key] || '2x1');
-}
-function getWidgetSize(key){
-  const sizes = _editDraftSizes || CFG.widgetSizes;
-  return (sizes && sizes[key]) || WIDGET_SIZES[key] || '2x1';
-}
-const VALID_SIZES = ['1x1','2x1','1x2','2x2','2x3','2x4'];
-function cycleWidgetSize(key){
-  if(!_editDraftSizes) _editDraftSizes = {...(CFG.widgetSizes||{})};
-  const current = getWidgetSize(key);
-  const idx = VALID_SIZES.indexOf(current);
-  const next = VALID_SIZES[(idx+1) % VALID_SIZES.length];
-  _editDraftSizes[key] = next;
-  renderHome();
-}
-
-// Widget → target tab mapping for clickable widgets
-const WIDGET_TAB_MAP = {
-  lohnzyklus:'lohn', tagesavg:'verlauf', topKategorien:'kategorien',
-  heuteAusgaben:'verlauf', sparquote:'lohn',
-  verlaufZeitraum:'verlauf', einnahmenPanel:'lohn',
-  aktienDashboard:'aktien', aktienPortfolio:'aktien', aktienWert:'aktien',
-  aktienPnl:'aktien', aktienTop:'aktien', aktienVerteilung:'aktien', aktienPosition:'aktien',
-};
-
-// Human-readable section labels for each target tab
-const WIDGET_SECTION_LABELS = {
-  lohn:'Lohn & Budget', verlauf:'Verlauf', kategorien:'Kategorien',
-  aktien:'Aktien',
-};
 
 function renderHome(){
   const el = document.getElementById('tab-home');
   if(!el) return;
-  const aktienWidgetKeys = ['aktienDashboard','aktienPortfolio','aktienWert','aktienPnl','aktienTop','aktienVerteilung','aktienPosition'];
-  const visibleCatalog = CFG.aktienEnabled ? WIDGET_CATALOG : WIDGET_CATALOG.filter(w=>!aktienWidgetKeys.includes(w.key));
-  const allWidgets = getHomeWidgets();
-  const widgets = CFG.aktienEnabled ? allWidgets : allWidgets.filter(k=>!aktienWidgetKeys.includes(k));
-  const available = visibleCatalog.filter(c=>!widgets.includes(c.key));
-  let html = '<div class="tile-grid">';
 
-  // Active widgets
-  widgets.forEach((key,idx)=>{
-    const def = visibleCatalog.find(c=>c.key===key);
-    if(!def) return;
-    const targetTab = WIDGET_TAB_MAP[key];
+  // Letzten Besuch genau einmal pro Tag "konsumieren": Snapshot des
+  // vorherigen Besuchsdatums festhalten, dann lastVisitDate auf heute setzen.
+  // renderHome läuft mehrmals pro Session — _homeVisitRead verhindert
+  // wiederholtes Verschieben des Snapshots.
+  if(CFG._homeVisitRead !== today()){
+    CFG._lastVisitSnapshot = CFG.lastVisitDate || '';
+    CFG._homeVisitRead = today();
+    CFG.lastVisitDate = today();
+    cfgSave();
+  }
+  const daysAway = _daysSince(CFG._lastVisitSnapshot);
 
-    const clickAttr = targetTab && !homeEditMode ? ` onclick="goTab('${targetTab}')" style="cursor:pointer;--wi:${idx}"` : ` style="--wi:${idx}"`;
-    const editClass = homeEditMode ? ' editing' : '';
-    const dataKey = homeEditMode ? ` data-widget-key="${key}"` : '';
-    html += `<div class="widget-card ${tileClass(key)}${editClass}" id="widget-card-${key}"${clickAttr}${dataKey}>`;
-    if(homeEditMode){
-      const size = getWidgetSize(key);
-      const sectionLabel = targetTab && WIDGET_SECTION_LABELS[targetTab]
-        ? `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0">${WIDGET_SECTION_LABELS[targetTab]}</span>`
-        : '';
-      html += `<div class="home-edit-row">
-        <div class="edit-row-top">
-          <span class="home-edit-drag">⠿</span>
-          <span style="flex:1;font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${def.label}</span>
-          ${sectionLabel}
-          <button class="home-edit-btn t-red" onclick="removeWidget('${key}')" style="width:24px;height:24px;min-width:24px">✕</button>
-        </div>
-        <div class="edit-row-bottom">
-          <button class="home-edit-btn" onclick="event.stopPropagation();cycleWidgetSize('${key}')" title="Grösse ändern" style="font-size:9px;font-family:'DM Mono',monospace;min-width:30px;height:24px">${size}</button>
-          <button class="home-edit-btn" onclick="moveWidget('${key}',-1)" ${idx===0?'disabled':''} style="width:24px;height:24px;min-width:24px">↑</button>
-          <button class="home-edit-btn" onclick="moveWidget('${key}',1)" ${idx===widgets.length-1?'disabled':''} style="width:24px;height:24px;min-width:24px">↓</button>
-        </div>
-      </div>`;
-      html += `<div class="widget-preview">${renderWidgetContent(key)}</div>`;
-      html += `<div class="widget-resize-handle" data-widget-key="${key}" title="Grösse anpassen">⤡</div>`;
-    } else {
-      html += renderWidgetContent(key);
-    }
-    html += `</div>`;
-  });
+  let html = '';
 
-  html += '</div>'; // close tile-grid
+  // ── 1. Begrüssung + Uhr ──
+  html += `<div class="section" style="padding-bottom:6px">${renderWidgetGreeting()}</div>`;
 
-  // Available to add (edit mode only) — grid preview cards
-  if(homeEditMode && available.length>0){
-    html += `<div style="margin:0 12px 12px;padding:12px 0">
-      <div class="widget-title" style="padding:0 0 8px">Verfügbare Kacheln</div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">`;
-    available.forEach(def=>{
-      const size = WIDGET_SIZES[def.key]||'2x1';
-      html += `<div onclick="addWidget('${def.key}')" style="cursor:pointer;border:1.5px dashed var(--border2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;justify-content:space-between;min-height:70px;transition:border-color .15s,background .15s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='rgba(200,245,60,.04)'" onmouseleave="this.style.borderColor='var(--border2)';this.style.background='transparent'">
-        <div>
-          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${def.label}</div>
-          <div style="font-size:10px;color:var(--text3);line-height:1.3">${def.sub}</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-          <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3);font-family:'DM Mono',monospace">${size}</span>
-          <span style="font-size:16px;color:var(--accent);font-weight:300;line-height:1">+</span>
-        </div>
-      </div>`;
-    });
-    html += `</div></div>`;
+  // ── 2. Catch-up-Banner (nur wenn ≥ 3 Tage weg) ──
+  if(daysAway >= 3){
+    html += renderHomeCatchup(CFG._lastVisitSnapshot, daysAway);
   }
 
-  // Edit toggle button
-  html += `<div style="padding:16px;text-align:center">
-    <button onclick="toggleHomeEdit()" style="background:${homeEditMode?'var(--accent)':'var(--bg3)'};color:${homeEditMode?'var(--bg0)':'var(--text2)'};border:1px solid ${homeEditMode?'var(--accent)':'var(--border)'};border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600">
-      ${homeEditMode ? '✓ Fertig' : '⊞ Kacheln bearbeiten'}
-    </button>
+  // ── 3. Offene Dauerauftrag-Bestätigungen ──
+  html += renderHomeRenewals();
+
+  // ── 4. Budget-Status (Lohnzyklus) ──
+  html += `<div class="section pt-0">
+    <div class="card" style="padding:16px;cursor:pointer" onclick="goTab('lohn')">${renderWidgetLohnzyklus()}</div>
   </div>`;
 
+  // ── 5. Heute + Ø Tagesausgabe ──
+  html += `<div class="section pt-0">
+    <div class="card" style="padding:16px">${renderHomeHeute()}</div>
+  </div>`;
+
+  // ── 6. Top Kategorien im Lohnzyklus (wohin fliesst das Geld) ──
+  html += `<div class="section pt-0">
+    <div class="card" style="padding:16px;cursor:pointer" onclick="goTab('verlauf')">${renderWidgetTopKategorien()}</div>
+  </div>`;
+
+  // ── 7. Letzte Buchungen ──
+  html += renderHomeRecent();
+
+  // ── 8. Aktien-Teaser (nur wenn aktiviert) ──
+  if(CFG.aktienEnabled){
+    html += `<div class="section pt-0">
+      <button class="card" style="width:100%;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border:none;text-align:left" onclick="goTab('aktien')">
+        <span style="display:flex;align-items:center;gap:10px">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span style="font-size:14px;font-weight:600;color:var(--text)">Aktien &amp; Portfolio</span>
+        </span>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>`;
+  }
+
   el.innerHTML = html;
-  if(homeEditMode) initWidgetDrag(); else initLongPressEdit();
-  if(widgets.includes('greeting')) startGreetingClock();
+  startGreetingClock();
 }
+
+// Catch-up-Karte: was ist passiert seit dem letzten Besuch
+function renderHomeCatchup(since, daysAway){
+  // Materialisierte Daueraufträge im Abwesenheitsfenster
+  const autoBooked = DATA.expenses.filter(e=>e.recurringId && e.date>since && e.date<=today());
+  const autoSum = autoBooked.reduce((s,e)=>s+e.amt,0);
+  // Manuelle Buchungen seit dem letzten Besuch (nicht von heute)
+  const manualNew = DATA.expenses.filter(e=>!e.recurringId && e.date>since && e.date<today());
+  const manualSum = manualNew.reduce((s,e)=>s+e.amt,0);
+
+  let lines = '';
+  if(autoBooked.length){
+    lines += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:13px">
+      <span style="color:var(--text2)">${autoBooked.length} Dauerauftr${autoBooked.length===1?'ag':'äge'} automatisch gebucht</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(autoSum)}</span>
+    </div>`;
+  }
+  if(manualNew.length){
+    lines += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:13px">
+      <span style="color:var(--text2)">${manualNew.length} eigene Buchung${manualNew.length===1?'':'en'}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(manualSum)}</span>
+    </div>`;
+  }
+  if(!lines){
+    lines = `<div style="font-size:13px;color:var(--text3);padding:4px 0">Keine Buchungen in der Zwischenzeit.</div>`;
+  }
+
+  return `<div class="section pt-0">
+    <div class="card" style="padding:16px;border:1px solid var(--accent);background:rgba(var(--accent-rgb,100,220,120),.05)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:var(--accent);fill:none;stroke-width:2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span style="font-size:15px;font-weight:700;color:var(--text)">Willkommen zurück</span>
+      </div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:8px">${daysAway} Tage nicht hier gewesen.</div>
+      ${lines}
+      <button class="save-btn" style="width:100%;margin-top:12px" onclick="goTab('verlauf')">Verlauf ansehen</button>
+    </div>
+  </div>`;
+}
+
+// Offene Dauerauftrag-Bestätigungen als Inline-Karten (statt im Notif-Overlay)
+function renderHomeRenewals(){
+  const renewals = (CFG.notifications||[]).filter(n=>n.type==='dauerauftrag_renewal' && !n.dismissed);
+  if(!renewals.length) return '';
+  const rows = renewals.map(n=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(n.title||'')}</div>
+        <div style="font-size:11px;color:var(--text3)">${esc(n.body||'')}</div>
+      </div>
+      <button onclick="event.stopPropagation();confirmRecurringRenewal('${n.id}')" style="font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid var(--green);background:rgba(100,220,120,.1);color:var(--green);font-weight:600;cursor:pointer;flex-shrink:0">Ja</button>
+      <button onclick="event.stopPropagation();skipRecurringRenewal('${n.id}')" style="font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;flex-shrink:0">Nein</button>
+    </div>`).join('');
+  return `<div class="section pt-0">
+    <div class="card" style="padding:14px 16px;border:1px solid rgba(255,209,102,.25);background:rgba(255,209,102,.05)">
+      <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:2px">Daueraufträge bestätigen</div>
+      <div style="font-size:11px;color:var(--text3)">Neuer Lohnzyklus — laufen diese weiter?</div>
+      ${rows}
+    </div>
+  </div>`;
+}
+
+// Heute-Zusammenfassung + Ø Tagesausgabe
+function renderHomeHeute(){
+  const t = today();
+  const todayExp = DATA.expenses.filter(e=>e.date===t);
+  const todayInc = DATA.incomes.filter(e=>e.date===t);
+  const outVar = todayExp.filter(e=>!isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const outFix = todayExp.filter(e=>isFixkostenEntry(e)).reduce((s,e)=>s+e.amt,0);
+  const inSum  = todayInc.reduce((s,e)=>s+e.amt,0);
+  const z = (typeof getZyklusInfo==='function') ? getZyklusInfo() : null;
+  const dailyBudget = z && z.hasSalary && z.daysLeft>=0 ? z.dailyRate : null;
+  const over = dailyBudget!==null && outVar > dailyBudget;
+  const amtColor = dailyBudget===null ? 'var(--text)' : over ? 'var(--red)' : 'var(--green)';
+
+  let html = `<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px">
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3)">HEUTE</div>
+      <div style="font-family:'DM Mono',monospace;font-size:30px;font-weight:700;line-height:1.1;color:${amtColor}">${curr()}&nbsp;${fmtAmt(outVar)}</div>
+    </div>
+    <button class="save-btn" style="padding:8px 14px;font-size:13px" onclick="goTab('eingabe')">+ Erfassen</button>
+  </div>`;
+  const sub = [];
+  if(outFix>0) sub.push(`+ ${curr()} ${fmtAmt(outFix)} Fixkosten`);
+  if(inSum>0)  sub.push(`<span style="color:var(--green)">+ ${curr()} ${fmtAmt(inSum)} Einnahmen</span>`);
+  if(dailyBudget!==null) sub.push(`Tagesbudget ${curr()} ${fmtAmt(dailyBudget)}`);
+  if(sub.length) html += `<div style="font-size:12px;color:var(--text3);margin-top:2px">${sub.join(' · ')}</div>`;
+  return html;
+}
+
+// Letzte Buchungen (max 8, nach Datum) — Klick öffnet Bearbeiten
+function renderHomeRecent(){
+  const entries = [
+    ...DATA.expenses.map(e=>({...e,_t:'ausgabe'})),
+    ...DATA.incomes.map(e=>({...e,_t:'einnahme'})),
+  ].sort((a,b)=> b.date.localeCompare(a.date) || (b.id>a.id?1:-1)).slice(0,8);
+
+  if(!entries.length){
+    return `<div class="section pt-0">
+      <div class="empty" style="padding:24px 0">
+        <div class="empty-text">Noch keine Buchungen</div>
+        <button class="empty-cta" onclick="goTab('eingabe')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ersten Eintrag erfassen</button>
+      </div>
+    </div>`;
+  }
+
+  const rows = entries.map(e=>{
+    const par = parentOf(e.cat);
+    const sub = (par?esc(par)+' › ':'')+esc(e.cat);
+    return `<div class="card-row" onclick="openEditModal('${escJs(e.id)}','${e._t}')">
+      <div class="card-row-icon" style="background:${catColor(e.cat)}22"><span>${catEmoji(e.cat)}</span></div>
+      <div class="card-row-body">
+        <div class="card-row-title">${esc(e.what)}</div>
+        <div class="card-row-sub">${sub} · ${fmtDate(e.date)}</div>
+      </div>
+      <div class="card-row-amount">${e._t==='einnahme'?'+ ':'− '}${fmtAmt(e.amt)}</div>
+      <svg class="chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('');
+
+  return `<div class="section pt-0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 8px">
+      <span style="font-size:13px;font-weight:700;color:var(--text2)">Letzte Buchungen</span>
+      <button onclick="goTab('verlauf')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">Alle →</button>
+    </div>
+    <div class="card" style="margin:0 16px">${rows}</div>
+  </div>`;
+}
+
 
 // ── Greeting clock ───────────────────────────────────────────────────────────
 let _greetingClockInterval = null;
@@ -1265,207 +1258,6 @@ function startGreetingClock(){
   _greetingClockInterval = setInterval(tick, 1000);
 }
 
-// ── Widget Drag, Resize & Long-Press ────────────────────────────────────────
-let _dragState = null;
-let _dragListenersAttached = false;
-let _dragPreviewTargetKey = null;
-let _resizeState = null;
-
-// ── Drag ────────────────────────────────────────────────────────────────────
-function _dragMove(clientX, clientY){
-  if(!_dragState) return;
-  _dragState.ghost.style.left = clientX + 'px';
-  _dragState.ghost.style.top = (clientY - 16) + 'px';
-
-  let overCard = null;
-  const allCards = [...document.querySelectorAll('.widget-card.editing')];
-  for(const c of allCards){
-    if(c === _dragState.cardEl) continue;
-    const r = c.getBoundingClientRect();
-    if(clientX >= r.left && clientX <= r.right && clientY > r.top && clientY < r.bottom){ overCard = c; break; }
-  }
-
-  const newKey = overCard ? overCard.dataset.widgetKey : null;
-  if(newKey === _dragPreviewTargetKey) return;
-  _dragPreviewTargetKey = newKey;
-
-  allCards.forEach(c => c.style.order = '');
-  if(!newKey || !_editDraftWidgets) return;
-
-  const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
-  const toIdx   = _editDraftWidgets.indexOf(newKey);
-  if(fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
-
-  const proposed = [..._editDraftWidgets];
-  proposed.splice(fromIdx, 1);
-  proposed.splice(toIdx, 0, _dragState.key);
-  allCards.forEach(c => {
-    const idx = proposed.indexOf(c.dataset.widgetKey);
-    if(idx >= 0) c.style.order = idx;
-  });
-}
-function _dragEnd(){
-  if(!_dragState) return;
-  _dragState.ghost.remove();
-  _dragState.cardEl.classList.remove('dragging');
-
-  if(_dragPreviewTargetKey && _editDraftWidgets){
-    const fromIdx = _editDraftWidgets.indexOf(_dragState.key);
-    const toIdx   = _editDraftWidgets.indexOf(_dragPreviewTargetKey);
-    if(fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx){
-      _editDraftWidgets.splice(fromIdx, 1);
-      _editDraftWidgets.splice(toIdx, 0, _dragState.key);
-      _dragState = null; _dragPreviewTargetKey = null;
-      renderHome(); return;
-    }
-  }
-  document.querySelectorAll('.widget-card.editing').forEach(c => c.style.order = '');
-  _dragState = null; _dragPreviewTargetKey = null;
-}
-
-// ── Resize (corner handle) ───────────────────────────────────────────────────
-function _resizeMove(clientX, clientY){
-  if(!_resizeState) return;
-  const {sc, sr, startX, startY, colWidth, rowUnit, cardEl} = _resizeState;
-  const dx = clientX - startX, dy = clientY - startY;
-  const newCols = Math.max(1, Math.min(2, Math.round(sc + dx / colWidth)));
-  const maxRows = newCols === 1 ? 2 : 4;
-  const newRows = Math.max(1, Math.min(maxRows, Math.round(sr + dy / rowUnit)));
-  const sz = `${newCols}x${newRows}`;
-  if(!VALID_SIZES.includes(sz) || sz === _resizeState.cur) return;
-  _resizeState.cur = sz;
-  VALID_SIZES.forEach(s => cardEl.classList.remove('tile-' + s));
-  cardEl.classList.add('tile-' + sz);
-}
-function _resizeEnd(){
-  if(!_resizeState) return;
-  const {key, cardEl, sc, sr, cur} = _resizeState;
-  cardEl.classList.remove('resizing');
-  _resizeState = null;
-  if(cur && cur !== `${sc}x${sr}`){
-    if(!_editDraftSizes) _editDraftSizes = {...(CFG.widgetSizes||{})};
-    _editDraftSizes[key] = cur;
-    renderHome();
-  }
-}
-
-// ── Shared pointer handlers ──────────────────────────────────────────────────
-function _onTouchMove(e){
-  if(_dragState){ e.preventDefault(); const t=e.touches[0]; _dragMove(t.clientX, t.clientY); }
-  else if(_resizeState){ e.preventDefault(); const t=e.touches[0]; _resizeMove(t.clientX, t.clientY); }
-}
-function _onMouseMove(e){
-  if(_dragState) _dragMove(e.clientX, e.clientY);
-  else if(_resizeState) _resizeMove(e.clientX, e.clientY);
-}
-function _onPointerEnd(){
-  if(_dragState) _dragEnd();
-  if(_resizeState) _resizeEnd();
-}
-
-// ── Long-press on non-edit tiles to enter edit mode ──────────────────────────
-function initLongPressEdit(){
-  if(homeEditMode) return;
-  document.querySelectorAll('#tab-home .widget-card').forEach(card => {
-    let timer = null, moved = false, sx = 0, sy = 0;
-    card.addEventListener('touchstart', e => {
-      moved = false; sx = e.touches[0].clientX; sy = e.touches[0].clientY;
-      card.classList.add('longpress-active');
-      timer = setTimeout(() => {
-        if(!moved){ if(typeof haptic==='function') haptic(30); toggleHomeEdit(); }
-        card.classList.remove('longpress-active');
-      }, 500);
-    }, {passive:true});
-    card.addEventListener('touchmove', e => {
-      if(!timer) return;
-      const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
-      if(Math.abs(dx) > 8 || Math.abs(dy) > 8){
-        moved = true; clearTimeout(timer); timer = null;
-        card.classList.remove('longpress-active');
-      }
-    }, {passive:true});
-    card.addEventListener('touchend', () => {
-      if(timer){ clearTimeout(timer); timer = null; }
-      card.classList.remove('longpress-active');
-    });
-  });
-}
-
-// ── Init drag + resize (called in edit mode) ─────────────────────────────────
-function initWidgetDrag(){
-  if(!_dragListenersAttached){
-    document.addEventListener('touchmove', _onTouchMove, {passive:false});
-    document.addEventListener('mousemove', _onMouseMove);
-    document.addEventListener('touchend', _onPointerEnd);
-    document.addEventListener('mouseup', _onPointerEnd);
-    _dragListenersAttached = true;
-  }
-
-  // Drag via handle
-  const cards = document.querySelectorAll('.widget-card.editing');
-  cards.forEach(card=>{
-    const handle = card.querySelector('.home-edit-drag');
-    if(!handle) return;
-    const start = (clientX, clientY, e)=>{
-      e.preventDefault();
-      const key = card.dataset.widgetKey;
-      if(!key) return;
-      const ghost = document.createElement('div');
-      ghost.className = 'widget-drag-ghost';
-      ghost.textContent = card.querySelector('.home-edit-row span[style]')?.textContent || key;
-      ghost.style.left = clientX + 'px';
-      ghost.style.top = clientY + 'px';
-      document.body.appendChild(ghost);
-      card.classList.add('dragging');
-      _dragState = {key, ghost, cardEl: card};
-      if(typeof haptic==='function') haptic(10);
-    };
-    handle.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX, t.clientY, e); }, {passive:false});
-    handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
-  });
-
-  // Resize via corner handle
-  document.querySelectorAll('.widget-resize-handle').forEach(h => {
-    const start = (clientX, clientY, e) => {
-      e.stopPropagation(); e.preventDefault();
-      const key = h.dataset.widgetKey;
-      const card = document.getElementById('widget-card-' + key);
-      if(!card) return;
-      const [sc, sr] = getWidgetSize(key).split('x').map(Number);
-      const grid = card.closest('.tile-grid');
-      const colWidth = grid ? (grid.offsetWidth - 24 - 10) / 2 : 150; // 24=padding, 10=gap
-      const rowUnit = sr > 0 ? card.offsetHeight / sr : 90;
-      _resizeState = {key, sc, sr, startX:clientX, startY:clientY, colWidth, rowUnit, cur:null, cardEl:card};
-      card.classList.add('resizing');
-      if(typeof haptic==='function') haptic(10);
-    };
-    h.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX,t.clientY,e); }, {passive:false});
-    h.addEventListener('mousedown', e=>start(e.clientX,e.clientY,e));
-  });
-}
-
-function renderWidgetContent(key){
-  switch(key){
-    case 'greeting':         return renderWidgetGreeting();
-    case 'lohnzyklus':       return renderWidgetLohnzyklus();
-    case 'tagesavg':         return renderWidgetTagesavg();
-    case 'topKategorien':    return renderWidgetTopKategorien();
-    case 'heuteAusgaben':    return renderWidgetHeuteAusgaben();
-    case 'sparquote':        return renderWidgetSparquote();
-    case 'verlaufZeitraum':  return renderWidgetVerlaufZeitraum();
-    case 'aktienDashboard':  return renderWidgetAktienDashboard();
-    case 'aktienPortfolio':  return renderWidgetAktienPortfolio();
-    case 'aktienWert':       return renderWidgetAktienWert();
-    case 'aktienPnl':        return renderWidgetAktienPnl();
-    case 'aktienTop':        return renderWidgetAktienTop();
-    case 'aktienVerteilung': return renderWidgetAktienVerteilung();
-    case 'aktienPosition':   return renderWidgetAktienPosition();
-    case 'einnahmenPanel':   return renderWidgetEinnahmenPanel();
-    case 'catBudgets':       return renderWidgetCatBudgets();
-    default: return '';
-  }
-}
-
 function renderWidgetGreeting(){
   const now = new Date();
   const h = now.getHours();
@@ -1479,36 +1271,6 @@ function renderWidgetGreeting(){
     <div id="greeting-clock" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:34px;font-weight:300;letter-spacing:-1px;line-height:1;color:var(--text)"></div>
   </div>`;
 }
-
-// ── Widget: Verlauf Zeitraum ─────────────────────────────────────────────────
-// Kompakte Version: Donut + 3 Kennzahlen. Klick → Verlauf mit gesetztem Filter.
-function renderWidgetVerlaufZeitraum(){
-  const {ausgaben,einnahmen,netto,segments}=verlaufCalcSummary();
-  const donut=buildDonutSVG(segments,ausgaben,80);
-  const label=verlaufGetRangeLabel();
-  return `<div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${label}</div>
-    <div style="display:flex;gap:10px;align-items:center">
-      ${donut?`<div>${donut}</div>`:''}
-      <div class="flex-1">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span class="t-muted-sm">Ausgaben</span>
-          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--red)">${curr()} ${fmtAmt(ausgaben)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span class="t-muted-sm">Einnahmen</span>
-          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(einnahmen)}</span>
-        </div>
-        <div style="height:1px;background:var(--border);margin:4px 0"></div>
-        <div style="display:flex;justify-content:space-between">
-          <span class="t-muted-sm">Netto</span>
-          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'}${curr()} ${fmtAmt(Math.abs(netto))}</span>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
 function renderWidgetLohnzyklus(){
   const z = getZyklusInfo();
   const fmt = s => s.slice(8)+'.'+s.slice(5,7)+'.';
@@ -1616,73 +1378,6 @@ function renderWidgetLohnzyklus(){
   </div>`;
 }
 
-// ─── Shared render helpers (used by both widgets and tab views) ───
-
-// Tagesausgabe stat-card — identical to what renderMonat() shows
-function buildTagesavgCard(mo, yr){
-  const now = new Date();
-  const isCurrent = mo===now.getMonth() && yr===now.getFullYear();
-  const daysElapsed = isCurrent ? now.getDate() : new Date(yr, mo+1, 0).getDate();
-  const avg = avgDailyVarSpend(mo, yr, daysElapsed);
-  const prevC = avgDailyVarSpendPrevComp(mo, yr);
-  const diffPct = prevC.avg>0 ? (avg-prevC.avg)/prevC.avg*100 : null;
-  const mNames = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  return `<div class="stats-grid mb-0">
-    <div class="stat-card" style="grid-column:1/-1;cursor:pointer" onclick="openAvgConfig()">
-      <div class="stat-label">Ø Tagesausgabe (ohne Fixkosten)
-        ${diffPct!==null?`<span style="font-size:11px;color:${diffPct<=0?'var(--green)':'var(--red)'};margin-left:6px">${diffPct<=0?'↓':'↑'}${Math.abs(diffPct).toFixed(0)}% vs. ${mNames[prevC.prevMo]}</span>`:''}
-        <span style="font-size:11px;color:var(--text3);margin-left:6px">⚙</span>
-      </div>
-      <div class="stat-value" style="font-size:18px">${curr()} ${fmtAmt(avg)}</div>
-    </div>
-  </div>`;
-}
-
-// Day entry group with optional virtual recurring entries (dRec).
-// Virtual recurring appear with a "DA" badge; clicking opens openMaterializeModal().
-function buildDayGroup(ds, dExp, dInc, dRec){
-  const wdays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  const d = new Date(ds+'T12:00:00');
-  const isToday = ds===today();
-  // Filter virtual recurring: skip ones already materialized
-  const dRecVirtual = (dRec||[]).filter(r=>!DATA.expenses.some(e=>e.recurringId===r._recurId&&e.date===ds));
-  const dNet = dInc.reduce((s,e)=>s+e.amt,0) - dExp.reduce((s,e)=>s+e.amt,0) - dRecVirtual.reduce((s,e)=>s+e.amt,0);
-  const entries = [
-    ...dInc.map(e=>({...e,t:'i'})),
-    ...dExp.map(e=>({...e,t:'e'})),
-    ...dRecVirtual.map(e=>({...e,t:'r'}))
-  ];
-  return `<div class="mv-day-group">
-    <div class="mv-day-hdr">
-      <span class="mv-day-lbl${isToday?' is-today':''}">${isToday?'Heute':wdays[d.getDay()]+' '+d.getDate()+'.'}</span>
-      <span class="mv-day-totals t-text2">${dNet>=0?'+':''}${fmtAmt(dNet)}</span>
-    </div>
-    ${entries.map(e=>{
-      const par = parentOf(e.cat);
-      const catLabel = par ? `${esc(par)} › ${esc(e.cat)}` : esc(e.cat);
-      if(e.t==='r'){
-        return `<div class="mv-entry" onclick="openMaterializeModal('${e._recurId}','${e.date}')" style="cursor:pointer;opacity:.65">
-          <span class="mv-entry-cat t-text3">↻ ${catLabel}</span>
-          <span class="mv-entry-what">${esc(e.what)}<span style="font-size:10px;margin-left:5px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text3)">DA</span></span>
-          <span class="mv-entry-amt t-text3">−${fmtAmt(e.amt)}</span>
-        </div>`;
-      }
-      return `<div class="mv-entry" onclick="openEditModal('${e.id}','${e.t==='i'?'einnahme':'ausgabe'}')" style="cursor:pointer">
-        <span class="mv-entry-cat">${catEmoji(e.cat)} ${catLabel}</span>
-        <span class="mv-entry-what">${esc(e.what)}</span>
-        <span class="mv-entry-amt" style="color:${e.t==='i'?'var(--green)':'var(--red)'}">
-          ${e.t==='i'?'+':'−'}${fmtAmt(e.amt)}
-        </span>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
-
-function renderWidgetTagesavg(){
-  // Exact same card as in renderMonat() — uses the shared helper
-  return buildTagesavgCard(new Date().getMonth(), new Date().getFullYear());
-}
-
 function renderWidgetTopKategorien(){
   const {start,end} = getCycleRange();
   const startStr=dateStr(start), endStr=dateStr(end);
@@ -1716,237 +1411,6 @@ function renderWidgetTopKategorien(){
 }
 
 
-function setHomeKontoMonths(m){ homeKontoMonths=m; renderHome(); }
-
-// ── Widget: Einnahmen & Budget (Lohn-Panel für Home) ────────────────────────
-// Zeigt alle Einnahmen im aktuellen Lohnzyklus + Budgetformel.
-// Ersetzt das fehlende Lohn/Einnahmen-Panel auf der Startseite.
-function renderWidgetEinnahmenPanel(){
-  const z = getZyklusInfo();
-  const cycleInc = DATA.incomes
-    .filter(e=>e.date>=z.startStr&&e.date<=z.endStr)
-    .sort((a,b)=>b.date.localeCompare(a.date));
-
-  const incRows = cycleInc.length
-    ? cycleInc.map(e=>`
-      <div onclick="event.stopPropagation();openEditModal('${e.id}','einnahme')" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer">
-        <div>
-          <div style="font-size:13px;font-weight:500">${esc(e.what)}${e.isLohn?` <span style="font-size:10px;background:rgba(200,245,60,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:600">Lohn</span>`:''}</div>
-          <div style="font-size:11px;color:var(--text3)">${fmtDate(e.date)} · ${esc(e.cat)}</div>
-        </div>
-        <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--green)">+${fmtAmt(e.amt)}</span>
-      </div>`).join('')
-    : `<div style="font-size:12px;color:var(--text3);padding:8px 0">Noch keine Einnahmen in diesem Zyklus.</div>`;
-
-  const lohnTotal = cycleInc.reduce((s,e)=>s+e.amt,0);
-
-  return `<div>
-    <div class="widget-title">Einnahmen im Zyklus</div>
-    <div style="margin-bottom:10px">${incRows}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;margin-bottom:6px">
-      <span style="font-size:12px;font-weight:600;color:var(--text2)">Total Einnahmen</span>
-      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--green)">${curr()} ${fmtAmt(lohnTotal)}</span>
-    </div>
-    ${z.hasSalary?`
-    <div style="font-size:11px;color:var(--text3);background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:8px">
-      ${lohnTotal>0?`${curr()} ${fmtAmt(lohnTotal)}`:'Einnahmen'}
-      ${z.fixKosten>0?` − ${curr()} ${fmtAmt(z.fixKosten)} Fixkosten`:''}
-      ${z.mSparziel>0?` − ${curr()} ${fmtAmt(z.mSparziel)} Sparziel`:''}
-      ${z.prevCarryover!==0?` ${z.prevCarryover>0?'+':'−'} ${curr()} ${fmtAmt(Math.abs(z.prevCarryover))} Übertrag`:''}
-      <strong style="color:var(--text)"> = ${curr()} ${fmtAmt(z.varBudget)} Budget</strong>
-    </div>`:''}
-    <button onclick="event.stopPropagation();setType('einnahme');goTab('eingabe')" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--accent);background:rgba(var(--accent-rgb,100,220,120),.08);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">+ Einnahme erfassen</button>
-  </div>`;
-}
-
-
-
-
-function renderWidgetAktienPortfolio(){
-  const active = SDATA.stocks.filter(s=>{
-    const pos = calcPosition(s.id);
-    return pos.qty > 0.0001;
-  });
-  if(!active.length) return `<div><div class="widget-title">Aktienportfolio</div><div class="t-muted">Keine aktiven Positionen.</div></div>`;
-  let totalCost=0, totalPnl=0, hasPnl=false;
-  const rows = active.map(s=>{
-    const pos = calcPosition(s.id);
-    const live = s.ticker ? getCachedStock(s.ticker) : null;
-    const lp = live?.price;
-    totalCost += pos.totalCost;
-    let pnlAmt=null, pnlPct=null;
-    if(lp && pos.qty>0.0001){ pnlAmt=(lp-pos.avgPrice)*pos.qty; pnlPct=pos.avgPrice>0?(lp/pos.avgPrice-1)*100:0; totalPnl+=pnlAmt; hasPnl=true; }
-    const pc = pnlAmt==null?'var(--text3)':pnlAmt>=0?'var(--green)':'var(--red)';
-    const ps = pnlAmt!=null&&pnlAmt>=0?'+':'';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
-      <div>
-        <div style="font-size:13px;font-weight:600">${esc(s.title)}</div>
-        <div style="font-size:11px;color:var(--text3)">${fmtQty(pos.qty)} Stk. · Ø ${fmtPrice(pos.avgPrice)}</div>
-      </div>
-      <div style="text-align:right">
-        ${pnlAmt!=null?`<div style="font-size:12px;font-family:'DM Mono',monospace;color:${pc}">${ps}${fmtPrice(pnlAmt)}</div><div style="font-size:10px;color:${pc}">${ps}${pnlPct?.toFixed(1)}%</div>`:lp!=null?'':`<div style="font-size:11px;color:var(--text3)">kein Kurs</div>`}
-      </div>
-    </div>`;
-  });
-  const pnlColor = totalPnl>=0?'var(--green)':'var(--red)';
-  return `<div>
-    <div class="widget-title">Aktienportfolio</div>
-    ${hasPnl?`<div style="display:flex;justify-content:space-between;margin-bottom:8px">
-      <div><div style="font-size:11px;color:var(--text3)">Einstand</div><div style="font-family:'DM Mono',monospace;font-size:14px">${fmtPrice(totalCost)}</div></div>
-      <div style="text-align:right"><div style="font-size:11px;color:var(--text3)">Gesamt P&amp;L</div><div style="font-family:'DM Mono',monospace;font-size:14px;color:${pnlColor}">${totalPnl>=0?'+':''}${fmtPrice(totalPnl)}</div></div>
-    </div>`:''}
-    ${rows.join('')}
-  </div>`;
-}
-
-// ── New Aktien Widgets (Point 5) ─────────────────────────────────────────────
-
-function renderWidgetAktienWert(){
-  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Portfolio-Wert</div><div class="t-muted">Keine Positionen.</div></div>`;
-  const total = getGesamtPortfoliowert();
-  const totalCost = active.reduce((s,st)=>s+calcPosition(st.id).totalCost,0);
-  const gv = getGesamtGewinnVerlust();
-  const hasLive = gv.hasLive;
-  const valColor = hasLive ? (gv.amt>=0?'var(--green)':'var(--red)') : 'var(--text)';
-  return `<div>
-    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">PORTFOLIO-WERT</div>
-    <div style="font-family:'DM Mono',monospace;font-size:34px;font-weight:700;line-height:1;color:${valColor};margin-bottom:6px">${fmtPrice(total)}</div>
-    <div style="font-size:12px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap">
-      <span>Einstand: <span style="font-family:'DM Mono',monospace;color:var(--text)">${fmtPrice(totalCost)}</span></span>
-      ${hasLive?`<span style="color:${gv.amt>=0?'var(--green)':'var(--red)'}">P&L: ${gv.amt>=0?'+':''}${fmtPrice(gv.amt)}</span>`:''}
-    </div>
-  </div>`;
-}
-
-function renderWidgetAktienPnl(){
-  const gv = getGesamtGewinnVerlust();
-  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div class="t-muted">Keine Positionen.</div></div>`;
-  if(!gv.hasLive) return `<div><div class="widget-title">Depot Gewinn/Verlust</div><div class="t-muted">Warte auf Live-Kurse…</div></div>`;
-  const color = gv.amt>=0?'var(--green)':'var(--red)';
-  const sign = gv.amt>=0?'+':'';
-  return `<div>
-    <div class="widget-title">Depot Gewinn/Verlust</div>
-    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
-      <span style="font-family:'DM Mono',monospace;font-size:26px;font-weight:700;color:${color}">${sign}${fmtPrice(gv.amt)}</span>
-      <span style="font-size:16px;color:${color};font-weight:600">${sign}${gv.pct.toFixed(1)}%</span>
-    </div>
-    <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
-      <div style="height:100%;width:${Math.min(Math.abs(gv.pct),100).toFixed(1)}%;background:${color};border-radius:3px"></div>
-    </div>
-    <div style="margin-top:6px;font-size:11px;color:var(--text3)">${active.length} aktive Position${active.length!==1?'en':''}</div>
-  </div>`;
-}
-
-function renderWidgetAktienTop(){
-  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001&&s.ticker);
-  if(!active.length) return `<div><div class="widget-title">Top-Performer</div><div class="t-muted">Keine Positionen mit Ticker.</div></div>`;
-  let best=null, bestPct=-Infinity;
-  active.forEach(s=>{
-    const gv=getGewinnVerlust(s.id);
-    if(gv.hasLive&&gv.pct>bestPct){bestPct=gv.pct;best=s;}
-  });
-  if(!best) return `<div><div class="widget-title">Top-Performer</div><div class="t-muted">Warte auf Live-Kurse…</div></div>`;
-  const gv=getGewinnVerlust(best.id); const pos=calcPosition(best.id);
-  const color=gv.pct>=0?'var(--green)':'var(--red)'; const sign=gv.pct>=0?'+':'';
-  return `<div>
-    <div class="widget-title">Top-Performer</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div>
-        <div style="font-size:15px;font-weight:700">${esc(best.title)}</div>
-        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${esc(best.ticker||'')} · ${fmtQty(pos.qty)} Stk.</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:20px;font-weight:700;color:${color}">${sign}${gv.pct.toFixed(1)}%</div>
-        <div style="font-size:11px;color:${color};font-family:'DM Mono',monospace">${sign}${fmtPrice(gv.amt)}</div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderWidgetAktienVerteilung(){
-  const active = SDATA.stocks.filter(s=>calcPosition(s.id).qty>0.0001);
-  if(!active.length) return `<div><div class="widget-title">Portfolio-Verteilung</div><div class="t-muted">Keine Positionen.</div></div>`;
-  const data = active.map(s=>({
-    label: s.ticker||s.title,
-    value: getPositionsWert(s.id),
-    color: aktieColor(s.id)
-  })).filter(d=>d.value>0);
-  const total = data.reduce((s,d)=>s+d.value,0);
-  if(total===0) return `<div><div class="widget-title">Portfolio-Verteilung</div><div class="t-muted">Keine Daten.</div></div>`;
-  const slices=buildPieSlices(data,total,70,70,58);
-  return `<div>
-    <div class="widget-title">Portfolio-Verteilung</div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <svg viewBox="0 0 140 140" height="110" class="flex-shrink-0">
-        ${slices.map(s=>`<path d="${s.path}" fill="${s.color}" stroke="var(--bg0)" stroke-width="1.5"/>`).join('')}
-      </svg>
-      <div style="flex:1;min-width:80px">
-        ${slices.map(s=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;font-size:11px">
-          <span style="width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0"></span>
-          <span class="t-text2">${esc(s.label)}</span>
-          <span style="color:var(--text3);margin-left:auto">${s.pct}%</span>
-        </div>`).join('')}
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderWidgetAktienPosition(){
-  // Shows the stock selected via CFG.widgetAktienPosId, or the largest position by value
-  let s = CFG.widgetAktienPosId ? SDATA.stocks.find(st=>st.id===CFG.widgetAktienPosId) : null;
-  if(!s){
-    // Auto-pick: largest position by cost
-    const best = SDATA.stocks.reduce((best,st)=>{
-      const c=calcPosition(st.id).totalCost;
-      return c>(best?.cost||0)?{s:st,cost:c}:best;
-    }, null);
-    s = best?.s;
-  }
-  if(!s) return `<div><div class="widget-title">Einzelposition</div><div class="t-muted">Keine Positionen.</div></div>`;
-  const pos=calcPosition(s.id); const gv=getGewinnVerlust(s.id);
-  const color=!gv.hasLive?'var(--text)':gv.pct>=0?'var(--green)':'var(--red)';
-  const sign=gv.pct>=0?'+':'';
-  const lp=s.ticker?getAktuellerKurs(s.ticker):null;
-  return `<div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-      <div class="widget-title mb-0">${esc(s.title)}</div>
-      ${s.ticker?`<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${esc(s.ticker)}</span>`:''}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div><div class="t-muted-sm">Anzahl</div><div class="t-mono-bold">${fmtQty(pos.qty)} Stk.</div></div>
-      <div><div class="t-muted-sm">Ø Kaufpreis</div><div class="t-mono-bold">${fmtPrice(pos.avgPrice)}</div></div>
-      <div><div class="t-muted-sm">Kurs live</div><div class="t-mono-bold">${lp!=null?fmtPrice(lp):'—'}</div></div>
-      <div><div class="t-muted-sm">P&L</div><div style="font-family:'DM Mono',monospace;font-weight:600;color:${color}">${gv.hasLive?sign+gv.pct.toFixed(1)+'%':'—'}</div></div>
-    </div>
-    ${SDATA.stocks.filter(st=>calcPosition(st.id).qty>0.0001).length>1?`
-    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
-      ${SDATA.stocks.filter(st=>calcPosition(st.id).qty>0.0001).map(st=>`
-        <button onclick="CFG.widgetAktienPosId='${st.id}';cfgSave();renderHome();event.stopPropagation()"
-          style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid ${(CFG.widgetAktienPosId||''===st.id)||s.id===st.id?'var(--accent)':'var(--border)'};background:${s.id===st.id?'rgba(200,245,60,.1)':'var(--bg3)'};color:${s.id===st.id?'var(--accent)':'var(--text3)'}">
-          ${esc(st.ticker||st.title)}
-        </button>`).join('')}
-    </div>`:''
-    }
-  </div>`;
-}
-
-// getPortfolioTodayChange and renderWidgetAktienDashboard live in js/portfolio.js
-
-// ── Gruppen-Widgets ──────────────────────────────────────────
-
-function _memberAvatars(members, max=3){
-  const shown = members.slice(0, max);
-  const extra = members.length - max;
-  const avatars = shown.map((m,i)=>{
-    const initial = (m||'?')[0].toUpperCase();
-    const hue = (m.charCodeAt(0)*47 + (m.charCodeAt(1)||0)*31) % 360;
-    return `<div style="width:22px;height:22px;border-radius:50%;background:hsl(${hue},55%,45%);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);margin-left:${i>0?'-6':'0'}px;position:relative;z-index:${max-i}">${initial}</div>`;
-  }).join('');
-  const extraBadge = extra>0 ? `<div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);color:var(--text3);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg1);margin-left:-6px">+${extra}</div>` : '';
-  return `<div style="display:flex;align-items:center">${avatars}${extraBadge}</div>`;
-}
 
 
 
@@ -1955,45 +1419,4 @@ function _memberAvatars(members, max=3){
 // ═══════════════════════════════════════════════════════════════
 let verlaufSearch = '';
 function setVerlaufSearch(v){ verlaufSearch=v; verlaufL1Page=1; renderVerlauf(); }
-
-
-function renderWidgetCatBudgets(){
-  const budgets = CFG.catBudgets || {};
-  const cats = Object.keys(budgets).filter(k => budgets[k] > 0);
-  if(!cats.length) return `<div>
-    <div class="widget-title">Kategorie-Budgets</div>
-    <div class="t-muted" style="font-size:13px;padding:12px 0">
-      Noch keine Budgets gesetzt.<br>
-      <span style="color:var(--accent)">Kategorien → Kategorie bearbeiten → Budget/Monat</span>
-    </div>
-  </div>`;
-
-  const now = new Date();
-  const von = dateStr(new Date(now.getFullYear(), now.getMonth(), 1));
-  const bis = dateStr(new Date(now.getFullYear(), now.getMonth()+1, 0));
-
-  const rows = cats.map(catName => {
-    const limit = budgets[catName];
-    const spent = getAusgaben(von, bis, [catName]).reduce((s,e)=>s+e.amt, 0);
-    const pct = Math.min(100, Math.round(spent / limit * 100));
-    const color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--green)';
-    const emoji = catEmoji(catName);
-    return `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
-        <span style="font-size:13px;font-weight:600">${emoji} ${esc(catName)}</span>
-        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">
-          ${curr()} ${fmtAmt(spent)} / ${fmtAmt(limit)}
-        </span>
-      </div>
-      <div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .4s"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  return `<div>
-    <div class="widget-title">Kategorie-Budgets</div>
-    ${rows}
-  </div>`;
-}
 

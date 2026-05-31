@@ -23,11 +23,6 @@
     'renderAktienSummaryBar', 'renderAktienFxRates',
     'renderAktienTradeForm', 'renderAktieDetail',
     'renderFxRates',
-    // Widgets
-    'renderWidgetAktienPortfolio', 'renderWidgetAktienWert',
-    'renderWidgetAktienPnl', 'renderWidgetAktienTop',
-    'renderWidgetAktienVerteilung', 'renderWidgetAktienPosition',
-    'renderWidgetAktienDashboard',
     // Charts
     'buildPortfolioPieChart', 'buildPreisVergleichChart',
     'buildPortfolioVerlauf',

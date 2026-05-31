@@ -33,13 +33,6 @@ function _detectIOSSwitchSupport(){
 
 function goTab(tab){
   if(tab==='admin' && CFG.authRole!=='admin') return;
-  // Home button while in edit mode → exit edit mode instead of re-navigating
-  if(tab === 'home' && currentTab === 'home' && homeEditMode){
-    homeEditMode = false;
-    renderHome();
-    return;
-  }
-  if(homeEditMode) homeEditMode = false;
   // Push history state for Android back-gesture navigation
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
