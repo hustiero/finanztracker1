@@ -52,20 +52,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     window.history.replaceState({}, '', window.location.pathname);
   }
 
-  // Group invite link: ?joinGroup=<id>&gc=<code>[&url=<backendUrl>]
-  const joinGroupId = urlParams.get('joinGroup');
-  const joinGroupCode = urlParams.get('gc');
-  const joinUrl = urlParams.get('url');
-  if(joinGroupId && joinGroupCode){
-    // If a backend URL is provided and we don't have one, store it
-    if(joinUrl && !CFG.scriptUrl && !CFG.adminUrl){
-      if(isValidScriptUrl(joinUrl)) CFG.scriptUrl = joinUrl;
-    }
-    // Store pending join for after data loads
-    CFG._pendingGroupJoin = {id:joinGroupId, code:joinGroupCode, url:joinUrl||''};
-    window.history.replaceState({}, '', window.location.pathname);
-  }
-
   document.getElementById('f-date').value = today();
 
   if(CFG.sessionToken && CFG.adminUrl){
@@ -270,7 +256,7 @@ function _profileApply(prof){
   if(prof.fontColors        !== undefined) CFG.fontColors        = prof.fontColors||{};
   if(prof.accentColor       !== undefined) CFG.accentColor       = prof.accentColor||'';
   if(prof.textGlow          !== undefined) CFG.textGlow          = +prof.textGlow;
-  // Restore admin URL so new devices can discover the groups backend after profile sync
+  // Restore admin URL so new devices can discover the backend after profile sync
   if(prof.adminUrl && !CFG.adminUrl) CFG.adminUrl = prof.adminUrl;
   cfgSave();
   applyAppBackground();
@@ -406,7 +392,7 @@ function launchApp(){
   // One-time default nav tabs for new users
   if(!CFG.navInitialized){
     if(!CFG.pinnedTabs || !CFG.pinnedTabs.length)
-      CFG.pinnedTabs = ['verlauf','kategorien','groups'];
+      CFG.pinnedTabs = ['verlauf','kategorien','dauerauftraege'];
     CFG.navInitialized = true;
     cfgSave();
   }
@@ -615,28 +601,11 @@ async function loadAll(){
     _parseSparziele(sparRes);
     _parseAktienTrades(aktRes, tradeRes);
 
-    // Groups (blocking — needed before renderAll so group data is present)
-    _initGroupsSheetsEnsured(); // seed in-memory flag from persisted CFG
-    await loadGroups();
-
     dataCacheSave();
     setSyncStatus('online');
     renderAll();
     hideSplash();
 
-    // Non-blocking post-load tasks
-    loadGroupEntries().then(()=>{
-      markDirty('verlauf','groups');
-    }).catch(()=>{});
-
-    if(CFG._pendingGroupJoin){
-      const pj = CFG._pendingGroupJoin;
-      delete CFG._pendingGroupJoin;
-      const joined = await joinGroupByInvite(pj.id, pj.code, pj.url);
-      if(joined) goTab('groups');
-    }
-
-    loadGroupNotifications();
     if(SDATA.stocks.length) loadPortfolioVerlauf();
 
   } catch(e){
@@ -837,39 +806,21 @@ async function _saveEntryImpl(){
   if(!what){ _inputErr('f-what','Beschreibung erforderlich'); toast('Beschreibung erforderlich','err'); return; }
   if(!cat){ toast('Kategorie wählen oder zuerst eine Kategorie anlegen','err'); return; }
 
-  // Group & split data from form
-  const groupSel = document.getElementById('f-group');
-  const groupId = groupSel ? groupSel.value : '';
-  const group = groupId ? DATA.groups.find(g=>g.id===groupId) : null;
-  let splitData = null;
-  if(group && group.type==='split'){
-    splitData = _readSplitForm(amt, group);
-    if(!splitData) return; // validation failed
-  }
-
-  // Eigenen Anteil berechnen für lokale Speicherung — zentraler Helper in data.js
-  const myAmt = splitData
-    ? Math.round(getOwnShare({amt, splitData}) * 100) / 100
-    : amt;
-
   const id = genId(currentEntryType==='ausgabe'?'A':'E');
 
   if(currentEntryType==='ausgabe'){
-    const entry = {id,date,what,cat,amt:myAmt,note,recurringId:'',isFixkosten:false};
-    if(groupId) entry.groupId = groupId;
-    if(splitData) entry.splitData = splitData;
+    const entry = {id,date,what,cat,amt,note,recurringId:'',isFixkosten:false};
     DATA.expenses.push(entry);
     if(!CFG.demo){
-      const ok = await _syncAppend('Ausgaben',[id,date,what,cat,myAmt,note,'','0',groupId||'',splitData?JSON.stringify(splitData):'']);
+      const ok = await _syncAppend('Ausgaben',[id,date,what,cat,amt,note,'','0','','']);
       if(!ok){ DATA.expenses = DATA.expenses.filter(e=>e.id!==id); return; }
     }
   } else {
     const isLohn = document.getElementById('f-lohn-switch')?.classList.contains('on')||false;
     const entry = {id,date,what,cat,amt,note,isLohn};
-    if(groupId) entry.groupId = groupId;
     DATA.incomes.push(entry);
     if(!CFG.demo){
-      const ok = await _syncAppend('Einnahmen',[id,date,what,cat,amt,note,'',isLohn?'1':'0',groupId||'']);
+      const ok = await _syncAppend('Einnahmen',[id,date,what,cat,amt,note,'',isLohn?'1':'0','']);
       if(!ok){ DATA.incomes = DATA.incomes.filter(e=>e.id!==id); return; }
     }
   }
@@ -880,20 +831,11 @@ async function _saveEntryImpl(){
   document.getElementById('f-what').value='';
   document.getElementById('f-note').value='';
   document.getElementById('f-date').value=today();
-  if(groupSel) groupSel.value='';
-  _hideSplitSection();
-  // Reset lohn toggle
   lohnMode = false; updateLohnToggleUI();
 
-  toast('✓ Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
+  toast('Gespeichert'+(CFG.demo?' (Demo)':''),'ok');
   dataCacheSave();
-  // Push notification to group members (non-blocking) — show full amount
-  if(group) pushGroupNotification(group, {what,amt,date});
-  // Save to shared GroupEntries sheet (non-blocking) — use FULL amount (amt, not myAmt)
-  if(group && currentEntryType==='ausgabe'){
-    saveGroupEntry(group, {id,date,what,cat,amt,splitData});
-  }
-  markDirty('verlauf','dashboard','home','lohn','groups');
+  markDirty('verlauf','dashboard','home','lohn');
 }
 
 // Open edit modal for an entry
@@ -905,22 +847,6 @@ function openEditModal(id, type){
   fillForm('edit', { id, type, amt:entry.amt, date:entry.date, what:entry.what, note:entry.note||'' });
   fillForm('edit-modal', { $title: type==='ausgabe'?'Ausgabe bearbeiten':'Einnahme bearbeiten', '@recurringId':'' });
   fillDropdown('edit-cat', type, entry.cat);
-
-  // Group assignment — only for Ausgaben when groups exist
-  const gWrap = document.getElementById('edit-group-wrap');
-  const grpSel = document.getElementById('edit-group');
-  const sec = document.getElementById('edit-split-section');
-  if(gWrap && grpSel) {
-    const hasGroups = type==='ausgabe' && DATA.groups && DATA.groups.length > 0;
-    gWrap.style.display = hasGroups ? '' : 'none';
-    if(sec) sec.style.display = 'none';
-    if(hasGroups){
-      grpSel.innerHTML = '<option value="">— Keine Gruppe —</option>' +
-        (DATA.groups||[]).map(g=>`<option value="${esc(g.id)}"${g.id===entry.groupId?' selected':''}>${esc(g.name)}</option>`).join('');
-      if(entry.groupId) onEditGroupSelect(entry.groupId, entry.splitData);
-    }
-  }
-
   openModal('edit-modal');
 }
 
@@ -985,23 +911,11 @@ async function _updateEntryImpl(){
   const idx = list.findIndex(e=>e.id===id);
   if(idx===-1) return;
 
-  // Read group assignment (Ausgaben only)
-  const groupId = type==='ausgabe' ? (document.getElementById('edit-group')?.value||'') : '';
-  const group = groupId ? (DATA.groups||[]).find(g=>g.id===groupId) : null;
-  let splitData = null;
-  if(group && group.type==='split'){
-    splitData = _readEditSplitForm(amt, group);
-    if(!splitData) return; // validation failed — keep modal open
-  }
-  const myAmt = splitData ? (typeof getOwnShare==='function' ? Math.round(getOwnShare({amt,splitData})*100)/100 : amt) : amt;
-
   // Keep backup for rollback on sync failure
   const backup = {...list[idx]};
 
   // Optimistic update — apply immediately for snappy UX
-  const updated = {...list[idx], amt:myAmt, date, what, cat, note};
-  if(groupId) updated.groupId = groupId; else delete updated.groupId;
-  if(splitData) updated.splitData = splitData; else delete updated.splitData;
+  const updated = {...list[idx], amt, date, what, cat, note};
   list[idx] = updated;
   closeModal('edit-modal');
   dataCacheSave();
@@ -1016,22 +930,15 @@ async function _updateEntryImpl(){
         let updateVals, range;
         if(type==='ausgabe'){
           const isFixk = list[idx]?.isFixkosten ? '1' : '0';
-          updateVals = [[id,date,what,cat,myAmt,note,'',isFixk,groupId||'',splitData?JSON.stringify(splitData):'']];
+          updateVals = [[id,date,what,cat,amt,note,'',isFixk,'','']];
           range = `${sheet}!A${row}:J${row}`;
         } else {
           const isLohn = list[idx]?.isLohn ? '1' : '0';
-          updateVals = [[id,date,what,cat,amt,note,'',isLohn,groupId||'']];
+          updateVals = [[id,date,what,cat,amt,note,'',isLohn,'']];
           range = `${sheet}!A${row}:I${row}`;
         }
         await apiUpdate(range, updateVals);
-        // Push to group if newly assigned or re-assigned
-        if(group){
-          try{
-            await saveGroupEntry(group, {id,date,what,cat,amt:myAmt,splitData});
-            pushGroupNotification(group, {what,amt,date});
-          } catch(ge){ console.warn('group sync:', ge); }
-        }
-        setSyncStatus('online'); toast('✓ Aktualisiert','ok');
+        setSyncStatus('online'); toast('Aktualisiert','ok');
       } else {
         list[idx] = backup; dataCacheSave(); markDirty('verlauf','dashboard','home','lohn');
         setSyncStatus('error'); toast('Fehler: Eintrag nicht in Sheet gefunden','err');
@@ -1961,12 +1868,6 @@ async function addToSparGoal(id, amount){
   }
 }
 
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE: GROUPS — CRUD (delegated to js/groups.js)
-// Only stubs remain here for backward compatibility.
-// All group logic now lives in js/groups.js.
-// ═══════════════════════════════════════════════════════════════
 
 // Generic modal helper (reused for sparen)
 function openGenericModal(title, bodyHtml, actionsHtml){

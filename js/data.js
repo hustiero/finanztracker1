@@ -109,13 +109,11 @@ async function apiGetMeta(){
 // MODULE: DATA STATE
 // ═══════════════════════════════════════════════════════════════
 const DATA = {
-  expenses: [],   // {id,date,what,cat,amt,note,groupId?,splitData?}
-  incomes: [],    // {id,date,what,cat,amt,note,groupId?}
+  expenses: [],   // {id,date,what,cat,amt,note}
+  incomes: [],    // {id,date,what,cat,amt,note}
   recurring: [],  // {id,what,cat,amt,interval,day,note,active,start,endDate,affectsAvg}
   categories: [], // {id,name,type,color,sort,parent}
   sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
-  groups: [],     // {id,name,type('event'|'split'),members[],currency,status,created,adminId,inviteCode,sharedSheetUrl}
-  groupEntries: [], // {id,groupId,authorName,date,what,cat,amt,currency,splitData,isMine,_type:'groupEntry'}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
@@ -259,15 +257,6 @@ function getAusgaben(von, bis, kategorien=null, inclDauerauftraege=true, opts={}
     items = [...items, ...recur];
   }
   if(kategorien) items = items.filter(e=>kategorien.includes(e.cat));
-  // Group filter: exclude specific groups from general stats
-  if(opts.excludeGroups){
-    const excl = Array.isArray(opts.excludeGroups) ? opts.excludeGroups : DATA.groups.filter(g=>g.status==='active'&&g.type==='event').map(g=>g.id);
-    items = items.filter(e=>!e.groupId||!excl.includes(e.groupId));
-  }
-  // Use ownShare for split entries when requested
-  if(opts.useOwnShare){
-    items = items.map(e=>e.splitData ? {...e, amt:getOwnShare(e)} : e);
-  }
   return items;
 }
 
@@ -393,15 +382,14 @@ function _calcFixKosten(startStr, endStr, capToToday=false){
 
 /**
  * Sum variable expenses + recurring in [startStr, endStr] (today-capped).
- * Uses getOwnShare() for consistent group-split handling.
  */
 function _calcVarSpent(startStr, endStr){
   const todayStr = today();
   const recur = getRecurringOccurrences(startStr, endStr, true, true);
-  return [
+  return sumAmt([
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
     ...recur.filter(e=>!isFixkostenEntry(e))
-  ].reduce((s,e)=>s+getOwnShare(e), 0);
+  ]);
 }
 
 // Cache for getZyklusInfo — key encodes all inputs that affect the result.
@@ -570,136 +558,3 @@ function catEmoji(name){
   const map={'Zmittag':'🍱','Snack':'🍫','Ferien':'✈️','Poschte':'🛒','Znacht':'🍽️','Gschänk':'🎁','Chleider':'👕','Technik':'💻','Mieti':'🏠','Gsundheit':'💊','Internet':'📡','Handy':'📱','Alkohol':'🍺','Essen in Reschti':'🍷','Rudern':'🚣','Bildung':'📚','Verlochet':'🎉','SBB':'🚆','Möbel o.Ä.':'🪑','Gipfeli':'🥐','Buch':'📖','Sport':'⚽','Freiziit':'🎮','Diverses':'📦','Siemens':'💼','Twint':'📲','Schenkung':'🎀','Übertrag':'🔄'};
   return map[name]||'💰';
 }
-
-// ═══════════════════════════════════════════════════════════════
-// GROUPS & EVENTS — data helpers
-// ═══════════════════════════════════════════════════════════════
-
-// Get expenses for a specific group
-function getGroupExpenses(groupId){
-  return DATA.expenses.filter(e=>e.groupId===groupId);
-}
-
-// Get incomes for a specific group
-function getGroupIncomes(groupId){
-  return DATA.incomes.filter(e=>e.groupId===groupId);
-}
-
-// Total spent in a group
-function getGroupTotal(groupId){
-  return sumAmt(getGroupExpenses(groupId));
-}
-
-// For split groups: calculate balances for each member
-// Combines own entries (DATA.expenses) AND foreign entries (DATA.groupEntries)
-// Handles settlements correctly.
-// Returns { memberName: balance } (positive = is owed, negative = owes)
-function calcSplitBalances(groupId){
-  const group = DATA.groups.find(g=>g.id===groupId);
-  if(!group) return {};
-
-  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
-  const myName = typeof _myGroupName==='function' ? _myGroupName() : (CFG.userName||'Ich');
-
-  // Own entries from DATA.expenses — inject authorId/authorName
-  const myEntries = DATA.expenses
-    .filter(e=>e.groupId===groupId)
-    .map(e=>({...e, authorId: myId, authorName: myName}));
-
-  // Foreign entries from DATA.groupEntries
-  const foreignEntries = (DATA.groupEntries||[])
-    .filter(e=>e.groupId===groupId && !e.isMine);
-
-  const allEntries = [...myEntries, ...foreignEntries];
-
-  const paid = {};
-  const owes = {};
-  group.members.forEach(m=>{ paid[m]=0; owes[m]=0; });
-
-  for(const e of allEntries){
-    if(!e.splitData) continue;
-    let sd;
-    try { sd = typeof e.splitData==='string' ? JSON.parse(e.splitData) : e.splitData; }
-    catch(err){ continue; }
-    if(!sd.participants) continue;
-
-    const payer = sd.payerId || e.authorId || e.authorName || myName;
-
-    if(sd.isSettlement){
-      // Settlement: payer paid out to settle → increases their paid, increases recipient's owes
-      Object.entries(sd.participants).forEach(([member, share])=>{
-        paid[payer]  = (paid[payer]||0) + share;
-        owes[member] = (owes[member]||0) + share;
-      });
-    } else {
-      // Regular expense: payer laid out total, participants owe their shares
-      paid[payer] = (paid[payer]||0) + (sd.totalAmount||e.amt||0);
-      Object.entries(sd.participants).forEach(([member, share])=>{
-        owes[member] = (owes[member]||0) + share;
-      });
-    }
-  }
-
-  const balances = {};
-  group.members.forEach(m=>{
-    balances[m] = (paid[m]||0) - (owes[m]||0);
-  });
-  return balances;
-}
-
-// Simplify debts: returns [{from, to, amount}] to settle all balances
-function calcSettlements(groupId){
-  const balances = calcSplitBalances(groupId);
-  const debtors = []; // negative balance = owes money
-  const creditors = []; // positive balance = is owed money
-
-  for(const [member, bal] of Object.entries(balances)){
-    if(bal < -0.005) debtors.push({name:member, amt:-bal});
-    else if(bal > 0.005) creditors.push({name:member, amt:bal});
-  }
-
-  debtors.sort((a,b)=>b.amt-a.amt);
-  creditors.sort((a,b)=>b.amt-a.amt);
-
-  const settlements = [];
-  let di=0, ci=0;
-  while(di<debtors.length && ci<creditors.length){
-    const transfer = Math.min(debtors[di].amt, creditors[ci].amt);
-    if(transfer > 0.005){
-      settlements.push({from:debtors[di].name, to:creditors[ci].name, amount:Math.round(transfer*100)/100});
-    }
-    debtors[di].amt -= transfer;
-    creditors[ci].amt -= transfer;
-    if(debtors[di].amt < 0.005) di++;
-    if(creditors[ci].amt < 0.005) ci++;
-  }
-  return settlements;
-}
-
-// Own share from an expense with splitData (for stats filtering)
-function getOwnShare(expense){
-  if(!expense.splitData) return expense.amt;
-  const sd = typeof expense.splitData==='string' ? JSON.parse(expense.splitData) : expense.splitData;
-  const parts = sd.participants||{};
-  const myId = typeof _myGroupId==='function' ? _myGroupId() : (CFG.authUser||'');
-  const myName = CFG.userName||'';
-  if(parts[myId]!==undefined) return parts[myId];
-  if(parts[myName]!==undefined) return parts[myName];
-  return 0;
-}
-
-// Top categories within a group
-function getGroupTopCategories(groupId, limit=5){
-  const expenses = getGroupExpenses(groupId);
-  const cats = {};
-  for(const e of expenses){
-    cats[e.cat] = (cats[e.cat]||0) + e.amt;
-  }
-  return Object.entries(cats)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0, limit)
-    .map(([name,total])=>({name,total}));
-}
-
-// getGroupShadowEntries() is defined in groups.js (needs _myGroupName())
-
