@@ -94,10 +94,6 @@ Object.assign(App.IO, {
   sdataLoad, sdataSave,
   syncKurseSheet, fetchStockPrice,
   loadPortfolioVerlauf, appendPortfolioSnapshot,
-  // ÖV Fahrten IO
-  odataLoad, odataSave, _parseOev,
-  saveOevFahrt, updateOevFahrt, deleteOevFahrt,
-  saveOevAbo, updateOevAbo, deleteOevAbo,
   // UI sync indicator
   setSyncStatus,
 });
@@ -186,13 +182,6 @@ Object.assign(App.UI, {
   updatePageSub, gotoSetupStep, resetLoginForm, generateAppIcon,
   togglePwVis, toggleSettingsGroup, toggleCustomizeSection, updateDesignSummary,
   renderFontColorUI, renderAccentColorUI,
-  // ÖV Fahrten
-  renderOev, oevSetView, oevSetPeriod, oevSetFilter,
-  openNewFahrtModal, openEditFahrtModal, saveOevFahrtModal, deleteOevFahrtConfirm,
-  toggleOevAusserordentlich, toggleFahrtAboChip,
-  showOevSuggest, hideOevSuggest, pickOevSuggest, toggleOevFav,
-  openNewAboModal, openEditAboModal, saveOevAboModal, deleteOevAboConfirm,
-  oevAboTypeChanged, oevAboHpTierChanged, oevAboToAusgabe, toggleOevEnabled,
   // Aktien views
   setAktienView, setAktienTabView, deleteAktie,
   // Admin
@@ -234,7 +223,6 @@ RENDER_FN_MAP = {
   dauerauftraege:renderRecurring,
   sparen:        renderSparen,
   aktien:        renderAktien,
-  oev:           renderOev,
   einstellungen: renderEinstellungen,
   groups:        renderGroups,
   monat:         renderMonat,

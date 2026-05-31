@@ -402,7 +402,6 @@ function hideSplash(){
 function launchApp(){
   generateAppIcon();
   sdataLoad();
-  if(typeof odataLoad==='function') odataLoad();
   if(!CFG.notifications) CFG.notifications = [];
   // One-time default nav tabs for new users
   if(!CFG.navInitialized){
@@ -585,33 +584,6 @@ function _parseAktienTrades(aktRes, tradeRes){
       courtage:parseFloat(r[7])||0,total:parseFloat(r[8])||0}));
   if(shStocks.length || shTrades.length){ SDATA.stocks=shStocks; SDATA.trades=shTrades; sdataSave(); }
 }
-
-function _parseOev(fahrtRes, aboRes){
-  let changed = false;
-  if(fahrtRes && fahrtRes.status==='fulfilled'){
-    const rows = fahrtRes.value.values||[];
-    if(rows.length || ODATA.fahrten.length){
-      ODATA.fahrten = rows.filter(r=>r[0]&&String(r[9]||'')!=='1')
-        .map(r=>({id:r[0],date:normalizeDate(r[1]),von:r[2]||'',nach:r[3]||'',
-          preis:parseFloat(r[4])||0,normalpreis:parseFloat(r[5])||0,
-          notiz:r[6]||'',ausserordentlich:r[7]==='1',
-          aboIds:_safeParseJson(r[8],[])}));
-      changed=true;
-    }
-  }
-  if(aboRes && aboRes.status==='fulfilled'){
-    const rows = aboRes.value.values||[];
-    if(rows.length || ODATA.abos.length){
-      ODATA.abos = rows.filter(r=>r[0]&&String(r[9]||'')!=='1')
-        .map(r=>({id:r[0],name:r[1]||'',type:r[2]||'other',kaufdatum:r[3]||'',
-          gueltigBis:r[4]||'',preis:parseFloat(r[5])||0,guthaben:parseFloat(r[6])||0,
-          notiz:r[7]||'',ausgabenId:r[8]||''}));
-      changed=true;
-    }
-  }
-  if(changed && typeof odataSave==='function') odataSave();
-}
-
 function _safeParseJson(s, fallback){ try{ return JSON.parse(s||'null')??fallback; }catch{ return fallback; } }
 
 // ── loadAll: orchestriert alle Sheet-Fetches parallel ────────────────────────
@@ -624,7 +596,7 @@ async function loadAll(){
   if(hadCache) renderAll();
 
   try{
-    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes, oevRes, oevAboRes] =
+    const [katRes, ausgRes, einRes, dauerRes, aktRes, tradeRes, profRes, sparRes] =
       await Promise.allSettled([
         apiGet('Kategorien!A2:G500'),
         apiGet('Ausgaben!A2:J5000'),
@@ -634,12 +606,6 @@ async function loadAll(){
         apiGet('Trades!A2:J5000'),
         loadProfileFromSheet(),
         apiGet('Sparziele!A2:K200'),
-        CFG.oevEnabled
-          ? apiCall({action:'ensureSheet',sheet:'OEV',headers:JSON.stringify(['ID','Datum','Von','Nach','Preis','Normalpreis','Notiz','Ausserordentlich','AboIDs','Deleted'])}).then(()=>apiGet('OEV!A2:J5000'))
-          : Promise.resolve({values:[]}),
-        CFG.oevEnabled
-          ? apiCall({action:'ensureSheet',sheet:'OEV-Abos',headers:JSON.stringify(['ID','Name','Typ','Kaufdatum','GültigBis','Preis','Guthaben','Notiz','AusgabenID','Deleted'])}).then(()=>apiGet('OEV-Abos!A2:J500'))
-          : Promise.resolve({values:[]})
       ]);
 
     _parseCategories(katRes, hadCache);
@@ -648,7 +614,6 @@ async function loadAll(){
     _parseRecurring(dauerRes, hadCache);
     _parseSparziele(sparRes);
     _parseAktienTrades(aktRes, tradeRes);
-    if(typeof _parseOev==='function') _parseOev(oevRes, oevAboRes);
 
     // Groups (blocking — needed before renderAll so group data is present)
     _initGroupsSheetsEnsured(); // seed in-memory flag from persisted CFG

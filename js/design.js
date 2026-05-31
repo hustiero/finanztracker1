@@ -506,6 +506,7 @@ function renderEinstellungen(){
   if(urlEl) urlEl.value = CFG.scriptUrl||'';
   const nameEl = document.getElementById('s-username');
   if(nameEl) nameEl.value = CFG.userName||'';
+  if(typeof aibSyncSettingsFields === 'function') aibSyncSettingsFields();
   updateThemeSegUI();
   const aktEnabledSw = document.getElementById('aktien-enabled-sw');
   if(aktEnabledSw) aktEnabledSw.classList.toggle('on', !!CFG.aktienEnabled);
@@ -513,11 +514,6 @@ function renderEinstellungen(){
   if(aktBilanzRow) aktBilanzRow.style.display = CFG.aktienEnabled ? '' : 'none';
   const aktBilanzSw = document.getElementById('aktien-bilanz-sw');
   if(aktBilanzSw) aktBilanzSw.classList.toggle('on', !!CFG.aktienInBilanz);
-  const oevEnabledSw = document.getElementById('oev-enabled-sw');
-  if(oevEnabledSw) oevEnabledSw.classList.toggle('on', !!CFG.oevEnabled);
-  const oevSubRows = document.getElementById('oev-settings-subrows');
-  if(oevSubRows) oevSubRows.style.display = CFG.oevEnabled ? '' : 'none';
-  if(CFG.oevEnabled && typeof renderOevSettings==='function') renderOevSettings();
   const currSel = document.getElementById('s-currency');
   if(currSel) currSel.value = curr();
 
@@ -826,17 +822,4 @@ function toggleAktienEnabled(){
   if(!CFG.aktienEnabled && currentEntryType==='aktien') setType('ausgabe');
 }
 
-function toggleOevEnabled(){
-  CFG.oevEnabled = !CFG.oevEnabled;
-  cfgSave();
-  autoSyncProfile();
-  if(!CFG.oevEnabled){
-    CFG.pinnedTabs = (CFG.pinnedTabs||[]).filter(k=>k!=='oev');
-    cfgSave();
-    if(currentTab==='oev') goTab('home');
-  }
-  renderEinstellungen();
-  renderNav();
-  if(currentTab==='home') renderHome();
-}
 

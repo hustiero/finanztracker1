@@ -302,9 +302,6 @@ let CFG = { scriptUrl:'', adminUrl:'', sessionToken:'', authUser:'', authRole:''
   recurringSkips: {},
   // Cached: admin groups sheets were already ensured on a previous load
   groupsSheetsEnsured: false,
-  // ÖV Fahrten-Tracker
-  oevEnabled: false,
-  oevFavStations: [],  // favourite station names shown at top of dropdown
 };
 
 // Guard counter: incremented on every cfgSave() to invalidate pending IDB restores.

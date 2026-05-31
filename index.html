@@ -819,44 +819,6 @@
       </div>
     </div>
 
-    <!-- TAB: ÖV Fahrten-Tracker -->
-    <div id="tab-oev" class="tab-page" style="display:none">
-      <!-- Sub-view toggle -->
-      <div class="section" style="padding-bottom:4px">
-        <div class="type-toggle">
-          <button class="type-btn active expense" id="oev-btn-fahrten" onclick="oevSetView('fahrten')">Fahrten</button>
-          <button class="type-btn income"         id="oev-btn-abos"    onclick="oevSetView('abos')">Abos</button>
-        </div>
-      </div>
-      <!-- FAHRTEN VIEW -->
-      <div id="oev-fahrten-view">
-        <div class="section" style="padding-top:0;padding-bottom:4px">
-          <div class="filter-row">
-            <button class="filter-chip active" id="oev-chip-monat"  onclick="oevSetPeriod('monat')">Dieser Monat</button>
-            <button class="filter-chip"        id="oev-chip-jahr"   onclick="oevSetPeriod('jahr')">Dieses Jahr</button>
-            <button class="filter-chip"        id="oev-chip-alles"  onclick="oevSetPeriod('alles')">Alles</button>
-            <span style="color:var(--border);padding:0 2px;align-self:center">·</span>
-            <button class="filter-chip active" id="oev-chip-alle"     onclick="oevSetFilter('alle')">Alle</button>
-            <button class="filter-chip"        id="oev-chip-regular"  onclick="oevSetFilter('regular')">Regulär</button>
-            <button class="filter-chip"        id="oev-chip-ausserord" onclick="oevSetFilter('ausserordentlich')">Ausserord.</button>
-          </div>
-        </div>
-        <div id="oev-summary-card" class="section" style="padding-top:0;padding-bottom:4px"></div>
-        <div id="oev-abo-strip" class="section" style="padding-top:0;padding-bottom:4px"></div>
-        <div id="oev-list"></div>
-        <div style="padding:4px 16px 16px">
-          <button class="save-btn" onclick="openNewFahrtModal()" style="width:100%">+ Fahrt erfassen</button>
-        </div>
-      </div>
-      <!-- ABOS VIEW -->
-      <div id="oev-abos-view" style="display:none">
-        <div id="oev-abos-list"></div>
-        <div style="padding:4px 16px 16px">
-          <button class="save-btn" onclick="openNewAboModal()" style="width:100%">+ Neues Abo</button>
-        </div>
-      </div>
-    </div>
-
     <!-- TAB: Groups & Events -->
     <div id="tab-groups" class="tab-page" style="display:none">
       <div id="groups-main">
@@ -1168,15 +1130,8 @@
             </div>
             <input id="glass-intensity-slider" type="range" min="0" max="100" value="50" style="width:100%;accent-color:var(--accent)" oninput="updateGlassIntensity(+this.value)">
           </div>
-          <!-- Anpassen / Expert toggle -->
-          <div class="card" style="padding:14px;margin-bottom:10px">
-            <button onclick="toggleCustomizeSection()" id="customize-toggle-btn" style="width:100%;font-size:12px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Weitere Optionen
-            </button>
-          </div>
-          <!-- Expert / Collapsible customize section -->
-          <div id="customize-section" style="display:none">
+          <!-- Erweiterte Optionen (jetzt direkt sichtbar, kein Extra-Toggle) -->
+          <div id="customize-section">
             <!-- Hintergrund -->
             <div class="card" style="padding:14px;margin-bottom:10px">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px">Hintergrund</div>
@@ -1311,16 +1266,6 @@
               <div class="toggle-switch" id="aktien-bilanz-sw" onclick="CFG.aktienInBilanz=!CFG.aktienInBilanz;cfgSave();this.classList.toggle('on',CFG.aktienInBilanz);renderHome()"></div>
             </div>
           </div>
-          <!-- ÖV Fahrten -->
-          <div class="card" style="padding:0 14px;margin-bottom:10px">
-            <div class="settings-row">
-              <div>
-                <div class="settings-row-label">ÖV Fahrten aktivieren</div>
-                <div class="settings-row-sub">Fahrten-Tab mit Abo-Verwaltung</div>
-              </div>
-              <div class="toggle-switch" id="oev-enabled-sw" onclick="toggleOevEnabled()"></div>
-            </div>
-          </div>
           <div class="card" style="padding:0 14px;margin-bottom:10px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:12px 0 6px">Benachrichtigungen</div>
             <div id="notif-settings-list"></div>
@@ -1336,6 +1281,44 @@
               Als Excel exportieren
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- ── AI-Berater ──────────────────── -->
+      <div class="section pt-0" id="settings-aiberater-section">
+        <button class="settings-group-toggle" onclick="toggleSettingsGroup('sg-aiberater')">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M9 11H5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h4"/><path d="M15 11h4a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-4"/><polyline points="9 18 9 22 15 22 15 18"/><path d="M12 4v4"/><path d="M12 4a2 2 0 0 1 0-4"/></svg>
+          <span>AI-Berater</span>
+          <svg class="settings-group-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="sg-aiberater" class="settings-group-body" style="display:none">
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div class="form-group">
+              <label class="form-label">Anthropic API-Key</label>
+              <input id="s-aib-apikey" class="form-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off" oninput="aibPersistKey('anthropic', this.value)">
+              <div class="settings-row-sub" style="margin-top:4px">Für DD-Recherche und Coach-Chat. Hol dir einen Key auf console.anthropic.com.</div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Finnhub API-Key (optional)</label>
+              <input id="s-aib-finnhub" class="form-input" type="password" placeholder="cv…" autocomplete="off" oninput="aibPersistKey('finnhub', this.value)">
+              <div class="settings-row-sub" style="margin-top:4px">Nicht zwingend — Live-Kurse-Quelle.</div>
+            </div>
+          </div>
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding-bottom:8px">Verbindung zum Sheet</div>
+            <div id="s-aib-conn-status" class="t-muted-sm" style="margin-bottom:8px">Bereit zum Testen.</div>
+            <button class="btn-outline-setup" onclick="aibTestConnectionSettings()" style="width:100%">Verbindung testen</button>
+          </div>
+          <details class="card" style="padding:14px">
+            <summary style="cursor:pointer;font-weight:600;font-size:13px">Apps-Script-Deploy aktualisieren</summary>
+            <ol style="padding-left:18px;margin:10px 0 0;font-size:12px;line-height:1.6;color:var(--text2)">
+              <li>Apps-Script-Editor öffnen (vom Admin-Sheet)</li>
+              <li>Menü <b>Bereitstellen → Bereitstellungen verwalten</b></li>
+              <li>Bei existierender Web-App das <b>Stift-Icon</b> klicken (NICHT „Neue Bereitstellung")</li>
+              <li>In der Dropdown <b>Version: Neu</b> wählen (kritisch!)</li>
+              <li><b>Bereitstellen</b> klicken — URL bleibt gleich</li>
+            </ol>
+          </details>
         </div>
       </div>
 
@@ -1990,7 +1973,6 @@
 <script src="js/aiberater-tax.js"></script>
 <script src="js/aiberater-coach.js"></script>
 <script src="js/aiberater.js"></script>
-<script src="js/oev.js"></script>
 <script src="js/design.js"></script>
 <script src="js/device.js"></script>
 <script src="js/init.js"></script>
@@ -2004,153 +1986,6 @@
       <button class="btn-cancel" style="padding:6px 12px;font-size:13px" aria-label="Schließen" onclick="closeModal('tab-help-modal')">✕</button>
     </div>
     <ul id="tab-help-list" class="tab-help-list"></ul>
-  </div>
-</div>
-
-<!-- ── ÖV Fahrt Modal ──────────────────────── -->
-<datalist id="oev-destinations"></datalist>
-<div class="modal-overlay" id="oev-fahrt-modal" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title" id="oev-modal-title">Neue Fahrt</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('oev-fahrt-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group" style="position:relative">
-          <label class="form-label">Von</label>
-          <input id="oev-von" class="form-input" type="text" placeholder="Abfahrtsort" autocorrect="off" autocomplete="off"
-                 oninput="showOevSuggest('oev-von','oev-von-suggest')"
-                 onfocus="showOevSuggest('oev-von','oev-von-suggest')"
-                 onblur="setTimeout(()=>hideOevSuggest('oev-von-suggest'),200)">
-          <div id="oev-von-suggest" class="oev-suggest-dropdown" style="display:none"></div>
-        </div>
-        <div class="form-group" style="position:relative">
-          <label class="form-label">Nach</label>
-          <input id="oev-nach" class="form-input" type="text" placeholder="Ankunftsort" autocorrect="off" autocomplete="off"
-                 oninput="showOevSuggest('oev-nach','oev-nach-suggest')"
-                 onfocus="showOevSuggest('oev-nach','oev-nach-suggest')"
-                 onblur="setTimeout(()=>hideOevSuggest('oev-nach-suggest'),200)">
-          <div id="oev-nach-suggest" class="oev-suggest-dropdown" style="display:none"></div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Datum</label>
-          <input id="oev-datum" class="form-input" type="date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Bezahlt (CHF)</label>
-          <input id="oev-preis" class="form-input" type="number" step="0.05" min="0" placeholder="3.80" inputmode="decimal">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Normalpreis <span style="color:var(--text3);font-size:12px">(optional, ohne Abo)</span></label>
-        <input id="oev-normalpreis" class="form-input" type="number" step="0.05" min="0" placeholder="z.B. 7.60" inputmode="decimal">
-      </div>
-      <div class="form-group" id="oev-fahrt-abos-row" style="display:none">
-        <label class="form-label">Aktive Abos</label>
-        <div id="oev-fahrt-abo-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notiz <span style="color:var(--text3);font-size:12px">(optional)</span></label>
-        <input id="oev-notiz" class="form-input" type="text" autocorrect="on">
-      </div>
-      <div onclick="toggleOevAusserordentlich()" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-top:4px;cursor:pointer">
-        <div>
-          <div style="font-size:14px;font-weight:500">Ausserordentliche Fahrt</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px">Einmalig, teuer (Arosa, Scuol, Genf …)</div>
-        </div>
-        <div class="toggle-switch" id="oev-ausserord-sw"></div>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" id="oev-delete-btn" style="display:none;color:var(--red)" onclick="deleteOevFahrtConfirm()">Löschen</button>
-      <button class="btn-cancel" onclick="closeModal('oev-fahrt-modal')">Abbrechen</button>
-      <button class="btn-save"   onclick="saveOevFahrtModal()">Speichern</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── ÖV Abo Modal ─────────────────────────── -->
-<div class="modal-overlay" id="oev-abo-modal" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title" id="oev-abo-modal-title">Neues Abo</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('oev-abo-modal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Typ</label>
-        <select id="oev-abo-type" class="form-input" onchange="oevAboTypeChanged()">
-          <option value="halbtax">Halbtax (~CHF 190/Jahr)</option>
-          <option value="halbtax_plus">Halbtax Plus (Guthaben)</option>
-          <option value="ga2">GA 2. Klasse</option>
-          <option value="ga1">GA 1. Klasse</option>
-          <option value="stadtabo">Stadtabo / Regionalabo</option>
-          <option value="other">Anderes</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Name <span style="color:var(--text3);font-size:12px">(optional)</span></label>
-        <input id="oev-abo-name" class="form-input" type="text" placeholder="z.B. Halbtax 2025">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Kaufdatum</label>
-          <input id="oev-abo-kaufdatum" class="form-input" type="date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Gültig bis</label>
-          <input id="oev-abo-gueltigbis" class="form-input" type="date">
-        </div>
-      </div>
-      <!-- Halbtax Plus info box (shown only for halbtax_plus type) -->
-      <div id="oev-abo-hp-info" style="display:none;background:var(--bg3);border-radius:var(--r2);padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:4px">
-        Du zahlst einen Betrag ein und erhältst Guthaben inkl. Bonus.<br>
-        Fahrten werden zuerst vom Einzahlungsbetrag, dann vom Bonus abgebucht.<br>
-        Nicht genutzter Einzahlungsbetrag wird zurückerstattet — der Bonus verfällt am Jahresende.
-      </div>
-      <!-- Halbtax Plus tier selector (shown only for halbtax_plus) -->
-      <div class="form-group" id="oev-abo-tier-group" style="display:none">
-        <label class="form-label">Variante</label>
-        <select id="oev-abo-hp-tier" class="form-input" onchange="oevAboHpTierChanged()">
-          <option value="">Manuell eingeben</option>
-          <optgroup label="Erwachsene (ab 25)">
-            <option value="800_1000">PLUS 1000 — CHF 800 einzahlen → CHF 1'000 Guthaben</option>
-            <option value="1500_2000">PLUS 2000 — CHF 1'500 einzahlen → CHF 2'000 Guthaben</option>
-            <option value="2100_3000">PLUS 3000 — CHF 2'100 einzahlen → CHF 3'000 Guthaben</option>
-          </optgroup>
-          <optgroup label="Jugend (6–24)">
-            <option value="600_1000">PLUS 1000 Jugend — CHF 600 → CHF 1'000 Guthaben</option>
-            <option value="1125_2000">PLUS 2000 Jugend — CHF 1'125 → CHF 2'000 Guthaben</option>
-            <option value="1575_3000">PLUS 3000 Jugend — CHF 1'575 → CHF 3'000 Guthaben</option>
-          </optgroup>
-        </select>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" id="oev-abo-preis-label">Preis (CHF)</label>
-          <input id="oev-abo-preis" class="form-input" type="number" step="0.05" min="0" inputmode="decimal">
-        </div>
-        <div class="form-group" id="oev-abo-guthaben-group" style="display:none">
-          <label class="form-label">Aktuelles Guthaben (CHF) <span style="color:var(--text3);font-size:11px">— bei Eintrag</span></label>
-          <input id="oev-abo-guthaben" class="form-input" type="number" step="1" min="0" placeholder="z.B. 500" inputmode="decimal">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notiz <span style="color:var(--text3);font-size:12px">(optional)</span></label>
-        <input id="oev-abo-notiz" class="form-input" type="text" autocorrect="on">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" id="oev-abo-delete-btn"   style="display:none;color:var(--red)"  onclick="deleteOevAboConfirm()">Löschen</button>
-      <button class="btn-cancel" id="oev-abo-ausgaben-btn" style="display:none"                   onclick="oevAboToAusgabe(_oevEditAboId)">In Ausgaben</button>
-      <button class="btn-cancel" onclick="closeModal('oev-abo-modal')">Abbrechen</button>
-      <button class="btn-save"   onclick="saveOevAboModal()">Speichern</button>
-    </div>
   </div>
 </div>
 
@@ -2276,48 +2111,6 @@
   </div>
 </div>
 
-<!-- AI-Berater Settings-Modal -->
-<div class="modal-overlay" id="aib-settings-modal" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title">AI-Berater Einstellungen</div>
-      <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-settings-modal')">Schliessen</button>
-    </div>
-    <div class="modal-body">
-      <div style="margin-bottom:14px">
-        <label class="form-label">Anthropic API-Key (für DD + Coach)</label>
-        <input id="aib-set-apikey" class="form-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Wird lokal in CFG.anthropicApiKey gespeichert. Hol dir einen Key auf console.anthropic.com.</div>
-      </div>
-      <div style="margin-bottom:14px">
-        <label class="form-label">Finnhub API-Key (optional, für Live-Kurse)</label>
-        <input id="aib-set-finnhub" class="form-input" type="password" placeholder="cv…" autocomplete="off">
-      </div>
-      <div style="margin-bottom:14px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:4px">Verbindung zum Sheet</div>
-        <div id="aib-conn-status" style="font-size:12px;color:var(--text2);margin-bottom:6px">Bereit zum Testen.</div>
-        <button class="filter-chip" onclick="aibTestConnection()">Verbindung testen</button>
-      </div>
-      <details style="font-size:12px;color:var(--text2)">
-        <summary style="cursor:pointer;color:var(--text);font-weight:600">Apps-Script neu deployen — Anleitung</summary>
-        <ol style="padding-left:20px;margin-top:8px;line-height:1.6">
-          <li>Apps-Script-Editor öffnen (vom Admin-Sheet aus)</li>
-          <li>Sicherstellen dass <code>admin-code.gs</code> die neuen Funktionen enthält (<code>_aiPull</code>, <code>_aiPush</code>, <code>_aiClearChat</code>)</li>
-          <li>Menü <b>Bereitstellen → Bereitstellungen verwalten</b></li>
-          <li>Bei der existierenden Web-App das <b>Stift-Icon</b> klicken (NICHT „Neue Bereitstellung")</li>
-          <li>In der Dropdown <b>Version: Neu</b> wählen (kritisch!)</li>
-          <li><b>Bereitstellen</b> klicken — URL bleibt gleich</li>
-          <li>Hier auf <b>Verbindung testen</b> klicken</li>
-        </ol>
-      </details>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('aib-settings-modal')">Abbrechen</button>
-      <button class="save-btn" onclick="aibSaveSettings()">Speichern</button>
-    </div>
-  </div>
-</div>
 
 <!-- Save-FAB (sichtbar wenn AIB_STATE.dirty) — links damit nicht überlappt mit finanztracker's eigenem + Button -->
 <button id="aib-save-fab" onclick="aibSave()" style="display:none;position:fixed;left:18px;bottom:calc(var(--safe-bot,0px) + var(--nav-h,64px) + 16px);z-index:80;background:var(--accent);color:#000;border:none;border-radius:32px;padding:10px 18px;font-weight:600;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,0.35);cursor:pointer;align-items:center;gap:6px">
