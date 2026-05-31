@@ -816,10 +816,6 @@ function toggleAktienEnabled(){
   renderEinstellungen();
   renderNav();
   if(currentTab==='home') renderHome();
-  // Show/hide Aktien tab button in eingabe
-  const aktBtn = document.getElementById('type-akt');
-  if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
-  if(!CFG.aktienEnabled && currentEntryType==='aktien') setType('ausgabe');
 }
 
 

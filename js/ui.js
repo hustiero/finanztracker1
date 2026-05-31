@@ -33,13 +33,6 @@ function _detectIOSSwitchSupport(){
 
 function goTab(tab){
   if(tab==='admin' && CFG.authRole!=='admin') return;
-  // Home button while in edit mode → exit edit mode instead of re-navigating
-  if(tab === 'home' && currentTab === 'home' && homeEditMode){
-    homeEditMode = false;
-    renderHome();
-    return;
-  }
-  if(homeEditMode) homeEditMode = false;
   // Push history state for Android back-gesture navigation
   if(tab !== 'home') Device.pushNav('tab', tab);
   currentTab = tab;
@@ -1128,9 +1121,6 @@ function fillDropdown(elId, type, selected=''){
 function fillAllDropdowns(){
   fillDropdown('f-cat', currentEntryType==='ausgabe'?'ausgabe':'einnahme');
   fillDropdown('r-cat', document.getElementById('r-type')?.value||'ausgabe');
-  // Show/hide Aktien tab button based on setting
-  const aktBtn = document.getElementById('type-akt');
-  if(aktBtn) aktBtn.style.display = CFG.aktienEnabled ? '' : 'none';
 }
 
 function fillParentDropdown(elId, type, selected=''){

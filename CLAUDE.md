@@ -15,7 +15,7 @@ Backend is a Google Apps Script (`CFG.url`).
 | `js/data.js` | Sheets API, DATA state, calculations, formatting | ~400 |
 | `js/io.js` | Init/Load, Entry/Recurring/Category CRUD, Export | ~1 330 |
 | `js/charts.js` | Pure SVG chart builders: buildDonutSVG, buildPieSlices, buildBarChartSVG | ~80 |
-| `js/render.js` | All render*() functions, Monatsübersicht, Verlauf, Dashboard | ~2 000 |
+| `js/render.js` | All render*() functions, Home (Wiedereinstieg-Dashboard), Verlauf | ~1 420 |
 | `js/gas-src.js` | CODE_GS + ADMIN_CODE_GS string constants (canonical source: gas/*.gs) | ~530 |
 | `js/ui.js` | Core UI: tab nav, menu, notifications, lohn, form helpers, demo | ~1 000 |
 | `js/ui-auth.js` | Account auth: sha256, login, signup, changePw | ~108 |
