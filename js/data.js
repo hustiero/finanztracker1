@@ -113,7 +113,6 @@ const DATA = {
   incomes: [],    // {id,date,what,cat,amt,note}
   recurring: [],  // {id,what,cat,amt,interval,day,note,active,start,endDate,affectsAvg}
   categories: [], // {id,name,type,color,sort,parent}
-  sparziele: [],  // {id,name,target,start,saved,deadline,open,priority,taxPct,taxAmt,isTax}
 };
 
 function genId(prefix){ return prefix+(Date.now().toString(36)+Math.random().toString(36).slice(2,5)).toUpperCase(); }
@@ -400,14 +399,12 @@ let _zyklusCache = null, _zykulsCacheKey = null;
 function invalidateZyklusCache(){ _zyklusCache = null; _zykulsCacheKey = null; }
 
 function getZyklusInfo(){
-  // Budget formula toggles (default true for backward-compat if not yet saved)
+  // Budget formula toggle (default true for backward-compat if not yet saved)
   const inclCarryover = CFG.budgetInclCarryover !== false;
-  const inclSparziel  = CFG.budgetInclSparziel  !== false;
 
   // Key: today + lohnTag + data lengths + config that affects the result
   const key = today()+'|'+(CFG.lohnTag||25)+'|'+DATA.incomes.length+'|'+DATA.expenses.length
-             +'|'+(CFG.mSparziel||0)+'|'+DATA.sparziele.length
-             +'|'+(inclCarryover?1:0)+'|'+(inclSparziel?1:0);
+             +'|'+(CFG.mSparziel||0)+'|'+(inclCarryover?1:0);
   if(_zyklusCache && _zykulsCacheKey===key) return _zyklusCache;
 
   const {start,end} = getCycleRange();
@@ -434,11 +431,8 @@ function getZyklusInfo(){
   const prevCarryoverRaw = prevLohn > 0 ? (prevLohn - prevFixKosten - prevVarSpent) : 0;
   const prevCarryover    = inclCarryover ? prevCarryoverRaw : 0;
 
-  // Savings target: dynamic Sparziele total or static CFG.mSparziel
-  const sparMonthly  = (typeof sparTotalMonthly==='function' && DATA.sparziele.length>0)
-    ? sparTotalMonthly() : 0;
-  const mSparzielRaw = sparMonthly > 0 ? sparMonthly : (CFG.mSparziel||0);
-  const mSparziel    = inclSparziel ? mSparzielRaw : 0;
+  // Savings target removed with Sparen-Tab; kept budget formula compatible
+  const mSparziel = 0;
 
   // Days: cycleDays = total days in cycle; daysElapsed includes today;
   // daysLeft = days from TOMORROW to end (what dailyRate divides by).
