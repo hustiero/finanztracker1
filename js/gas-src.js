@@ -4,7 +4,9 @@
    To update: edit the gas/*.gs files, then sync this file.
    ============================================================ */
 
-const CODE_GS = `function doGet(e) {
+// ─── User Code.gs (deploy on every user's own sheet) ──────
+const CODE_GS = `
+function doGet(e) {
   const p = e.parameter || {};
   try { return _handle(p); }
   catch(err) { return _json({ error: err.toString() }); }
@@ -163,7 +165,8 @@ function _json(obj) {
 `;
 
 // ─── Admin Code.gs (deploy on admin sheet only) ───────────
-const ADMIN_CODE_GS = `// ═══════════════════════════════════════════════════
+const ADMIN_CODE_GS = `
+// ═══════════════════════════════════════════════════
 // F-TRACKER ADMIN CODE.GS
 // Nur im Admin-Sheet deployen (nicht im User-Sheet!)
 // Bereitstellen → Web-App · Ausführen als: Ich · Zugriff: Jeder
@@ -173,6 +176,23 @@ const SESSION_HOURS = 720; // 30 Tage
 
 function doGet(e) {
   const p = e.parameter || {};
+  try { return _json(_handle(p)); }
+  catch(err) { return _json({ error: err.toString() }); }
+}
+
+// doPost: gleiche Action-Dispatch wie doGet, aber für grosse Payloads (z.B.
+// ai_push mit portfolio + watchlist + chat + transactions als JSON-Strings).
+// URL-Params (action, token) bleiben in der Query, der Rest kommt als JSON-Body.
+function doPost(e) {
+  const p = Object.assign({}, e.parameter || {});
+  if (e.postData && e.postData.contents) {
+    try {
+      const body = JSON.parse(e.postData.contents);
+      Object.keys(body || {}).forEach(function(k) {
+        if (body[k] != null) p[k] = typeof body[k] === 'string' ? body[k] : JSON.stringify(body[k]);
+      });
+    } catch (err) { /* ignore body-parse errors */ }
+  }
   try { return _json(_handle(p)); }
   catch(err) { return _json({ error: err.toString() }); }
 }
@@ -236,6 +256,11 @@ function _handle(p) {
     return { prices: results };
   }
   if (p.action === 'change_pw')    return _changePw(ss, session.username, p);
+  // ── AI-Berater Actions (dedicated tabs in user-sheet) ──────
+  if (p.action === 'ai_pull')      return _aiPull(user.sheetId);
+  if (p.action === 'ai_push')      return _aiPush(user.sheetId, p);
+  if (p.action === 'ai_clear_chat')return _aiClearChat(user.sheetId);
+  if (p.action === 'stock_search') return _stockSearch(p);
   // Groups — operate on ADMIN sheet (shared across users)
   if (p.action === 'groupsGet')         return _groupsGet(ss, p);
   if (p.action === 'groupsAppend')      return _groupsAppend(ss, p);
@@ -399,7 +424,7 @@ function _groupsGet(ss, p) {
     var lastRow = sh.getLastRow();
     if (lastRow < 1) return { values: [] };
     // Parse range: A2:L5000 or A:A or A:L
-    var match = rangePart.match(/([A-Z]+)(\\d+):([A-Z]+)(\\d+)/);
+    var match = rangePart.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
     if (match) {
       var startRow = parseInt(match[2]);
       var endRow = Math.min(parseInt(match[4]), lastRow);
@@ -593,4 +618,120 @@ function _initUserSheet(ss) {
 function _hdr(sh,headers){sh.getRange(1,1,1,headers.length).setValues([headers]);}
 
 function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
+
+// ═══════════════════════════════════════════════════
+// AI-Berater Sync (dedicated tabs in user-sheet)
+// ═══════════════════════════════════════════════════
+
+const AI_PORTFOLIO_COLS = ['id','ticker','name','assetClass','shares','costBasis','currentPrice','currency','purchaseDate','note','resolvedTicker','quoteSource','lastQuoteAt','dueDiligence'];
+const AI_WATCHLIST_COLS = ['id','ticker','name','triggerPrice','currentPrice','currency','thesis','source','addedAt','resolvedTicker','dueDiligence'];
+const AI_CHAT_COLS = ['ts','role','content'];
+const AI_TRANSACTIONS_COLS = ['id','date','type','symbol','name','isin','qty','price','fees','accruedInterest','netAmount','currency','netAccountCurrency','accountCurrency','source','importedAt','portfolio'];
+
+const AI_JSON_COLS = { 'dueDiligence': true };
+
+function _aiPull(sheetId) {
+  var ss = SpreadsheetApp.openById(sheetId);
+  return {
+    portfolio: _aiReadTab(ss, 'AI-Portfolio', AI_PORTFOLIO_COLS),
+    watchlist: _aiReadTab(ss, 'AI-Watchlist', AI_WATCHLIST_COLS),
+    chatHistory: _aiReadTab(ss, 'AI-Chat', AI_CHAT_COLS),
+    transactions: _aiReadTab(ss, 'AI-Transactions', AI_TRANSACTIONS_COLS),
+  };
+}
+
+function _aiPush(sheetId, p) {
+  var ss = SpreadsheetApp.openById(sheetId);
+  var portfolio = JSON.parse(p.portfolio || '[]');
+  var watchlist = JSON.parse(p.watchlist || '[]');
+  var chatHistory = JSON.parse(p.chatHistory || '[]');
+  var transactions = JSON.parse(p.transactions || '[]');
+  _aiWriteTab(ss, 'AI-Portfolio', AI_PORTFOLIO_COLS, portfolio);
+  _aiWriteTab(ss, 'AI-Watchlist', AI_WATCHLIST_COLS, watchlist);
+  _aiWriteTab(ss, 'AI-Chat', AI_CHAT_COLS, chatHistory);
+  _aiWriteTab(ss, 'AI-Transactions', AI_TRANSACTIONS_COLS, transactions);
+  return { ok: true, counts: { portfolio: portfolio.length, watchlist: watchlist.length, chat: chatHistory.length, transactions: transactions.length } };
+}
+
+function _aiClearChat(sheetId) {
+  var ss = SpreadsheetApp.openById(sheetId);
+  _aiWriteTab(ss, 'AI-Chat', AI_CHAT_COLS, []);
+  return { ok: true };
+}
+
+function _aiReadTab(ss, tabName, cols) {
+  var sh = ss.getSheetByName(tabName);
+  if (!sh) return [];
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  var values = sh.getRange(2, 1, lastRow - 1, cols.length).getValues();
+  var out = [];
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    if (!row[0] && !row[1]) continue; // skip empty rows (id leer + ticker leer)
+    var obj = {};
+    for (var c = 0; c < cols.length; c++) {
+      var col = cols[c];
+      var v = row[c];
+      if (AI_JSON_COLS[col]) {
+        if (typeof v === 'string' && v.length > 0) {
+          try { v = JSON.parse(v); } catch (e) { v = null; }
+        } else if (v === '') {
+          v = null;
+        }
+      } else if (v === '') {
+        v = null;
+      }
+      obj[col] = v;
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+function _aiWriteTab(ss, tabName, cols, items) {
+  var sh = ss.getSheetByName(tabName);
+  if (!sh) {
+    sh = ss.insertSheet(tabName);
+  }
+  sh.clear();
+  sh.getRange(1, 1, 1, cols.length).setValues([cols]);
+  if (items.length === 0) return;
+  var rows = items.map(function(it) {
+    return cols.map(function(c) {
+      var v = it[c];
+      if (AI_JSON_COLS[c]) return v ? JSON.stringify(v) : '';
+      if (v == null) return '';
+      return v;
+    });
+  });
+  sh.getRange(2, 1, rows.length, cols.length).setValues(rows);
+}
+
+function _stockSearch(p) {
+  var q = (p.query || '').trim();
+  if (q.length < 2) return { quotes: [] };
+  var url = 'https://query2.finance.yahoo.com/v1/finance/search?q=' + encodeURIComponent(q) + '&quotesCount=8';
+  try {
+    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return { quotes: [] };
+    var data = JSON.parse(res.getContentText());
+    var quotes = [];
+    var raw = (data && data.quotes) || [];
+    for (var i = 0; i < raw.length && quotes.length < 8; i++) {
+      var x = raw[i];
+      if (!x || !x.symbol) continue;
+      quotes.push({
+        symbol: x.symbol,
+        shortname: x.shortname || x.longname || x.symbol,
+        exchange: x.exchange || x.exchDisp || '',
+        currency: x.currency || '',
+        typeDisp: x.typeDisp || x.quoteType || '',
+      });
+    }
+    return { quotes: quotes };
+  } catch (err) {
+    return { quotes: [], error: String(err) };
+  }
+}
 `;

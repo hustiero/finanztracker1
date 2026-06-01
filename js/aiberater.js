@@ -236,7 +236,11 @@ async function aibBoot() {
   if (AIB_STATE.loading || AIB_STATE.loaded) { aibRender(); return; }
   var status = document.getElementById('aib-portfolio-status');
   if (!aibCheckAuth()) {
-    if (status) { status.style.display = 'block'; status.textContent = 'Bitte zuerst im finanztracker anmelden.'; }
+    if (status) {
+      status.style.display = 'block';
+      status.innerHTML = '<div style="font-weight:600;margin-bottom:8px">Nicht angemeldet</div>' +
+        '<div style="color:var(--text2);margin-bottom:12px">Bitte im finanztracker einloggen, damit dein Sheet erreichbar ist.</div>';
+    }
     return;
   }
   if (status) { status.style.display = 'block'; status.textContent = 'Lade aus Sheet…'; }
@@ -244,13 +248,56 @@ async function aibBoot() {
   if (status) {
     if (!ok) {
       status.style.display = 'block';
-      status.innerHTML = '<div style="color:#FF6B6B;font-weight:600;margin-bottom:8px">' + aibEscape(AIB_STATE.bootErr) + '</div>' +
-        '<button class="filter-chip" onclick="AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
+      status.innerHTML = aibRenderBootError(AIB_STATE.bootErr || '');
       return;
     }
     status.style.display = 'none';
   }
   aibRender();
+}
+
+// Aktionsstarker Fehler-Block im Aktien-Tab. Erkennt typische Ursachen und
+// schlägt direkten Fix vor (Einstellungen öffnen, Script-Update etc.).
+function aibRenderBootError(err) {
+  var errLower = String(err).toLowerCase();
+  var isScriptOld = errLower.indexOf('apps-script') >= 0 || errLower.indexOf('unbekannte aktion') >= 0;
+  var isSession = errLower.indexOf('sitzung') >= 0 || errLower.indexOf('abgelaufen') >= 0 || errLower.indexOf('nicht angemeldet') >= 0;
+  var isNetwork = errLower.indexOf('netzwerkfehler') >= 0 || errLower.indexOf('http') >= 0;
+
+  if (isScriptOld) {
+    return '<div style="text-align:left;max-width:440px;margin:0 auto">' +
+      '<div style="font-weight:600;color:var(--yellow);margin-bottom:8px">⚙ Apps-Script muss aktualisiert werden</div>' +
+      '<div style="color:var(--text2);margin-bottom:12px;line-height:1.5">' +
+        'Die Sheet-Anbindung benötigt eine neuere Version des Backend-Scripts. ' +
+        'Einmaliges Update — drei Schritte:' +
+      '</div>' +
+      '<ol style="padding-left:20px;font-size:13px;line-height:1.6;color:var(--text2);margin-bottom:14px">' +
+        '<li>Im Admin-Sheet: Menü <b>Erweiterungen → Apps Script</b></li>' +
+        '<li>Code aus der Datei <code>gas/admin-code.gs</code> einfügen ' +
+          '(<a href="#" onclick="goTab(\'einstellungen\');setTimeout(function(){var b=document.getElementById(\'sg-aiberater\');if(b&&!b.classList.contains(\'open\'))toggleSettingsGroup(\'sg-aiberater\')},80);return false" style="color:var(--accent)">Einstellungen → AI-Berater</a>)</li>' +
+        '<li><b>Bereitstellen → Bereitstellungen verwalten → Stift → Version: Neu → Bereitstellen</b></li>' +
+      '</ol>' +
+      '<div style="display:flex;gap:8px;justify-content:center">' +
+        '<button class="save-btn" style="width:auto;padding:8px 18px" onclick="goTab(\'einstellungen\');setTimeout(function(){var b=document.getElementById(\'sg-aiberater\');if(b&&!b.classList.contains(\'open\'))toggleSettingsGroup(\'sg-aiberater\')},80)">Einstellungen öffnen</button>' +
+        '<button class="filter-chip" onclick="AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  if (isSession) {
+    return '<div style="font-weight:600;color:#FF6B6B;margin-bottom:8px">Sitzung abgelaufen</div>' +
+      '<div style="color:var(--text2);margin-bottom:12px">Bitte neu einloggen.</div>' +
+      '<button class="filter-chip" onclick="doLogout()">Abmelden &amp; neu einloggen</button>';
+  }
+
+  if (isNetwork) {
+    return '<div style="font-weight:600;color:#FF6B6B;margin-bottom:8px">Verbindung zum Sheet fehlgeschlagen</div>' +
+      '<div style="color:var(--text2);margin-bottom:12px">' + aibEscape(err) + '</div>' +
+      '<button class="filter-chip" onclick="AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
+  }
+
+  return '<div style="font-weight:600;color:#FF6B6B;margin-bottom:8px">' + aibEscape(err) + '</div>' +
+    '<button class="filter-chip" onclick="AIB_STATE.loaded=false;aibBoot()">Erneut versuchen</button>';
 }
 
 // ── Portfolio-View ──────────────────────────────────────────────────────────
@@ -271,8 +318,27 @@ function renderAibPortfolio() {
   if (statusEl && AIB_STATE.loaded && !AIB_STATE.bootErr) statusEl.style.display = 'none';
 
   if (AIB_STATE.portfolio.length === 0) {
-    listEl.innerHTML = '<div class="aib-empty">Noch keine Positionen.<br>' +
-      '<span style="font-size:12px;opacity:.7">„+ Position" für manuelle Erfassung, oder importiere eine Broker-CSV und nutze „Aus Trades aufbauen".</span></div>';
+    var hasTx = (AIB_STATE.transactions || []).length > 0;
+    listEl.innerHTML = '<div style="padding:24px 16px">' +
+      '<div style="text-align:center;font-size:15px;font-weight:600;margin-bottom:6px">Noch keine Positionen</div>' +
+      '<div style="text-align:center;color:var(--text2);font-size:13px;margin-bottom:18px">Drei Wege, dein Portfolio aufzubauen:</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px;max-width:440px;margin:0 auto">' +
+        '<div class="card" style="padding:14px 16px;cursor:pointer" onclick="openAibAddPositionModal()">' +
+          '<div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:2px">Position manuell hinzufügen</div>' +
+          '<div style="color:var(--text2);font-size:12px">Ticker, Stück, Einstand — das Wichtigste in 30 s.</div>' +
+        '</div>' +
+        '<div class="card" style="padding:14px 16px;cursor:pointer" onclick="openAibTaxImportModal()">' +
+          '<div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:2px">Broker-CSV importieren</div>' +
+          '<div style="color:var(--text2);font-size:12px">Saxo-Format. Trades landen im Steuern-Tab.</div>' +
+        '</div>' +
+        (hasTx
+          ? '<div class="card" style="padding:14px 16px;cursor:pointer;border-color:var(--accent)" onclick="aibBuildPortfolioFromTx()">' +
+              '<div style="font-weight:600;font-size:14px;color:var(--accent);margin-bottom:2px">Aus ' + AIB_STATE.transactions.length + ' Trades automatisch aufbauen</div>' +
+              '<div style="color:var(--text2);font-size:12px">Rekonstruiert Stück + Einstand pro Position aus den importierten Trades.</div>' +
+            '</div>'
+          : '') +
+      '</div>' +
+    '</div>';
     return;
   }
 
@@ -347,7 +413,8 @@ function renderAibPositionBody(pos) {
       '<span>DD: ' + ageStr + '</span>' +
     '</div>' +
     recHtml +
-    '<button class="save-btn" style="margin-bottom:14px" onclick="aibRefreshDD(\'' + pos.id + '\')" id="aib-refresh-dd-btn">DD aktualisieren (mit Web-Recherche)</button>' +
+    '<button class="save-btn" style="margin-bottom:4px" onclick="aibRefreshDD(\'' + pos.id + '\')" id="aib-refresh-dd-btn">Recherche starten</button>' +
+    '<div class="field-hint" style="margin:4px 0 14px;text-align:center">Claude (Sonnet) durchsucht das Web, aktualisiert Thesis, Stärken, Risiken, Catalysts, Fundamentals und vergibt ein Verdict. Eigene Notizen bleiben unberührt. ~30–60 s, deine Anthropic-API wird belastet.</div>' +
 
     '<div class="aib-dd-section" style="padding-top:0;border-top:0">' +
       '<h4>Thesis</h4>' +
@@ -621,6 +688,33 @@ function aibPersistKey(which, value) {
   if (which === 'anthropic') CFG.anthropicApiKey = v;
   else if (which === 'finnhub') CFG.finnhubKey = v;
   if (typeof cfgSave === 'function') cfgSave();
+}
+
+// Kopiert die aktuelle Admin-Code.gs-Quelle in die Zwischenablage. Die
+// Quelle ist als String-Konstante ADMIN_CODE_GS in js/gas-src.js eingebettet
+// und wird beim Build mit gas/admin-code.gs synchronisiert.
+function aibCopyAdminCode(btn) {
+  if (typeof ADMIN_CODE_GS !== 'string' || !ADMIN_CODE_GS) {
+    if (typeof toast === 'function') toast('Quelle nicht verfügbar', 'err');
+    return;
+  }
+  var ok = false;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(ADMIN_CODE_GS).then(function () {
+      if (btn) { btn.textContent = 'Kopiert — jetzt im Apps-Script-Editor einfügen'; setTimeout(function(){ if(btn) btn.textContent='Aktuellen Admin-Code kopieren'; }, 4000); }
+      if (typeof toast === 'function') toast('Admin-Code kopiert', 'ok');
+    }).catch(function () {
+      if (typeof toast === 'function') toast('Clipboard nicht verfügbar', 'err');
+    });
+    return;
+  }
+  // Fallback
+  var ta = document.createElement('textarea');
+  ta.value = ADMIN_CODE_GS;
+  document.body.appendChild(ta); ta.select();
+  try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+  document.body.removeChild(ta);
+  if (typeof toast === 'function') toast(ok ? 'Admin-Code kopiert' : 'Clipboard nicht verfügbar', ok ? 'ok' : 'err');
 }
 
 async function aibTestConnectionSettings() {

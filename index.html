@@ -1112,13 +1112,18 @@
           </div>
           <details class="card" style="padding:14px">
             <summary style="cursor:pointer;font-weight:600;font-size:13px">Apps-Script-Deploy aktualisieren</summary>
-            <ol style="padding-left:18px;margin:10px 0 0;font-size:12px;line-height:1.6;color:var(--text2)">
-              <li>Apps-Script-Editor öffnen (vom Admin-Sheet)</li>
+            <div style="font-size:12px;line-height:1.55;color:var(--text2);margin-top:10px">
+              Bei der Fehlermeldung „Unbekannte Aktion" oder wenn Aktien-Sync nicht funktioniert:
+            </div>
+            <ol style="padding-left:18px;margin:8px 0;font-size:12px;line-height:1.6;color:var(--text2)">
+              <li>Im Admin-Sheet: Menü <b>Erweiterungen → Apps Script</b></li>
+              <li>Den gesamten <b>Code.gs</b>-Inhalt durch den neuen ersetzen (Knopf unten)</li>
               <li>Menü <b>Bereitstellen → Bereitstellungen verwalten</b></li>
-              <li>Bei existierender Web-App das <b>Stift-Icon</b> klicken (NICHT „Neue Bereitstellung")</li>
-              <li>In der Dropdown <b>Version: Neu</b> wählen (kritisch!)</li>
-              <li><b>Bereitstellen</b> klicken — URL bleibt gleich</li>
+              <li>Beim existierenden Eintrag das <b>Stift-Icon</b> klicken (NICHT „Neue Bereitstellung")</li>
+              <li><b>Version: Neu</b> wählen — <b>Bereitstellen</b> — URL bleibt gleich</li>
             </ol>
+            <button class="save-btn" id="aib-deploy-copy-btn" style="margin-top:6px" onclick="aibCopyAdminCode(this)">Aktuellen Admin-Code kopieren</button>
+            <div class="field-hint" style="margin-top:6px">Du kopierst direkt den Inhalt aus <code>gas/admin-code.gs</code> der aktuellen Version.</div>
           </details>
         </div>
       </div>
@@ -1821,19 +1826,25 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">CSV importieren</div>
+      <div class="modal-title">Trades aus Broker-CSV importieren</div>
       <button class="btn-cancel" style="padding:6px 12px;font-size:13px" onclick="closeModal('aib-tax-import-modal')">✕</button>
     </div>
     <div class="modal-body">
-      <p style="color:var(--text2);font-size:13px;margin:0 0 12px">
-        Broker-CSV (Saxo-Format) importieren. Mehrere Portfolios möglich — gib einen Namen, dann werden alle Transaktionen damit getaggt.
-      </p>
+      <div style="background:var(--bg2);border:1px solid var(--hairline);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">Was passiert nach dem Import?</div>
+        <div style="color:var(--text2);font-size:12px;line-height:1.55">
+          1. Alle Trades (Käufe/Verkäufe/Dividenden/Steuern) werden im Steuern-Tab gespeichert.<br>
+          2. Per Knopf <b>„Aus Trades aufbauen"</b> bekommst du dein Portfolio automatisch mit korrekten Stückzahlen und Einständen.<br>
+          3. Für die Steuererklärung: Verrechnungssteuer, DA-1 und Erträge sind im Steuern-Tab nach Jahr aggregiert.
+        </div>
+      </div>
       <div style="margin-bottom:12px">
         <label class="form-label">Portfolio-Name (z.B. „Saxo", „PostFinance")</label>
         <input id="aib-tax-portfolio" class="form-input" type="text" placeholder="Saxo" list="aib-tax-portfolio-list">
         <datalist id="aib-tax-portfolio-list"></datalist>
+        <div class="field-hint">Mehrere Portfolios möglich — sie bleiben in der Übersicht getrennt.</div>
       </div>
-      <button class="save-btn" style="margin-bottom:10px" onclick="document.getElementById('aib-tax-file').click()">Datei auswählen…</button>
+      <button class="save-btn" style="margin-bottom:10px" onclick="document.getElementById('aib-tax-file').click()">CSV-Datei auswählen</button>
       <input id="aib-tax-file" type="file" accept=".csv,text/csv" style="display:none" onchange="aibTaxHandleFile(event)">
       <details style="margin-top:6px">
         <summary style="cursor:pointer;color:var(--text2);font-size:13px">Oder CSV-Text einfügen</summary>

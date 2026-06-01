@@ -222,6 +222,10 @@ function getRecurringOccurrences(startStr, endStr, capToToday=true, skipMaterial
         id: r.id+'_r_'+ds, date: ds, what: r.what, cat: r.cat, amt,
         note: r.note||'', isFixkosten: !r.affectsAvg,
         isRecurring: true, _type: 'recurring', _recurId: r.id,
+        // Der recurring-Typ — gebraucht von Callern um Einnahme-Daueraufträge
+        // (Lohn etc.) korrekt von Ausgaben-Aggregaten zu trennen.
+        recurType: r.type || 'ausgabe',
+        isLohn: !!r.isLohn,
       });
     }
   }
@@ -252,7 +256,9 @@ function getAusgaben(von, bis, kategorien=null, inclDauerauftraege=true, opts={}
   if(inclDauerauftraege){
     // Past/today occurrences are auto-materialized into DATA.expenses.
     // Only add future virtual occurrences (skipMaterialized avoids double-counting).
-    const recur = getRecurringOccurrences(von, bis, true, true);
+    // Einnahme-Daueraufträge gehören nicht in die Ausgaben-Aggregation.
+    const recur = getRecurringOccurrences(von, bis, true, true)
+      .filter(r => r.recurType !== 'einnahme');
     items = [...items, ...recur];
   }
   if(kategorien) items = items.filter(e=>kategorien.includes(e.cat));
@@ -292,32 +298,49 @@ async function _autoMaterializeImpl(){
   const occurrences = getRecurringOccurrences(earliest, todayStr, true, true);
   if(!occurrences.length) return;
 
-  const newEntries = [];
+  const newExpenseEntries = [];
+  const newIncomeEntries  = [];
   // Build a second dedupe set from DATA.expenses to guard against race
   // where entries were pushed after getRecurringOccurrences captured its snapshot
-  const existingKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
+  const existingExpenseKeys = new Set(DATA.expenses.filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
+  const existingIncomeKeys  = new Set(DATA.incomes .filter(e=>e.recurringId).map(e=>e.recurringId+'_'+e.date));
   for(const occ of occurrences){
-    const key = occ._recurId+'_'+occ.date;
-    if(existingKeys.has(key)) continue; // double-check: skip if already in DATA
-    existingKeys.add(key); // prevent same key being added twice within this batch
     const r = DATA.recurring.find(r=>r.id===occ._recurId);
     if(!r) continue;
     if(r.subType==='variabel') continue; // variabel entries skip auto-materialization
-    const id = genId('A');
-    const isFixk = !r.affectsAvg;
-    const entry = {id, date:occ.date, what:occ.what, cat:occ.cat, amt:occ.amt,
-      note:occ.note||'', recurringId:occ._recurId, isFixkosten:isFixk};
-    DATA.expenses.push(entry);
-    newEntries.push(entry);
+    const isEinnahme = r.type === 'einnahme';
+    const key = occ._recurId+'_'+occ.date;
+    const existingKeys = isEinnahme ? existingIncomeKeys : existingExpenseKeys;
+    if(existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    const id = genId(isEinnahme ? 'E' : 'A');
+    if(isEinnahme){
+      const entry = {id, date:occ.date, what:occ.what, cat:occ.cat, amt:occ.amt,
+        note:occ.note||'', recurringId:occ._recurId, isLohn: !!r.isLohn};
+      DATA.incomes.push(entry);
+      newIncomeEntries.push(entry);
+    } else {
+      const isFixk = !r.affectsAvg;
+      const entry = {id, date:occ.date, what:occ.what, cat:occ.cat, amt:occ.amt,
+        note:occ.note||'', recurringId:occ._recurId, isFixkosten:isFixk};
+      DATA.expenses.push(entry);
+      newExpenseEntries.push(entry);
+    }
   }
-  if(!newEntries.length) return;
+  if(!newExpenseEntries.length && !newIncomeEntries.length) return;
 
   // Sync all new materialized entries to Sheet
   if(!CFG.demo){
     setSyncStatus('syncing');
     try{
-      const rows = newEntries.map(e=>[e.id,e.date,e.what,e.cat,e.amt,e.note,e.recurringId,e.isFixkosten?'1':'0']);
-      await apiAppend('Ausgaben', rows);
+      if(newExpenseEntries.length){
+        const rows = newExpenseEntries.map(e=>[e.id,e.date,e.what,e.cat,e.amt,e.note,e.recurringId,e.isFixkosten?'1':'0']);
+        await apiAppend('Ausgaben', rows);
+      }
+      if(newIncomeEntries.length){
+        const rows = newIncomeEntries.map(e=>[e.id,e.date,e.what,e.cat,e.amt,e.note,'',e.isLohn?'1':'0','']);
+        await apiAppend('Einnahmen', rows);
+      }
       setSyncStatus('online');
     } catch(err){ setSyncStatus('error'); console.warn('Auto-materialize sync error:', err); }
   }
@@ -369,7 +392,8 @@ function _calcLohnInRange(startStr, endStr){
  *             true  = only realised (for historical views).
  */
 function _calcFixKosten(startStr, endStr, capToToday=false){
-  const recur = getRecurringOccurrences(startStr, endStr, capToToday, true);
+  const recur = getRecurringOccurrences(startStr, endStr, capToToday, true)
+    .filter(r => r.recurType !== 'einnahme');
   // Respect per-cycle renewal skips: CFG.recurringSkips[recurId] = [cycleStartStr, ...]
   // startStr doubles as the cycle identifier (it is the cycle start for both current and prev cycle calls)
   const skips = CFG.recurringSkips || {};
@@ -384,7 +408,8 @@ function _calcFixKosten(startStr, endStr, capToToday=false){
  */
 function _calcVarSpent(startStr, endStr){
   const todayStr = today();
-  const recur = getRecurringOccurrences(startStr, endStr, true, true);
+  const recur = getRecurringOccurrences(startStr, endStr, true, true)
+    .filter(r => r.recurType !== 'einnahme');
   return sumAmt([
     ...DATA.expenses.filter(e=>e.date>=startStr&&e.date<=todayStr&&!isFixkostenEntry(e)),
     ...recur.filter(e=>!isFixkostenEntry(e))
@@ -472,7 +497,8 @@ function parentOf(catName){ const c=_getCatLookup().get(catName); return c?c.par
 function avgDailyVarSpend(mo, yr, daysElapsed){
   const s=`${yr}-${String(mo+1).padStart(2,'0')}-01`;
   const e=`${yr}-${String(mo+1).padStart(2,'0')}-${String(new Date(yr,mo+1,0).getDate()).padStart(2,'0')}`;
-  const recur=getRecurringOccurrences(s,e,true,true).filter(r=>!isFixkostenEntry(r));
+  const recur=getRecurringOccurrences(s,e,true,true)
+    .filter(r=>r.recurType!=='einnahme' && !isFixkostenEntry(r));
   const allExp=[...DATA.expenses.filter(ex=>{
     const d=new Date(ex.date+'T12:00:00');
     return d.getMonth()===mo&&d.getFullYear()===yr&&!isFixkostenEntry(ex)&&!ex.excludeAvg;
@@ -488,7 +514,8 @@ function avgDailyVarSpendPrevComp(currMo, currYr){
   const daysInPrev = new Date(prevYr,prevMo+1,0).getDate();
   const ps=`${prevYr}-${String(prevMo+1).padStart(2,'0')}-01`;
   const pe=`${prevYr}-${String(prevMo+1).padStart(2,'0')}-${String(daysInPrev).padStart(2,'0')}`;
-  const recur=getRecurringOccurrences(ps,pe,true,true).filter(r=>!isFixkostenEntry(r));
+  const recur=getRecurringOccurrences(ps,pe,true,true)
+    .filter(r=>r.recurType!=='einnahme' && !isFixkostenEntry(r));
   const expEntries = DATA.expenses.filter(e=>{
     const d=new Date(e.date+'T12:00:00');
     return d.getMonth()===prevMo&&d.getFullYear()===prevYr&&!isFixkostenEntry(e)&&!e.excludeAvg;
