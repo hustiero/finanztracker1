@@ -239,7 +239,7 @@ function getKategorienMitEintraegen(typ){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    entries = [...entries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true)];
+    entries = [...entries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true).filter(r=>r.recurType!=='einnahme')];
   }
   entries = verlaufFilterEntries(entries);
   const byKat = {};
@@ -302,7 +302,7 @@ function buildMonthlyBarData(kat, typ){
   // Include Daueraufträge in the ausgaben monthly bars
   if(typ==='ausgaben'){
     const chartStart = dateStr(new Date(now.getFullYear(), now.getMonth()-(months-1), 1));
-    entries = [...entries, ...getRecurringOccurrences(chartStart, dateStr(now), true, true)];
+    entries = [...entries, ...getRecurringOccurrences(chartStart, dateStr(now), true, true).filter(r=>r.recurType!=='einnahme')];
   }
   entries.filter(e=>e.cat===kat).forEach(e=>{
     const key = e.date.slice(0,7);
@@ -373,10 +373,14 @@ function renderVerlaufL1(){
   const recurStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
   const recurEnd   = bis || today();
 
+  // Future-Recurring: nur Ausgaben (Einnahmen sind bis zur Materialisierung
+  // unsicher; kein Vorabbuchen im Verlauf).
+  const futureRecur = getRecurringOccurrences(recurStart, recurEnd, false, true)
+    .filter(r => r.recurType !== 'einnahme');
   let entries = [
     ...DATA.expenses.map(e=>({...e, _type:'ausgabe'})),
     ...DATA.incomes.map(e=>({...e,_type:'einnahme'})),
-    ...getRecurringOccurrences(recurStart, recurEnd, false, true)
+    ...futureRecur,
   ];
 
   entries = verlaufFilterEntries(entries);
@@ -489,7 +493,7 @@ function renderVerlaufL3(){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    baseEntries = [...baseEntries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true).filter(e=>e.cat===kat)];
+    baseEntries = [...baseEntries, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true).filter(e=>e.cat===kat && e.recurType!=='einnahme')];
   }
   let allEntries = verlaufFilterEntries(baseEntries)
     .map(e=>({...e, _type: isInc?'einnahme':'ausgabe'}))
@@ -512,7 +516,7 @@ function renderVerlaufL3(){
     const {von, bis} = verlaufGetRange();
     const rangeStart = von || dateStr(new Date(new Date().getFullYear(), new Date().getMonth()-11, 1));
     const rangeEnd   = bis || today();
-    allOfTypeArr = [...allOfTypeArr, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true)];
+    allOfTypeArr = [...allOfTypeArr, ...getRecurringOccurrences(rangeStart, rangeEnd, true, true).filter(r=>r.recurType!=='einnahme')];
   }
   const grandTotal = verlaufFilterEntries(allOfTypeArr).reduce((s,e)=>s+e.amt, 0);
   const pct = grandTotal>0 ? total/grandTotal*100 : 0;
@@ -1115,24 +1119,35 @@ function renderHome(){
 
 // Catch-up-Karte: was ist passiert seit dem letzten Besuch
 function renderHomeCatchup(since, daysAway){
-  // Materialisierte Daueraufträge im Abwesenheitsfenster
-  const autoBooked = DATA.expenses.filter(e=>e.recurringId && e.date>since && e.date<=today());
-  const autoSum = autoBooked.reduce((s,e)=>s+e.amt,0);
+  const t = today();
+  // Automatisch gebuchte Daueraufträge im Abwesenheitsfenster (Ausgaben + Einnahmen)
+  const autoExp = DATA.expenses.filter(e=>e.recurringId && e.date>since && e.date<=t);
+  const autoInc = DATA.incomes .filter(e=>e.recurringId && e.date>since && e.date<=t);
+  const autoCount = autoExp.length + autoInc.length;
+  const autoExpSum = autoExp.reduce((s,e)=>s+e.amt,0);
+  const autoIncSum = autoInc.reduce((s,e)=>s+e.amt,0);
   // Manuelle Buchungen seit dem letzten Besuch (nicht von heute)
-  const manualNew = DATA.expenses.filter(e=>!e.recurringId && e.date>since && e.date<today());
-  const manualSum = manualNew.reduce((s,e)=>s+e.amt,0);
+  const manualExp = DATA.expenses.filter(e=>!e.recurringId && e.date>since && e.date<t);
+  const manualInc = DATA.incomes .filter(e=>!e.recurringId && e.date>since && e.date<t);
+  const manualCount = manualExp.length + manualInc.length;
+  const manualNet = manualInc.reduce((s,e)=>s+e.amt,0) - manualExp.reduce((s,e)=>s+e.amt,0);
 
   let lines = '';
-  if(autoBooked.length){
+  if(autoCount){
+    const sumLabel = autoIncSum>0 && autoExpSum>0
+      ? `+${curr()} ${fmtAmt(autoIncSum)} / −${curr()} ${fmtAmt(autoExpSum)}`
+      : autoIncSum>0 ? `+${curr()} ${fmtAmt(autoIncSum)}`
+      : `−${curr()} ${fmtAmt(autoExpSum)}`;
     lines += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:13px">
-      <span style="color:var(--text2)">${autoBooked.length} Dauerauftr${autoBooked.length===1?'ag':'äge'} automatisch gebucht</span>
-      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(autoSum)}</span>
+      <span style="color:var(--text2)">${autoCount} Dauerauftr${autoCount===1?'ag':'äge'} automatisch gebucht</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${sumLabel}</span>
     </div>`;
   }
-  if(manualNew.length){
+  if(manualCount){
+    const netLabel = manualNet>=0 ? `+${curr()} ${fmtAmt(manualNet)}` : `−${curr()} ${fmtAmt(Math.abs(manualNet))}`;
     lines += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:13px">
-      <span style="color:var(--text2)">${manualNew.length} eigene Buchung${manualNew.length===1?'':'en'}</span>
-      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${curr()} ${fmtAmt(manualSum)}</span>
+      <span style="color:var(--text2)">${manualCount} eigene Buchung${manualCount===1?'':'en'}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--text2)">${netLabel}</span>
     </div>`;
   }
   if(!lines){
@@ -1387,8 +1402,8 @@ function renderWidgetTopKategorien(){
   DATA.expenses.filter(e=>e.date>=startStr&&e.date<=endStr).forEach(e=>{
     const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
-  // Daueraufträge occurrences in cycle
-  getRecurringOccurrences(startStr,endStr,true,true).forEach(e=>{
+  // Daueraufträge occurrences in cycle (nur Ausgaben)
+  getRecurringOccurrences(startStr,endStr,true,true).filter(r=>r.recurType!=='einnahme').forEach(e=>{
     const c = e.cat||'Sonstiges'; catMap[c]=(catMap[c]||0)+e.amt;
   });
   const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,5);

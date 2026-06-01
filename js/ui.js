@@ -375,10 +375,17 @@ function confirmRecurringRenewal(notifId){
   if(!n) return;
   n.dismissed = true;
   n.confirmed = true;
+  // Falls die Renewal vorher mal gesippt war, jetzt wieder einbeziehen.
+  if(CFG.recurringSkips && CFG.recurringSkips[n.recurId]){
+    CFG.recurringSkips[n.recurId] = CFG.recurringSkips[n.recurId].filter(s => s !== n.cycleStart);
+  }
   cfgSave();
+  invalidateZyklusCache();
+  renderHome();
+  renderLohn();
   renderNotifications();
   updateNotifBadge();
-  toast(`✓ ${esc(n.title)} — im Budget einbezogen`, 'ok');
+  toast(`${esc(n.title)} — im Budget einbezogen`, 'ok');
 }
 
 function skipRecurringRenewal(notifId){
